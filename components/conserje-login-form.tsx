@@ -11,6 +11,7 @@ import { User, Loader2, Home } from 'lucide-react'
 import Link from 'next/link'
 
 export function ConserjeLoginForm() {
+  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
@@ -20,7 +21,7 @@ export function ConserjeLoginForm() {
     setError('')
     setLoading(true)
     try {
-      const result = await loginUsuario('conserje', '', { soloAdmin: false })
+      const result = await loginUsuario('conserje', password, { soloAdmin: false })
       if (result.ok) {
         router.refresh()
       } else {
@@ -44,7 +45,7 @@ export function ConserjeLoginForm() {
           </div>
           <CardTitle className="text-center text-foreground">Vista Conserje</CardTitle>
           <p className="text-sm text-muted-foreground text-center">
-            Ingrese su usuario para continuar
+            Ingrese usuario y contraseña
           </p>
         </CardHeader>
         <CardContent>
@@ -60,10 +61,22 @@ export function ConserjeLoginForm() {
                 disabled={loading}
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Contraseña</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                autoComplete="current-password"
+                disabled={loading}
+              />
+            </div>
             {error && (
               <p className="text-sm text-destructive">{error}</p>
             )}
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full" disabled={loading || !password.trim()}>
               {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Entrar
             </Button>

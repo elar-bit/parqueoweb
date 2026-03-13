@@ -12,6 +12,7 @@ const SESSION_COOKIE_NAME = 'parqueo_session'
 const DEFAULT_ADMIN_USER = 'admin'
 const DEFAULT_ADMIN_PASS = 'admin'
 const DEFAULT_CONSERJE_USER = 'conserje'
+const DEFAULT_CONSERJE_PASS = 'conserje'
 
 function signSession(payload: { userId: string; role: string }): string {
   const secret = process.env.SESSION_SECRET || 'parqueo-secret-change-in-production'
@@ -63,16 +64,22 @@ async function ensureDefaultAdmin(supabase: Awaited<ReturnType<typeof createClie
 
 async function ensureDefaultConserje(supabase: Awaited<ReturnType<typeof createClient>>) {
   try {
-    const { data: existing } = await supabase.from('usuarios').select('id').eq('usuario', DEFAULT_CONSERJE_USER).single()
-    if (existing) return
-    const password_hash = await hash('', 10)
-    await supabase.from('usuarios').insert({
-      nombre: 'Conserje',
-      apellido: 'Sistema',
-      usuario: DEFAULT_CONSERJE_USER,
-      password_hash,
-      rol: 'conserje',
-    })
+    const { data: existing } = await supabase.from('usuarios').select('id, password_hash').eq('usuario', DEFAULT_CONSERJE_USER).single()
+    const newHash = await hash(DEFAULT_CONSERJE_PASS, 10)
+    if (!existing) {
+      await supabase.from('usuarios').insert({
+        nombre: 'Conserje',
+        apellido: 'Sistema',
+        usuario: DEFAULT_CONSERJE_USER,
+        password_hash: newHash,
+        rol: 'conserje',
+      })
+      return
+    }
+    const wasEmpty = await compare('', existing.password_hash)
+    if (wasEmpty) {
+      await supabase.from('usuarios').update({ password_hash: newHash }).eq('id', existing.id)
+    }
   } catch (e) {
     console.error('ensureDefaultConserje:', e)
   }
@@ -90,7 +97,7 @@ export async function loginUsuario(
   if (usuarioNorm === DEFAULT_ADMIN_USER && passwordNorm === DEFAULT_ADMIN_PASS) {
     await ensureDefaultAdmin(supabase)
   }
-  if (usuarioNorm === DEFAULT_CONSERJE_USER) {
+  if (usuarioNorm === DEFAULT_CONSERJE_USER && passwordNorm === DEFAULT_CONSERJE_PASS) {
     await ensureDefaultConserje(supabase)
   }
 
@@ -104,8 +111,7 @@ export async function loginUsuario(
     return { ok: false, error: 'Usuario o contraseña incorrectos' }
   }
 
-  const validConserjeSinPassword = user.rol === 'conserje' && passwordNorm === ''
-  const validPassword = validConserjeSinPassword || (await compare(passwordNorm, user.password_hash))
+  const validPassword = await compare(passwordNorm, user.password_hash)
   if (!validPassword) {
     return { ok: false, error: 'Usuario o contraseña incorrectos' }
   }
