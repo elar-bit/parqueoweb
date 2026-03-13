@@ -13,6 +13,8 @@ export interface Vehiculo {
   monto_ultimo_pago_abono?: number | null
   /** Cantidad de meses del último pago (1-6) para mostrar "Abonado (N meses)". */
   ultimo_numero_meses_abono?: number | null
+  /** True si el abonado canceló la suscripción; no aparece en alertas pero el registro se conserva. */
+  abono_cancelado?: boolean | null
   created_at: string
 }
 

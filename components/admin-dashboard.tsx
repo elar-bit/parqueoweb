@@ -31,12 +31,13 @@ import {
   getAbonadosVencidos,
   getAbonadosPorVencer,
   renovarAbono,
+  cancelarAbono,
   type FiltrosAdmin,
   type UsuarioRow,
 } from '@/app/actions'
 import type { ServicioConVehiculo, Configuracion, Vehiculo } from '@/lib/types'
 import { formatCurrency, formatMesAno, montoServicioParaMostrar, tiempoRestanteAbono } from '@/lib/billing'
-import { Car, DollarSign, RefreshCw, BarChart3, LogOut, Settings, Loader2, Users, UserPlus, Pencil, Trash2, Key, FileSpreadsheet, FileText, Info, CalendarCheck, AlertTriangle, Star } from 'lucide-react'
+import { Car, DollarSign, RefreshCw, BarChart3, LogOut, Settings, Loader2, Users, UserPlus, Pencil, Trash2, Key, FileSpreadsheet, FileText, Info, CalendarCheck, AlertTriangle, Star, XCircle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { IncomeChart } from '@/components/income-chart'
@@ -78,6 +79,7 @@ export function AdminDashboard() {
   // Cambio mínimo sin impacto funcional para forzar diff
 
   const [renovandoAbonoId, setRenovandoAbonoId] = useState<string | null>(null)
+  const [cancelandoAbono, setCancelandoAbono] = useState<Vehiculo | null>(null)
   const [renovarAbonoDialog, setRenovarAbonoDialog] = useState<Vehiculo | null>(null)
   const [renovarRefPago, setRenovarRefPago] = useState('')
   const [renovarCapturaFile, setRenovarCapturaFile] = useState<File | null>(null)
@@ -778,6 +780,16 @@ export function AdminDashboard() {
                         {renovandoAbonoId === v.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarCheck className="h-4 w-4 mr-1" />}
                         {renovandoAbonoId === v.id ? 'Guardando...' : 'Registrar pago'}
                       </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-muted-foreground border-dashed"
+                        onClick={() => setCancelandoAbono(v)}
+                        title="Cancelar suscripción: ya no renovará; se quita de la lista pero se conserva el registro"
+                      >
+                        <XCircle className="h-4 w-4 mr-1" />
+                        Cancelar suscripción
+                      </Button>
                     </div>
                   </li>
                 ))}
@@ -839,6 +851,16 @@ export function AdminDashboard() {
                         {renovandoAbonoId === v.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarCheck className="h-4 w-4 mr-1" />}
                         {renovandoAbonoId === v.id ? 'Guardando...' : 'Registrar pago'}
                       </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-muted-foreground border-dashed"
+                        onClick={() => setCancelandoAbono(v)}
+                        title="Cancelar suscripción: ya no renovará; se quita de la lista pero se conserva el registro"
+                      >
+                        <XCircle className="h-4 w-4 mr-1" />
+                        Cancelar suscripción
+                      </Button>
                     </div>
                   </li>
                 ))}
@@ -846,6 +868,32 @@ export function AdminDashboard() {
             </CardContent>
           </Card>
         )}
+
+        <AlertDialog open={!!cancelandoAbono} onOpenChange={(open) => !open && setCancelandoAbono(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Cancelar suscripción?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Este abonado ya no renovará. Se quitará de la lista de alertas pero el registro se conserva para consultas. Si desea volver, puede ingresarlo de nuevo y sus datos seguirán disponibles.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>No</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={async () => {
+                  if (cancelandoAbono) {
+                    await cancelarAbono(cancelandoAbono.id)
+                    setCancelandoAbono(null)
+                    loadData()
+                  }
+                }}
+                className="bg-destructive text-white hover:bg-destructive/90 hover:text-white"
+              >
+                Sí, cancelar suscripción
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {/* 2. Lista de servicios */}
         <Card className="border-border">

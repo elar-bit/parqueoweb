@@ -481,6 +481,23 @@ export async function registrarEntrada(
       .single()
     if (fetchError || !existing) throw new Error(tipoReuso === 'abonado' ? 'Vehículo abonado no encontrado' : 'Vehículo residente no encontrado')
     vehiculo = existing as Vehiculo
+    if (tipoReuso === 'abonado' && datosAbonado?.yaPagoMensualidad && datosAbonado?.numeroMeses != null) {
+      const meses = Math.min(6, Math.max(1, Math.floor(datosAbonado.numeroMeses)))
+      const hasta = addMonths(new Date(), meses)
+      const config = await getConfiguracion()
+      const precioAbonado = config.find((c) => c.tipo_usuario === 'abonado')?.precio_hora ?? 0
+      const montoAbono = calcularTotalAbonado(precioAbonado, meses)
+      await supabase
+        .from('vehiculos')
+        .update({
+          vigencia_abono_hasta: hasta.toISOString().split('T')[0],
+          ultimo_numero_meses_abono: meses,
+          monto_ultimo_pago_abono: montoAbono,
+          abono_cancelado: false,
+        })
+        .eq('id', vehiculo.id)
+      vehiculo = { ...vehiculo, vigencia_abono_hasta: hasta.toISOString().split('T')[0], ultimo_numero_meses_abono: meses, monto_ultimo_pago_abono: montoAbono, abono_cancelado: false } as Vehiculo
+    }
   } else {
     const insertPayload: Record<string, unknown> = {
       tipo,
@@ -613,6 +630,7 @@ export async function renovarAbono(
     vigencia_abono_hasta: nuevaVigencia,
     monto_ultimo_pago_abono: montoAbono,
     ultimo_numero_meses_abono: meses,
+    abono_cancelado: false,
   }
   if (opts?.refPagoAbono != null && String(opts.refPagoAbono).trim()) {
     updatePayload.ref_pago_abono = String(opts.refPagoAbono).trim()
@@ -629,7 +647,20 @@ export async function renovarAbono(
   revalidatePath('/admin')
 }
 
-/** Lista abonados con mensualidad vencida o sin pagar (para alertas). */
+/** Cancela la suscripción del abonado: deja de mostrarse en alertas pero se conserva el registro. Si vuelve, puede reingresar y sus datos siguen precargados. */
+export async function cancelarAbono(vehiculoId: string): Promise<void> {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('vehiculos')
+    .update({ abono_cancelado: true })
+    .eq('id', vehiculoId)
+    .eq('tipo', 'abonado')
+  if (error) throw error
+  revalidatePath('/conserje')
+  revalidatePath('/admin')
+}
+
+/** Lista abonados con mensualidad vencida o sin pagar (para alertas). Excluye los que cancelaron suscripción. */
 export async function getAbonadosVencidos(): Promise<Vehiculo[]> {
   try {
     const supabase = await createClient()
@@ -641,6 +672,7 @@ export async function getAbonadosVencidos(): Promise<Vehiculo[]> {
     const hoy = new Date()
     hoy.setHours(0, 0, 0, 0)
     return (data || []).filter((v) => {
+      if ((v as Vehiculo).abono_cancelado) return false
       const vig = (v as Vehiculo).vigencia_abono_hasta
       return !vig || new Date(vig).setHours(0, 0, 0, 0) < hoy.getTime()
     }) as Vehiculo[]
@@ -650,7 +682,7 @@ export async function getAbonadosVencidos(): Promise<Vehiculo[]> {
   }
 }
 
-/** Lista abonados cuyo abono vence en los próximos `dias` días (por defecto 7). */
+/** Lista abonados cuyo abono vence en los próximos `dias` días (por defecto 7). Excluye los que cancelaron suscripción. */
 export async function getAbonadosPorVencer(dias: number = 7): Promise<Vehiculo[]> {
   try {
     const supabase = await createClient()
@@ -665,6 +697,7 @@ export async function getAbonadosPorVencer(dias: number = 7): Promise<Vehiculo[]
     limite.setDate(limite.getDate() + dias)
     limite.setHours(0, 0, 0, 0)
     return (data || []).filter((v) => {
+      if ((v as Vehiculo).abono_cancelado) return false
       const vig = (v as Vehiculo).vigencia_abono_hasta
       if (!vig) return false
       const d = new Date(vig)

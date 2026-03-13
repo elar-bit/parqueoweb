@@ -4,10 +4,10 @@ import { useState, useEffect, useCallback } from 'react'
 import { QuickRegister } from '@/components/quick-register'
 import { VehicleCard } from '@/components/vehicle-card'
 import { ValidationModal } from '@/components/validation-modal'
-import { getServiciosActivos, getConfiguracion, logoutAdmin, getAbonadosVencidos, getAbonadosPorVencer, renovarAbono, getServiciosPagadosFiltrados, getMesesConServicios } from '@/app/actions'
+import { getServiciosActivos, getConfiguracion, logoutAdmin, getAbonadosVencidos, getAbonadosPorVencer, renovarAbono, cancelarAbono, getServiciosPagadosFiltrados, getMesesConServicios } from '@/app/actions'
 import { abonoVigente, formatCurrency, formatMesAno, montoServicioParaMostrar, tiempoRestanteAbono } from '@/lib/billing'
 import type { ServicioConVehiculo, Configuracion, Vehiculo } from '@/lib/types'
-import { Car, RefreshCw, LogOut, AlertTriangle, Info, CalendarCheck, Loader2, Star } from 'lucide-react'
+import { Car, RefreshCw, LogOut, AlertTriangle, Info, CalendarCheck, Loader2, Star, XCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -26,6 +26,16 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import Link from 'next/link'
 
 export function ConserjeDashboard() {
@@ -41,6 +51,7 @@ export function ConserjeDashboard() {
   const [filtroPlacaApellido, setFiltroPlacaApellido] = useState('')
   const [filtroTipoServicios, setFiltroTipoServicios] = useState<'visitante' | 'residente' | 'abonado' | ''>('')
   const [filtroPeriodoServicios, setFiltroPeriodoServicios] = useState<string>('')
+  const [cancelandoAbono, setCancelandoAbono] = useState<Vehiculo | null>(null)
   const [renovarAbonoDialog, setRenovarAbonoDialog] = useState<Vehiculo | null>(null)
   const [renovarNumeroMeses, setRenovarNumeroMeses] = useState<number>(1)
   const [renovarRefPago, setRenovarRefPago] = useState('')
@@ -305,6 +316,17 @@ export function ConserjeDashboard() {
                       {renovandoAbonoId === v.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarCheck className="h-4 w-4 mr-1" />}
                       {renovandoAbonoId === v.id ? 'Guardando...' : 'Registrar pago'}
                     </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="text-muted-foreground border-dashed"
+                      onClick={() => setCancelandoAbono(v)}
+                      title="Cancelar suscripción: ya no renovará; se quita de la lista pero se conserva el registro"
+                    >
+                      <XCircle className="h-4 w-4 mr-1" />
+                      Cancelar suscripción
+                    </Button>
                   </div>
                 </li>
               ))}
@@ -364,12 +386,49 @@ export function ConserjeDashboard() {
                       {renovandoAbonoId === v.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarCheck className="h-4 w-4 mr-1" />}
                       {renovandoAbonoId === v.id ? 'Guardando...' : 'Registrar pago'}
                     </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="text-muted-foreground border-dashed"
+                      onClick={() => setCancelandoAbono(v)}
+                      title="Cancelar suscripción: ya no renovará; se quita de la lista pero se conserva el registro"
+                    >
+                      <XCircle className="h-4 w-4 mr-1" />
+                      Cancelar suscripción
+                    </Button>
                   </div>
                 </li>
               ))}
             </ul>
           </div>
         )}
+
+        <AlertDialog open={!!cancelandoAbono} onOpenChange={(open) => !open && setCancelandoAbono(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Cancelar suscripción?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Este abonado ya no renovará. Se quitará de la lista de alertas pero el registro se conserva para consultas. Si desea volver, puede ingresarlo de nuevo y sus datos seguirán disponibles.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>No</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={async () => {
+                  if (cancelandoAbono) {
+                    await cancelarAbono(cancelandoAbono.id)
+                    setCancelandoAbono(null)
+                    loadData()
+                  }
+                }}
+                className="bg-destructive text-white hover:bg-destructive/90 hover:text-white"
+              >
+                Sí, cancelar suscripción
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {servicios.some((s) => s.vehiculo?.tipo === 'abonado' && !abonoVigente(s.vehiculo.vigencia_abono_hasta)) && (
           <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 text-sm px-4 py-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
