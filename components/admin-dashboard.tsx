@@ -95,6 +95,7 @@ export function AdminDashboard() {
   const [deletingServicioId, setDeletingServicioId] = useState<string | null>(null)
   const [servicioDetalle, setServicioDetalle] = useState<ServicioConVehiculo | null>(null)
   const [whatsappOpen, setWhatsappOpen] = useState(false)
+  const [whatsappOpcion, setWhatsappOpcion] = useState<'guardado' | 'nuevo'>('guardado')
   const [whatsappPhone, setWhatsappPhone] = useState('')
   const [whatsappSaving, setWhatsappSaving] = useState(false)
 
@@ -180,24 +181,33 @@ export function AdminDashboard() {
 
   const handleAbrirWhatsApp = () => {
     if (!servicioDetalle) return
-    setWhatsappPhone(servicioDetalle.vehiculo?.telefono_contacto ?? '')
+    const guardado = servicioDetalle.vehiculo?.telefono_contacto?.trim()
+    if (guardado) {
+      setWhatsappOpcion('guardado')
+      setWhatsappPhone(guardado)
+    } else {
+      setWhatsappOpcion('nuevo')
+      setWhatsappPhone('')
+    }
     setWhatsappOpen(true)
   }
 
   const handleEnviarWhatsAppServicio = async () => {
     if (!servicioDetalle?.vehiculo) return
-    const numero = normalizarTelefonoWhatsApp(whatsappPhone)
+    const numero = whatsappOpcion === 'guardado' && servicioDetalle.vehiculo.telefono_contacto
+      ? normalizarTelefonoWhatsApp(servicioDetalle.vehiculo.telefono_contacto)
+      : normalizarTelefonoWhatsApp(whatsappPhone)
     setWhatsappSaving(true)
     try {
-      if (numero) {
+      if (numero && whatsappOpcion === 'nuevo') {
         await actualizarVehiculo(servicioDetalle.vehiculo.id, { telefono_contacto: numero })
       }
       const texto = buildTicketTexto(servicioDetalle)
       const url = numero
         ? `https://wa.me/${numero}?text=${encodeURIComponent(texto)}`
         : `https://wa.me/?text=${encodeURIComponent(texto)}`
+      window.open(url, '_blank')
       setWhatsappOpen(false)
-      window.location.href = url
       loadData()
     } finally {
       setWhatsappSaving(false)
@@ -1061,21 +1071,55 @@ export function AdminDashboard() {
             <DialogHeader>
               <DialogTitle>Enviar ticket por WhatsApp</DialogTitle>
               <p className="text-sm text-muted-foreground">
-                Ingrese el número al que enviar el mensaje. Se guardará para futuras consultas y reportes.
+                {servicioDetalle?.vehiculo?.telefono_contacto
+                  ? 'Elija enviar al número ya registrado o ingrese uno nuevo (se guardará para futuras consultas).'
+                  : 'Ingrese el número al que enviar el mensaje. Se guardará para futuras consultas y reportes.'}
               </p>
             </DialogHeader>
             <div className="grid gap-4 py-2">
-              <div className="space-y-2">
-                <Label htmlFor="whatsapp-phone">Número (ej: 987 654 321)</Label>
-                <Input
-                  id="whatsapp-phone"
-                  type="tel"
-                  value={whatsappPhone}
-                  onChange={(e) => setWhatsappPhone(e.target.value)}
-                  placeholder="987654321"
-                  disabled={whatsappSaving}
-                />
-              </div>
+              {servicioDetalle?.vehiculo?.telefono_contacto ? (
+                <>
+                  <div className="space-y-2">
+                    <Label>Destino</Label>
+                    <Select value={whatsappOpcion} onValueChange={(v) => setWhatsappOpcion(v as 'guardado' | 'nuevo')} disabled={whatsappSaving}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="guardado">
+                          Enviar al número registrado ({servicioDetalle.vehiculo.telefono_contacto})
+                        </SelectItem>
+                        <SelectItem value="nuevo">Usar otro número</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {whatsappOpcion === 'nuevo' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="whatsapp-phone">Número (ej: 987 654 321)</Label>
+                      <Input
+                        id="whatsapp-phone"
+                        type="tel"
+                        value={whatsappPhone}
+                        onChange={(e) => setWhatsappPhone(e.target.value)}
+                        placeholder="987654321"
+                        disabled={whatsappSaving}
+                      />
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="space-y-2">
+                  <Label htmlFor="whatsapp-phone">Número (ej: 987 654 321)</Label>
+                  <Input
+                    id="whatsapp-phone"
+                    type="tel"
+                    value={whatsappPhone}
+                    onChange={(e) => setWhatsappPhone(e.target.value)}
+                    placeholder="987654321"
+                    disabled={whatsappSaving}
+                  />
+                </div>
+              )}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setWhatsappOpen(false)} disabled={whatsappSaving}>

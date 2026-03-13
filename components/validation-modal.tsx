@@ -76,6 +76,7 @@ export function ValidationModal({
   const [billing, setBilling] = useState({ minutosCobrados: 0, total: 0 })
   const [salidaTicket, setSalidaTicket] = useState<Date | null>(null)
   const [whatsappOpen, setWhatsappOpen] = useState(false)
+  const [whatsappOpcion, setWhatsappOpcion] = useState<'guardado' | 'nuevo'>('guardado')
   const [whatsappPhone, setWhatsappPhone] = useState('')
   const [whatsappSaving, setWhatsappSaving] = useState(false)
   const ticketRef = useRef<HTMLDivElement>(null)
@@ -180,16 +181,25 @@ export function ValidationModal({
   }
 
   const handleAbrirWhatsApp = () => {
-    setWhatsappPhone(servicio?.vehiculo?.telefono_contacto ?? '')
+    const guardado = servicio?.vehiculo?.telefono_contacto?.trim()
+    if (guardado) {
+      setWhatsappOpcion('guardado')
+      setWhatsappPhone(guardado)
+    } else {
+      setWhatsappOpcion('nuevo')
+      setWhatsappPhone('')
+    }
     setWhatsappOpen(true)
   }
 
   const handleEnviarWhatsApp = async () => {
     if (!servicio) return
-    const numero = normalizarTelefonoWhatsApp(whatsappPhone)
+    const numero = whatsappOpcion === 'guardado' && servicio.vehiculo?.telefono_contacto
+      ? normalizarTelefonoWhatsApp(servicio.vehiculo.telefono_contacto)
+      : normalizarTelefonoWhatsApp(whatsappPhone)
     setWhatsappSaving(true)
     try {
-      if (numero) {
+      if (numero && whatsappOpcion === 'nuevo') {
         await actualizarVehiculo(servicio.vehiculo.id, { telefono_contacto: numero })
       }
       const nombreResidente =
@@ -210,8 +220,8 @@ export function ValidationModal({
       const url = numero
         ? `https://wa.me/${numero}?text=${encodeURIComponent(texto)}`
         : `https://wa.me/?text=${encodeURIComponent(texto)}`
+      window.open(url, '_blank')
       setWhatsappOpen(false)
-      window.location.href = url
     } finally {
       setWhatsappSaving(false)
     }
@@ -408,21 +418,55 @@ export function ValidationModal({
         <DialogHeader>
           <DialogTitle>Enviar ticket por WhatsApp</DialogTitle>
           <p className="text-sm text-muted-foreground">
-            Ingrese el número al que enviar el mensaje. Se guardará para futuras consultas y reportes.
+            {servicio?.vehiculo?.telefono_contacto
+              ? 'Elija enviar al número ya registrado o ingrese uno nuevo (se guardará para futuras consultas).'
+              : 'Ingrese el número al que enviar el mensaje. Se guardará para futuras consultas y reportes.'}
           </p>
         </DialogHeader>
         <div className="grid gap-4 py-2">
-          <div className="space-y-2">
-            <Label htmlFor="whatsapp-phone-conserje">Número (ej: 987 654 321)</Label>
-            <Input
-              id="whatsapp-phone-conserje"
-              type="tel"
-              value={whatsappPhone}
-              onChange={(e) => setWhatsappPhone(e.target.value)}
-              placeholder="987654321"
-              disabled={whatsappSaving}
-            />
-          </div>
+          {servicio?.vehiculo?.telefono_contacto ? (
+            <>
+              <div className="space-y-2">
+                <Label>Destino</Label>
+                <Select value={whatsappOpcion} onValueChange={(v) => setWhatsappOpcion(v as 'guardado' | 'nuevo')} disabled={whatsappSaving}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="guardado">
+                      Enviar al número registrado ({servicio.vehiculo.telefono_contacto})
+                    </SelectItem>
+                    <SelectItem value="nuevo">Usar otro número</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {whatsappOpcion === 'nuevo' && (
+                <div className="space-y-2">
+                  <Label htmlFor="whatsapp-phone-conserje">Número (ej: 987 654 321)</Label>
+                  <Input
+                    id="whatsapp-phone-conserje"
+                    type="tel"
+                    value={whatsappPhone}
+                    onChange={(e) => setWhatsappPhone(e.target.value)}
+                    placeholder="987654321"
+                    disabled={whatsappSaving}
+                  />
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="whatsapp-phone-conserje">Número (ej: 987 654 321)</Label>
+              <Input
+                id="whatsapp-phone-conserje"
+                type="tel"
+                value={whatsappPhone}
+                onChange={(e) => setWhatsappPhone(e.target.value)}
+                placeholder="987654321"
+                disabled={whatsappSaving}
+              />
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setWhatsappOpen(false)} disabled={whatsappSaving}>
