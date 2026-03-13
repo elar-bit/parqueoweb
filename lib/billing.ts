@@ -37,6 +37,15 @@ export function formatCurrency(amount: number): string {
   return `S/ ${amount.toFixed(2)}`
 }
 
+const MESES_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+
+/** Formatea YYYY-MM como "Mes Año" (ej. "Marzo 2025"). */
+export function formatMesAno(ym: string): string {
+  const [y, m] = ym.split('-').map(Number)
+  const mes = MESES_ES[(m ?? 1) - 1] ?? ym
+  return `${mes} ${y ?? ''}`
+}
+
 export function getElapsedTime(entradaReal: Date): { 
   totalMinutes: number
   billableMinutes: number 

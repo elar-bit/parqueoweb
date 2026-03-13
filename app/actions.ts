@@ -746,6 +746,35 @@ export type FiltrosAdmin = {
   tipo?: 'visitante' | 'residente' | 'abonado' | null
 }
 
+/** Devuelve los meses (YYYY-MM) que tienen al menos un servicio pagado, ordenados descendente (más reciente primero). */
+export async function getMesesConServicios(): Promise<string[]> {
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('servicios')
+      .select('salida')
+      .eq('estado', 'pagado')
+      .not('salida', 'is', null)
+    if (error) {
+      console.error('getMesesConServicios error:', error)
+      return []
+    }
+    const meses = new Set<string>()
+    ;(data || []).forEach((r: { salida: string }) => {
+      if (r.salida) {
+        const d = new Date(r.salida)
+        const y = d.getFullYear()
+        const m = String(d.getMonth() + 1).padStart(2, '0')
+        meses.add(`${y}-${m}`)
+      }
+    })
+    return Array.from(meses).sort((a, b) => b.localeCompare(a))
+  } catch (e) {
+    console.error('getMesesConServicios exception:', e)
+    return []
+  }
+}
+
 export async function getServiciosPagadosFiltrados(filtros: FiltrosAdmin): Promise<ServicioConVehiculo[]> {
   try {
     const supabase = await createClient()

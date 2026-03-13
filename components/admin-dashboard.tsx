@@ -17,6 +17,7 @@ import {
   getIngresosFiltrados,
   getIngresosFiltradosConTipo,
   getServiciosPagadosFiltrados,
+  getMesesConServicios,
   getConfiguracion,
   updateConfiguracion,
   logoutAdmin,
@@ -34,7 +35,7 @@ import {
   type UsuarioRow,
 } from '@/app/actions'
 import type { ServicioConVehiculo, Configuracion, Vehiculo } from '@/lib/types'
-import { formatCurrency } from '@/lib/billing'
+import { formatCurrency, formatMesAno } from '@/lib/billing'
 import { Car, DollarSign, RefreshCw, BarChart3, LogOut, Settings, Loader2, Users, UserPlus, Pencil, Trash2, Key, FileSpreadsheet, FileText, Info, CalendarCheck, AlertTriangle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
@@ -89,10 +90,8 @@ export function AdminDashboard() {
   const [filtroPlacaApellido, setFiltroPlacaApellido] = useState('')
   const [renovarNumeroMeses, setRenovarNumeroMeses] = useState<number>(1)
   const [reportesExpandido, setReportesExpandido] = useState(false)
-  const [filtroMesServicios, setFiltroMesServicios] = useState(() => {
-    const d = new Date()
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-  })
+  const [filtroMesServicios, setFiltroMesServicios] = useState<string>('')
+  const [mesesDisponibles, setMesesDisponibles] = useState<string[]>([])
   const [loadingReportes, setLoadingReportes] = useState(false)
   const [serviciosParaReportes, setServiciosParaReportes] = useState<ServicioConVehiculo[]>([])
 
@@ -253,6 +252,9 @@ export function AdminDashboard() {
   }
 
   const rangoMesServicios = (() => {
+    if (!filtroMesServicios || !/^\d{4}-\d{2}$/.test(filtroMesServicios)) {
+      return { fechaDesde: '', fechaHasta: '' }
+    }
     const [y, m] = filtroMesServicios.split('-').map(Number)
     const ultimoDia = new Date(y, m, 0).getDate()
     return {
@@ -261,12 +263,29 @@ export function AdminDashboard() {
     }
   })()
 
+  useEffect(() => {
+    getMesesConServicios().then((meses) => {
+      setMesesDisponibles(meses)
+      if (meses.length > 0) {
+        setFiltroMesServicios((prev) => {
+          const actual = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
+          if (prev && meses.includes(prev)) return prev
+          if (meses.includes(actual)) return actual
+          return meses[0]
+        })
+      }
+    })
+  }, [])
+
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
+      const serviciosPromise = rangoMesServicios.fechaDesde
+        ? getServiciosPagadosFiltrados({ fechaDesde: rangoMesServicios.fechaDesde, fechaHasta: rangoMesServicios.fechaHasta })
+        : Promise.resolve([])
       const [activos, servicios, config, users, vencidos, porVencer] = await Promise.all([
         getServiciosActivos(),
-        getServiciosPagadosFiltrados({ fechaDesde: rangoMesServicios.fechaDesde, fechaHasta: rangoMesServicios.fechaHasta }),
+        serviciosPromise,
         getConfiguracion(),
         getUsuarios(),
         getAbonadosVencidos(),
@@ -781,15 +800,29 @@ export function AdminDashboard() {
         <Card className="border-border">
           <CardHeader>
             <CardTitle className="text-foreground">Servicios</CardTitle>
-            <div className="pt-2 flex flex-wrap items-center gap-3">
+            <div className="pt-2 flex flex-row flex-wrap items-end gap-3">
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Mes</Label>
-                <Input
-                  type="month"
-                  value={filtroMesServicios}
-                  onChange={(e) => setFiltroMesServicios(e.target.value)}
-                  className="max-w-[160px]"
-                />
+                <Select
+                  value={filtroMesServicios || (mesesDisponibles[0] ?? '__vacio__')}
+                  onValueChange={(v) => v !== '__vacio__' && setFiltroMesServicios(v)}
+                  disabled={mesesDisponibles.length === 0}
+                >
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Mes - Año" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {mesesDisponibles.length === 0 ? (
+                      <SelectItem value="__vacio__" disabled>No hay meses con datos</SelectItem>
+                    ) : (
+                      mesesDisponibles.map((ym) => (
+                        <SelectItem key={ym} value={ym}>
+                          {formatMesAno(ym)}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Filtrar por placa o apellido</Label>

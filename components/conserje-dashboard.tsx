@@ -4,8 +4,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { QuickRegister } from '@/components/quick-register'
 import { VehicleCard } from '@/components/vehicle-card'
 import { ValidationModal } from '@/components/validation-modal'
-import { getServiciosActivos, getConfiguracion, logoutAdmin, getAbonadosVencidos, getAbonadosPorVencer, renovarAbono, getServiciosPagadosFiltrados } from '@/app/actions'
-import { abonoVigente, formatCurrency } from '@/lib/billing'
+import { getServiciosActivos, getConfiguracion, logoutAdmin, getAbonadosVencidos, getAbonadosPorVencer, renovarAbono, getServiciosPagadosFiltrados, getMesesConServicios } from '@/app/actions'
+import { abonoVigente, formatCurrency, formatMesAno } from '@/lib/billing'
 import type { ServicioConVehiculo, Configuracion, Vehiculo } from '@/lib/types'
 import { Car, RefreshCw, LogOut, AlertTriangle, Info, CalendarCheck, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -44,10 +44,8 @@ export function ConserjeDashboard() {
   const [renovarRefPago, setRenovarRefPago] = useState('')
   const [renovarCapturaFile, setRenovarCapturaFile] = useState<File | null>(null)
   const [renovandoAbonoId, setRenovandoAbonoId] = useState<string | null>(null)
-  const [filtroMesServicios, setFiltroMesServicios] = useState(() => {
-    const d = new Date()
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-  })
+  const [filtroMesServicios, setFiltroMesServicios] = useState<string>('')
+  const [mesesDisponibles, setMesesDisponibles] = useState<string[]>([])
 
   const normalizarTelefonoWhatsApp = (valor: string): string => {
     const digits = valor.replace(/\D/g, '')
@@ -57,6 +55,9 @@ export function ConserjeDashboard() {
   }
 
   const rangoMesServicios = (() => {
+    if (!filtroMesServicios || !/^\d{4}-\d{2}$/.test(filtroMesServicios)) {
+      return { fechaDesde: '', fechaHasta: '' }
+    }
     const [y, m] = filtroMesServicios.split('-').map(Number)
     const ultimoDia = new Date(y, m, 0).getDate()
     return {
@@ -65,15 +66,32 @@ export function ConserjeDashboard() {
     }
   })()
 
+  useEffect(() => {
+    getMesesConServicios().then((meses) => {
+      setMesesDisponibles(meses)
+      if (meses.length > 0) {
+        setFiltroMesServicios((prev) => {
+          const actual = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
+          if (prev && meses.includes(prev)) return prev
+          if (meses.includes(actual)) return actual
+          return meses[0]
+        })
+      }
+    })
+  }, [])
+
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
+      const serviciosDelMesPromise = rangoMesServicios.fechaDesde
+        ? getServiciosPagadosFiltrados({ fechaDesde: rangoMesServicios.fechaDesde, fechaHasta: rangoMesServicios.fechaHasta })
+        : Promise.resolve([])
       const [serviciosData, configData, vencidos, porVencer, serviciosDelMes] = await Promise.all([
         getServiciosActivos(),
         getConfiguracion(),
         getAbonadosVencidos(),
         getAbonadosPorVencer(7),
-        getServiciosPagadosFiltrados({ fechaDesde: rangoMesServicios.fechaDesde, fechaHasta: rangoMesServicios.fechaHasta }),
+        serviciosDelMesPromise,
       ])
       setServicios(serviciosData)
       setConfiguracion(configData)
@@ -390,25 +408,40 @@ export function ConserjeDashboard() {
             <h2 className="text-lg font-semibold text-foreground">
               Servicios del mes ({serviciosHoyFiltrados.length}{serviciosHoy.length !== serviciosHoyFiltrados.length ? ` de ${serviciosHoy.length}` : ''})
             </h2>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-row items-center gap-3 flex-wrap">
               <div className="flex items-center gap-2">
                 <Label className="text-xs text-muted-foreground whitespace-nowrap">Mes</Label>
-                <Input
-                  type="month"
-                  value={filtroMesServicios}
-                  onChange={(e) => setFiltroMesServicios(e.target.value)}
-                  className="max-w-[160px]"
-                />
+                <Select
+                  value={filtroMesServicios || (mesesDisponibles[0] ?? '__vacio__')}
+                  onValueChange={(v) => v !== '__vacio__' && setFiltroMesServicios(v)}
+                  disabled={mesesDisponibles.length === 0}
+                >
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Mes - Año" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {mesesDisponibles.length === 0 ? (
+                      <SelectItem value="__vacio__" disabled>No hay meses con datos</SelectItem>
+                    ) : (
+                      mesesDisponibles.map((ym) => (
+                        <SelectItem key={ym} value={ym}>
+                          {formatMesAno(ym)}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
-              {serviciosHoy.length > 0 && (
+              <div className="flex items-center gap-2">
+                <Label className="text-xs text-muted-foreground whitespace-nowrap">Filtrar</Label>
                 <Input
                   type="text"
-                  placeholder="Filtrar por placa o apellido..."
+                  placeholder="Placa o apellido..."
                   value={filtroPlacaApellido}
                   onChange={(e) => setFiltroPlacaApellido(e.target.value)}
-                  className="max-w-xs"
+                  className="w-[180px] sm:w-[200px]"
                 />
-              )}
+              </div>
             </div>
           </div>
           {serviciosHoy.length === 0 ? (
