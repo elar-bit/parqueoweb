@@ -56,6 +56,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 
 export function AdminDashboard() {
   const [activeCount, setActiveCount] = useState(0)
@@ -86,6 +88,9 @@ export function AdminDashboard() {
   const [tarifaMsg, setTarifaMsg] = useState('')
   const [filtroPlacaApellido, setFiltroPlacaApellido] = useState('')
   const [renovarNumeroMeses, setRenovarNumeroMeses] = useState<number>(1)
+  const [reportesExpandido, setReportesExpandido] = useState(false)
+  const [loadingReportes, setLoadingReportes] = useState(false)
+  const [serviciosParaReportes, setServiciosParaReportes] = useState<ServicioConVehiculo[]>([])
 
   const [usuarios, setUsuarios] = useState<UsuarioRow[]>([])
   const [nombreUser, setNombreUser] = useState('')
@@ -237,7 +242,7 @@ export function AdminDashboard() {
 
   const [tipoGrafico, setTipoGrafico] = useState<'bar' | 'pie'>('bar')
 
-  const filtros: FiltrosAdmin = {
+  const filtrosReportes: FiltrosAdmin = {
     fechaDesde: filtroFechaDesde || null,
     fechaHasta: filtroFechaHasta || null,
     tipo: filtroTipo === '' ? null : (filtroTipo as 'visitante' | 'residente' | 'abonado'),
@@ -246,19 +251,15 @@ export function AdminDashboard() {
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      const [activos, ingresos, ingresosConTipo, servicios, config, users, vencidos, porVencer] = await Promise.all([
+      const [activos, servicios, config, users, vencidos, porVencer] = await Promise.all([
         getServiciosActivos(),
-        getIngresosFiltrados(filtros),
-        filtroTipo === '' ? getIngresosFiltradosConTipo({ ...filtros, tipo: null }) : Promise.resolve([]),
-        getServiciosPagadosFiltrados(filtros),
+        getServiciosPagadosFiltrados({}),
         getConfiguracion(),
         getUsuarios(),
         getAbonadosVencidos(),
         getAbonadosPorVencer(7),
       ])
       setActiveCount(activos.length)
-      setChartData(ingresos)
-      setChartDataConTipo(ingresosConTipo)
       setServiciosList(servicios)
       setConfiguracion(config)
       setUsuarios(users)
@@ -275,13 +276,36 @@ export function AdminDashboard() {
     } finally {
       setLoading(false)
     }
+  }, [])
+
+  const loadReportesData = useCallback(async () => {
+    setLoadingReportes(true)
+    try {
+      const [ingresos, ingresosConTipo, servicios] = await Promise.all([
+        getIngresosFiltrados(filtrosReportes),
+        filtroTipo === '' ? getIngresosFiltradosConTipo({ ...filtrosReportes, tipo: null }) : Promise.resolve([]),
+        getServiciosPagadosFiltrados(filtrosReportes),
+      ])
+      setChartData(ingresos)
+      setChartDataConTipo(ingresosConTipo)
+      setServiciosParaReportes(servicios)
+    } catch (error) {
+      console.error('Error loading reportes data:', error)
+    } finally {
+      setLoadingReportes(false)
+    }
   }, [filtroFechaDesde, filtroFechaHasta, filtroTipo])
 
   useEffect(() => {
     loadData()
   }, [loadData])
 
-  const totalFiltrado = chartData.reduce((sum, d) => sum + d.total, 0)
+  useEffect(() => {
+    if (reportesExpandido) loadReportesData()
+  }, [reportesExpandido, loadReportesData])
+
+  const totalFiltradoReportes = chartData.reduce((sum, d) => sum + d.total, 0)
+  const serviciosCountReportes = serviciosParaReportes.length
   const filtroPlacaApellidoNorm = filtroPlacaApellido.trim().toLowerCase()
   const serviciosListFiltrados =
     !filtroPlacaApellidoNorm
@@ -458,7 +482,7 @@ export function AdminDashboard() {
     const titulo = 'Reporte de ingresos - Estacionamiento'
     const filtrosLinea = `Datos: ${leyendaDatos}. ${textoPeriodo}`
     const headers = ['Fecha salida', 'Placa', 'Tipo', 'Nombre residente', 'Oficina/Depto', 'Teléfono (WhatsApp)', 'Ref. pago abono', 'Entrada', 'Salida', 'Total (S/)', 'Ref. Yape']
-    const rows = serviciosList.map((s) => {
+    const rows = serviciosParaReportes.map((s) => {
       const nombreResidente = (s.vehiculo?.tipo === 'residente' && (s.vehiculo.nombre_propietario || s.vehiculo.apellido_propietario))
         ? [s.vehiculo.nombre_propietario, s.vehiculo.apellido_propietario].filter(Boolean).join(' ')
         : ''
@@ -520,7 +544,7 @@ export function AdminDashboard() {
               <th>Entrada</th><th>Salida</th><th>Total (S/)</th><th>Ref. Yape</th>
             </tr></thead>
             <tbody>
-              ${serviciosList.map((s) => {
+              ${serviciosParaReportes.map((s) => {
                 const nombreResidente = (s.vehiculo?.tipo === 'residente' && (s.vehiculo.nombre_propietario || s.vehiculo.apellido_propietario))
                   ? [s.vehiculo.nombre_propietario, s.vehiculo.apellido_propietario].filter(Boolean).join(' ')
                   : ''
@@ -542,7 +566,7 @@ export function AdminDashboard() {
               `}).join('')}
             </tbody>
           </table>
-          <p class="fecha" style="margin-top: 16px;">Total: S/ ${totalFiltrado.toFixed(2)} (${serviciosCount} servicios)</p>
+          <p class="fecha" style="margin-top: 16px;">Total: S/ ${totalFiltradoReportes.toFixed(2)} (${serviciosCountReportes} servicios)</p>
         </body>
       </html>
     `
@@ -604,204 +628,7 @@ export function AdminDashboard() {
       </header>
 
       <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-6">
-        {/* Filtros */}
-        <Card className="border-border">
-          <CardHeader className="p-4 sm:p-6">
-            <CardTitle className="text-foreground text-base sm:text-lg">
-              Filtros
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 sm:p-6 pt-0">
-            <div className="flex flex-wrap gap-3 sm:gap-4 items-end">
-              <div className="space-y-2">
-                <Label>Desde</Label>
-                <Input
-                  type="date"
-                  value={filtroFechaDesde}
-                  onChange={(e) => setFiltroFechaDesde(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Hasta</Label>
-                <Input
-                  type="date"
-                  value={filtroFechaHasta}
-                  onChange={(e) => setFiltroFechaHasta(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Tipo de usuario</Label>
-                <Select value={filtroTipo || 'todos'} onValueChange={(v) => setFiltroTipo(v === 'todos' ? '' : (v as 'visitante' | 'residente' | 'abonado'))}>
-                  <SelectTrigger className="w-[160px]">
-                    <SelectValue placeholder="Todos" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todos">Todos</SelectItem>
-                    <SelectItem value="visitante">Visitante</SelectItem>
-                    <SelectItem value="residente">Residente</SelectItem>
-                    <SelectItem value="abonado">Abonado</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button variant="secondary" onClick={loadData} disabled={loading}>
-                Aplicar filtros
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-          <Card className="border-border">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Vehículos activos
-              </CardTitle>
-              <Car className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-foreground">{activeCount}</div>
-              <p className="text-xs text-muted-foreground mt-1">En el estacionamiento ahora</p>
-            </CardContent>
-          </Card>
-          <Card className="border-border">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Total (filtro)
-              </CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-foreground">{formatCurrency(totalFiltrado)}</div>
-              <p className="text-xs text-muted-foreground mt-1">{serviciosCount} servicios</p>
-            </CardContent>
-          </Card>
-          <Card className="border-border">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Período
-              </CardTitle>
-              <BarChart3 className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-sm font-medium text-foreground">
-                {filtroFechaDesde || filtroFechaHasta
-                  ? `${filtroFechaDesde || '...'} a ${filtroFechaHasta || '...'}`
-                  : 'Sin filtro de fechas'}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {filtroTipo ? (filtroTipo === 'visitante' ? 'Solo visitantes' : filtroTipo === 'residente' ? 'Solo residentes' : 'Solo abonados') : 'Todos los tipos'}
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Chart y reportes */}
-        <Card className="border-border">
-          <CardHeader className="p-4 sm:p-6 pb-2">
-            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                <CardTitle className="text-foreground text-base sm:text-lg">
-                  Ingresos por día
-                  {filtroTipo === 'visitante' && ' — Visitantes'}
-                  {filtroTipo === 'residente' && ' — Residentes'}
-                  {filtroTipo === 'abonado' && ' — Abonados'}
-                  {filtroTipo === '' && ' — Visitantes y Residentes'}
-                </CardTitle>
-                <p className="text-xs sm:text-sm text-muted-foreground mt-1 break-words">Leyenda: {leyendaDatos}. {textoPeriodo}</p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Select value={tipoGrafico} onValueChange={(v) => setTipoGrafico(v as 'bar' | 'pie')}>
-                  <SelectTrigger className="w-full sm:w-[140px] min-h-[44px] sm:min-h-0">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="bar">Barras</SelectItem>
-                    <SelectItem value="pie">Circular</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button variant="outline" size="sm" onClick={exportarExcel} disabled={serviciosList.length === 0}>
-                  <FileSpreadsheet className="h-4 w-4 mr-2" />
-                  Exportar Excel
-                </Button>
-                <Button variant="outline" size="sm" onClick={exportarPDF} disabled={serviciosList.length === 0}>
-                  <FileText className="h-4 w-4 mr-2" />
-                  Exportar PDF
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <IncomeChart
-              data={chartData}
-              tipo={tipoGrafico}
-              leyenda={leyendaDatos}
-              dataConTipo={filtroTipo === '' ? chartDataConTipo : undefined}
-            />
-          </CardContent>
-        </Card>
-
-        {/* Tarifas */}
-        <Card className="border-border">
-          <CardHeader>
-            <CardTitle className="text-foreground flex items-center gap-2">
-              <Settings className="h-5 w-5" />
-              Tarifas
-            </CardTitle>
-            <p className="text-sm text-muted-foreground">Precio por hora (visitante/residente) y precio mensual para abonados.</p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-wrap gap-6">
-              <div className="space-y-2">
-                <Label>Visitante (S/ por hora)</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  step={0.5}
-                  value={tarifaVisitante}
-                  onChange={(e) => setTarifaVisitante(e.target.value)}
-                  className="w-32"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Residente (S/ por hora)</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  step={0.5}
-                  value={tarifaResidente}
-                  onChange={(e) => setTarifaResidente(e.target.value)}
-                  className="w-32"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Abonado (S/ por mes)</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  step={0.5}
-                  value={tarifaAbonado}
-                  onChange={(e) => setTarifaAbonado(e.target.value)}
-                  placeholder="Ej. 100"
-                  className="w-32"
-                />
-              </div>
-              <div className="flex items-end">
-                <Button onClick={handleGuardarTarifas} disabled={savingTarifas}>
-                  {savingTarifas ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  Guardar tarifas
-                </Button>
-              </div>
-            </div>
-            {tarifaMsg && (
-              <p className={`text-sm ${tarifaMsg.includes('correctamente') ? 'text-green-600' : 'text-destructive'}`}>
-                {tarifaMsg}
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Abonados con mensualidad por vencer / vencida */}
+        {/* 1. Alertas de abonados */}
         {(abonadosVencidos.length > 0 || abonadosPorVencer.length > 0) && (
           <Card className="border-amber-500/50 bg-amber-500/5" id="abonados-alertas">
             <CardHeader>
@@ -937,7 +764,100 @@ export function AdminDashboard() {
           </Card>
         )}
 
-        {/* Gestión de usuarios */}
+        {/* 2. Lista de servicios */}
+        <Card className="border-border">
+          <CardHeader>
+            <CardTitle className="text-foreground">Servicios</CardTitle>
+            <div className="pt-2">
+              <Input
+                type="text"
+                placeholder="Filtrar por placa o apellido..."
+                value={filtroPlacaApellido}
+                onChange={(e) => setFiltroPlacaApellido(e.target.value)}
+                className="max-w-xs"
+              />
+            </div>
+          </CardHeader>
+          <CardContent>
+            {serviciosList.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">No hay servicios con los filtros aplicados</p>
+            ) : serviciosListFiltrados.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">Ningún registro coincide con la búsqueda</p>
+            ) : (
+              <div className="space-y-3 max-h-[400px] overflow-y-auto overflow-x-hidden">
+                {serviciosListFiltrados.map((servicio) => {
+                  const nombreResidente = servicio.vehiculo?.tipo === 'residente' &&
+                    (servicio.vehiculo.nombre_propietario || servicio.vehiculo.apellido_propietario)
+                    ? [servicio.vehiculo.nombre_propietario, servicio.vehiculo.apellido_propietario].filter(Boolean).join(' ')
+                    : null
+                  return (
+                    <div
+                      key={servicio.id}
+                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 bg-muted/50 rounded-lg gap-2"
+                    >
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="h-8 w-8 rounded-full bg-background flex items-center justify-center shrink-0">
+                          <Car className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-mono font-medium text-foreground truncate">
+                              {servicio.vehiculo?.placa || 'Sin Placa'}
+                            </p>
+                            {servicio.vehiculo?.tipo === 'abonado' && (
+                              <Badge variant="outline" className="text-xs shrink-0">
+                                Abonado
+                              </Badge>
+                            )}
+                            {nombreResidente && (
+                              <Badge variant="secondary" className="text-xs font-normal shrink-0">
+                                {nombreResidente}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {servicio.vehiculo?.tipo === 'residente' ? 'Residente' : servicio.vehiculo?.tipo === 'abonado' ? 'Abonado' : 'Visitante'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+                        <div className="text-left sm:text-right">
+                          <p className="font-semibold text-foreground text-sm">
+                            {formatCurrency(servicio.total_pagar || 0)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {servicio.salida &&
+                              new Date(servicio.salida).toLocaleString('es-PE', {
+                                dateStyle: 'short',
+                                timeStyle: 'short',
+                              })}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setServicioDetalle(servicio)}
+                            title="Ver ticket, imprimir o enviar por WhatsApp"
+                            className="border-primary text-primary hover:bg-primary/5 min-h-[36px]"
+                          >
+                            <Info className="h-4 w-4 mr-1" />
+                            <span className="hidden sm:inline text-xs font-medium">Ver ticket</span>
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => setDeletingServicioId(servicio.id)} title="Eliminar registro" className="text-destructive hover:text-destructive shrink-0 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* 3. Gestión de usuarios */}
         <Card className="border-border">
           <CardHeader>
             <CardTitle className="text-foreground flex items-center gap-2">
@@ -1151,98 +1071,187 @@ export function AdminDashboard() {
           </CardContent>
         </Card>
 
-        {/* Lista de servicios */}
+
+        {/* 4. Tarifas */}
         <Card className="border-border">
           <CardHeader>
-            <CardTitle className="text-foreground">Servicios {filtroFechaDesde || filtroFechaHasta || filtroTipo ? '(filtrados)' : ''}</CardTitle>
-            <div className="pt-2">
-              <Input
-                type="text"
-                placeholder="Filtrar por placa o apellido..."
-                value={filtroPlacaApellido}
-                onChange={(e) => setFiltroPlacaApellido(e.target.value)}
-                className="max-w-xs"
-              />
-            </div>
+            <CardTitle className="text-foreground flex items-center gap-2">
+              <Settings className="h-5 w-5" />
+              Tarifas
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">Precio por hora (visitante/residente) y precio mensual para abonados.</p>
           </CardHeader>
-          <CardContent>
-            {serviciosList.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">No hay servicios con los filtros aplicados</p>
-            ) : serviciosListFiltrados.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">Ningún registro coincide con la búsqueda</p>
-            ) : (
-              <div className="space-y-3 max-h-[400px] overflow-y-auto overflow-x-hidden">
-                {serviciosListFiltrados.map((servicio) => {
-                  const nombreResidente = servicio.vehiculo?.tipo === 'residente' &&
-                    (servicio.vehiculo.nombre_propietario || servicio.vehiculo.apellido_propietario)
-                    ? [servicio.vehiculo.nombre_propietario, servicio.vehiculo.apellido_propietario].filter(Boolean).join(' ')
-                    : null
-                  return (
-                    <div
-                      key={servicio.id}
-                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 bg-muted/50 rounded-lg gap-2"
-                    >
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <div className="h-8 w-8 rounded-full bg-background flex items-center justify-center shrink-0">
-                          <Car className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="font-mono font-medium text-foreground truncate">
-                              {servicio.vehiculo?.placa || 'Sin Placa'}
-                            </p>
-                            {servicio.vehiculo?.tipo === 'abonado' && (
-                              <Badge variant="outline" className="text-xs shrink-0">
-                                Abonado
-                              </Badge>
-                            )}
-                            {nombreResidente && (
-                              <Badge variant="secondary" className="text-xs font-normal shrink-0">
-                                {nombreResidente}
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            {servicio.vehiculo?.tipo === 'residente' ? 'Residente' : servicio.vehiculo?.tipo === 'abonado' ? 'Abonado' : 'Visitante'}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
-                        <div className="text-left sm:text-right">
-                          <p className="font-semibold text-foreground text-sm">
-                            {formatCurrency(servicio.total_pagar || 0)}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {servicio.salida &&
-                              new Date(servicio.salida).toLocaleString('es-PE', {
-                                dateStyle: 'short',
-                                timeStyle: 'short',
-                              })}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setServicioDetalle(servicio)}
-                            title="Ver ticket, imprimir o enviar por WhatsApp"
-                            className="border-primary text-primary hover:bg-primary/5 min-h-[36px]"
-                          >
-                            <Info className="h-4 w-4 mr-1" />
-                            <span className="hidden sm:inline text-xs font-medium">Ver ticket</span>
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => setDeletingServicioId(servicio.id)} title="Eliminar registro" className="text-destructive hover:text-destructive shrink-0 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap gap-6">
+              <div className="space-y-2">
+                <Label>Visitante (S/ por hora)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step={0.5}
+                  value={tarifaVisitante}
+                  onChange={(e) => setTarifaVisitante(e.target.value)}
+                  className="w-32"
+                />
               </div>
+              <div className="space-y-2">
+                <Label>Residente (S/ por hora)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step={0.5}
+                  value={tarifaResidente}
+                  onChange={(e) => setTarifaResidente(e.target.value)}
+                  className="w-32"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Abonado (S/ por mes)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step={0.5}
+                  value={tarifaAbonado}
+                  onChange={(e) => setTarifaAbonado(e.target.value)}
+                  placeholder="Ej. 100"
+                  className="w-32"
+                />
+              </div>
+              <div className="flex items-end">
+                <Button onClick={handleGuardarTarifas} disabled={savingTarifas}>
+                  {savingTarifas ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  Guardar tarifas
+                </Button>
+              </div>
+            </div>
+            {tarifaMsg && (
+              <p className={`text-sm ${tarifaMsg.includes('correctamente') ? 'text-green-600' : 'text-destructive'}`}>
+                {tarifaMsg}
+              </p>
             )}
           </CardContent>
         </Card>
+
+        {/* 5. Gráficas y reportes (colapsado por defecto, filtros solo aquí) */}
+        <Collapsible open={reportesExpandido} onOpenChange={setReportesExpandido}>
+          <Card className="border-border">
+            <CollapsibleTrigger asChild>
+              <CardHeader className="flex flex-row items-center justify-between cursor-pointer hover:bg-muted/50 rounded-t-lg">
+                <div className="flex items-center gap-2">
+                  {reportesExpandido ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+                  <CardTitle className="text-foreground text-base sm:text-lg">Gráficas y reportes</CardTitle>
+                </div>
+                <p className="text-sm text-muted-foreground">Desplegar para ver. Filtros de fecha y tipo solo afectan esta sección.</p>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="pt-0 space-y-4">
+                <div className="flex flex-wrap gap-3 sm:gap-4 items-end">
+                  <div className="space-y-2">
+                    <Label>Desde</Label>
+                    <Input type="date" value={filtroFechaDesde} onChange={(e) => setFiltroFechaDesde(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Hasta</Label>
+                    <Input type="date" value={filtroFechaHasta} onChange={(e) => setFiltroFechaHasta(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Tipo de usuario</Label>
+                    <Select value={filtroTipo || 'todos'} onValueChange={(v) => setFiltroTipo(v === 'todos' ? '' : (v as 'visitante' | 'residente' | 'abonado'))}>
+                      <SelectTrigger className="w-[160px]"><SelectValue placeholder="Todos" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="todos">Todos</SelectItem>
+                        <SelectItem value="visitante">Visitante</SelectItem>
+                        <SelectItem value="residente">Residente</SelectItem>
+                        <SelectItem value="abonado">Abonado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button variant="secondary" onClick={loadReportesData} disabled={loadingReportes}>Aplicar filtros</Button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                  <Card className="border-border">
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">Vehículos activos</CardTitle>
+                      <Car className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold text-foreground">{activeCount}</div>
+                      <p className="text-xs text-muted-foreground mt-1">En el estacionamiento ahora</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-border">
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">Total (filtro)</CardTitle>
+                      <DollarSign className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold text-foreground">{formatCurrency(totalFiltradoReportes)}</div>
+                      <p className="text-xs text-muted-foreground mt-1">{serviciosCountReportes} servicios</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-border">
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">Período</CardTitle>
+                      <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-sm font-medium text-foreground">
+                        {filtroFechaDesde || filtroFechaHasta ? `${filtroFechaDesde || '...'} a ${filtroFechaHasta || '...'}` : 'Sin filtro de fechas'}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {filtroTipo ? (filtroTipo === 'visitante' ? 'Solo visitantes' : filtroTipo === 'residente' ? 'Solo residentes' : 'Solo abonados') : 'Todos los tipos'}
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+                <Card className="border-border">
+                  <CardHeader className="p-4 sm:p-6 pb-2">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                      <div className="min-w-0">
+                        <CardTitle className="text-foreground text-base sm:text-lg">
+                          Ingresos por día
+                          {filtroTipo === 'visitante' && ' — Visitantes'}
+                          {filtroTipo === 'residente' && ' — Residentes'}
+                          {filtroTipo === 'abonado' && ' — Abonados'}
+                          {filtroTipo === '' && ' — Visitantes y Residentes'}
+                        </CardTitle>
+                        <p className="text-xs sm:text-sm text-muted-foreground mt-1 break-words">Leyenda: {leyendaDatos}. {textoPeriodo}</p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Select value={tipoGrafico} onValueChange={(v) => setTipoGrafico(v as 'bar' | 'pie')}>
+                          <SelectTrigger className="w-full sm:w-[140px] min-h-[44px] sm:min-h-0">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="bar">Barras</SelectItem>
+                            <SelectItem value="pie">Circular</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button variant="outline" size="sm" onClick={exportarExcel} disabled={serviciosParaReportes.length === 0}>
+                          <FileSpreadsheet className="h-4 w-4 mr-2" />
+                          Exportar Excel
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={exportarPDF} disabled={serviciosParaReportes.length === 0}>
+                          <FileText className="h-4 w-4 mr-2" />
+                          Exportar PDF
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <IncomeChart
+                      data={chartData}
+                      tipo={tipoGrafico}
+                      leyenda={leyendaDatos}
+                      dataConTipo={filtroTipo === '' ? chartDataConTipo : undefined}
+                    />
+                  </CardContent>
+                </Card>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
 
         {/* Detalle del servicio */}
         <Dialog open={!!servicioDetalle} onOpenChange={(open) => !open && setServicioDetalle(null)}>
