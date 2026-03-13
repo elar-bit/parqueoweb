@@ -18,15 +18,15 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command'
-import { registrarEntrada, getPlacasResidentes, tieneEntradaActiva } from '@/app/actions'
-import type { ResidenteOption } from '@/app/actions'
-import { Car, User, Loader2, Check, ChevronsUpDown } from 'lucide-react'
+import { registrarEntrada, getPlacasResidentes, getPlacasAbonados, tieneEntradaActiva } from '@/app/actions'
+import type { ResidenteOption, AbonadoOption } from '@/app/actions'
+import { Car, User, Loader2, Check, ChevronsUpDown, CalendarCheck } from 'lucide-react'
 
 interface QuickRegisterProps {
   onRegistered: () => void
 }
 
-type TipoEntrada = 'visitante' | 'residente' | null
+type TipoEntrada = 'visitante' | 'residente' | 'abonado' | null
 
 function normalize(s: string): string {
   return s
@@ -49,7 +49,9 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
   const [tipo, setTipo] = useState<TipoEntrada>(null)
   const [placa, setPlaca] = useState('')
   const [residenteSeleccionado, setResidenteSeleccionado] = useState<string | null>(null)
+  const [abonadoSeleccionado, setAbonadoSeleccionado] = useState<string | null>(null)
   const [placasResidentes, setPlacasResidentes] = useState<ResidenteOption[]>([])
+  const [placasAbonados, setPlacasAbonados] = useState<AbonadoOption[]>([])
   const [loading, setLoading] = useState(false)
   const [comboboxOpen, setComboboxOpen] = useState(false)
   const [comboboxSearch, setComboboxSearch] = useState('')
@@ -57,31 +59,55 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
   const [apellidoResidente, setApellidoResidente] = useState('')
   const [numeroOficinaDep, setNumeroOficinaDep] = useState('')
   const [telefonoResidente, setTelefonoResidente] = useState('')
+  const [yaPagoMensualidad, setYaPagoMensualidad] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   const cargarResidentes = async () => {
     const list = await getPlacasResidentes()
     setPlacasResidentes(list)
   }
+  const cargarAbonados = async () => {
+    const list = await getPlacasAbonados()
+    setPlacasAbonados(list)
+  }
 
   useEffect(() => {
     if (tipo === 'residente') cargarResidentes()
+    if (tipo === 'abonado') cargarAbonados()
   }, [tipo])
 
   const residentesFiltrados = useMemo(() => {
     return placasResidentes.filter((r) => matchResidente(r, comboboxSearch))
   }, [placasResidentes, comboboxSearch])
+  const abonadosFiltrados = useMemo(() => {
+    return placasAbonados.filter((r) => matchResidente(r, comboboxSearch))
+  }, [placasAbonados, comboboxSearch])
 
-  const handleSeleccionarTipo = (t: 'visitante' | 'residente') => {
+  const handleSeleccionarTipo = (t: 'visitante' | 'residente' | 'abonado') => {
     setTipo(t)
     setPaso('placa')
     setPlaca('')
     setResidenteSeleccionado(null)
+    setAbonadoSeleccionado(null)
     setNombreResidente('')
     setApellidoResidente('')
     setNumeroOficinaDep('')
+    setTelefonoResidente('')
+    setYaPagoMensualidad(false)
     setComboboxSearch('')
     setErrorMsg(null)
+  }
+
+  const handleSeleccionarAbonado = async (id: string) => {
+    const yaActivo = await tieneEntradaActiva(id)
+    if (yaActivo) {
+      alert('Este vehículo ya tiene una entrada activa. No se puede duplicar la entrada.')
+      return
+    }
+    setErrorMsg(null)
+    setAbonadoSeleccionado(id)
+    setPlaca('')
+    setComboboxOpen(false)
   }
 
   const handleSeleccionarResidente = async (id: string) => {
@@ -110,17 +136,34 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
           numero_oficina_dep: numeroOficinaDep.trim() || null,
           telefono_contacto: telefonoResidente.trim() || null,
         })
+      } else if (tipo === 'abonado' && abonadoSeleccionado) {
+        await registrarEntrada('abonado', null, abonadoSeleccionado, undefined, undefined)
+      } else if (tipo === 'abonado' && placa.trim()) {
+        await registrarEntrada('abonado', placa.trim(), null, {
+          nombre: nombreResidente.trim() || null,
+          apellido: apellidoResidente.trim() || null,
+          numero_oficina_dep: numeroOficinaDep.trim() || null,
+          telefono_contacto: telefonoResidente.trim() || null,
+        }, {
+          nombre: nombreResidente.trim() || null,
+          apellido: apellidoResidente.trim() || null,
+          numero_oficina_dep: numeroOficinaDep.trim() || null,
+          telefono_contacto: telefonoResidente.trim() || null,
+          yaPagoMensualidad,
+        })
       } else {
-        await registrarEntrada(tipo, placa.trim() || null, null)
+        await registrarEntrada(tipo!, placa.trim() || null, null)
       }
       setPaso('tipo')
       setTipo(null)
       setPlaca('')
       setResidenteSeleccionado(null)
+      setAbonadoSeleccionado(null)
       setNombreResidente('')
       setApellidoResidente('')
       setNumeroOficinaDep('')
       setTelefonoResidente('')
+      setYaPagoMensualidad(false)
       setComboboxSearch('')
       onRegistered()
     } catch (error) {
@@ -136,10 +179,12 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
     setTipo(null)
     setPlaca('')
     setResidenteSeleccionado(null)
+    setAbonadoSeleccionado(null)
     setNombreResidente('')
     setApellidoResidente('')
     setNumeroOficinaDep('')
     setTelefonoResidente('')
+    setYaPagoMensualidad(false)
     setComboboxSearch('')
     setErrorMsg(null)
   }
@@ -149,12 +194,26 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
       ? true
       : tipo === 'residente'
         ? residenteSeleccionado !== null || placa.trim().length > 0
-        : false
+        : tipo === 'abonado'
+          ? abonadoSeleccionado !== null || placa.trim().length > 0
+          : false
 
   const residenteLabel = residenteSeleccionado
     ? (() => {
         const r = placasResidentes.find((x) => x.id === residenteSeleccionado)
         if (!r) return 'Seleccionar residente'
+        const parts = [r.placa]
+        if (r.nombre_propietario || r.apellido_propietario) {
+          parts.push([r.nombre_propietario, r.apellido_propietario].filter(Boolean).join(' '))
+        }
+        return parts.join(' — ')
+      })()
+    : 'Buscar por placa o apellido...'
+
+  const abonadoLabel = abonadoSeleccionado
+    ? (() => {
+        const r = placasAbonados.find((x) => x.id === abonadoSeleccionado)
+        if (!r) return 'Seleccionar abonado'
         const parts = [r.placa]
         if (r.nombre_propietario || r.apellido_propietario) {
           parts.push([r.nombre_propietario, r.apellido_propietario].filter(Boolean).join(' '))
@@ -172,10 +231,10 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
       </CardHeader>
       <CardContent>
         {paso === 'tipo' ? (
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 flex-wrap">
             <Button
               size="lg"
-              className="flex-1 min-h-[80px] sm:h-24 flex flex-col gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+              className="flex-1 min-h-[80px] sm:h-24 flex flex-col gap-2 bg-primary text-primary-foreground hover:bg-primary/90 min-w-[120px]"
               onClick={() => handleSeleccionarTipo('visitante')}
             >
               <Car className="h-7 w-7 sm:h-8 sm:w-8" />
@@ -184,11 +243,20 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
             <Button
               size="lg"
               variant="secondary"
-              className="flex-1 min-h-[80px] sm:h-24 flex flex-col gap-2"
+              className="flex-1 min-h-[80px] sm:h-24 flex flex-col gap-2 min-w-[120px]"
               onClick={() => handleSeleccionarTipo('residente')}
             >
               <User className="h-7 w-7 sm:h-8 sm:w-8" />
               <span className="text-sm font-medium">Residente</span>
+            </Button>
+            <Button
+              size="lg"
+              variant="secondary"
+              className="flex-1 min-h-[80px] sm:h-24 flex flex-col gap-2 min-w-[120px]"
+              onClick={() => handleSeleccionarTipo('abonado')}
+            >
+              <CalendarCheck className="h-7 w-7 sm:h-8 sm:w-8" />
+              <span className="text-sm font-medium">Abonado</span>
             </Button>
           </div>
         ) : (
@@ -196,8 +264,69 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
             <p className="text-sm text-muted-foreground">
               {tipo === 'visitante'
                 ? 'Ingrese la placa del visitante (opcional).'
-                : 'Busque por placa o apellido una placa ya registrada o ingrese una nueva con nombre y apellido.'}
+                : tipo === 'abonado'
+                  ? 'Busque una placa ya registrada como abonado o ingrese una nueva. El mes corre desde el primer día de registro (pago por mes adelantado).'
+                  : 'Busque por placa o apellido una placa ya registrada o ingrese una nueva con nombre y apellido.'}
             </p>
+
+            {tipo === 'abonado' && (
+              <div className="space-y-2">
+                <Label>Placa ya registrada (abonado)</Label>
+                <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={comboboxOpen}
+                      className="w-full justify-between font-normal"
+                    >
+                      {abonadoLabel}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                    <Command shouldFilter={false}>
+                      <CommandInput
+                        placeholder="Buscar por placa o apellido..."
+                        value={comboboxSearch}
+                        onValueChange={setComboboxSearch}
+                      />
+                      <CommandList>
+                        <CommandEmpty>Ningún abonado coincide.</CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem
+                            value="nueva"
+                            onSelect={() => {
+                              setAbonadoSeleccionado(null)
+                              setComboboxOpen(false)
+                            }}
+                          >
+                            <span className="mr-2 flex h-4 w-4 shrink-0 items-center justify-center">
+                              <Check className={abonadoSeleccionado === null ? 'opacity-100' : 'opacity-0'} />
+                            </span>
+                            Nueva placa (registrar abajo)
+                          </CommandItem>
+                          {abonadosFiltrados.map((r) => (
+                            <CommandItem
+                              key={r.id}
+                              value={r.id}
+                              onSelect={() => handleSeleccionarAbonado(r.id)}
+                            >
+                              <span className="mr-2 flex h-4 w-4 shrink-0 items-center justify-center">
+                                <Check className={abonadoSeleccionado === r.id ? 'opacity-100' : 'opacity-0'} />
+                              </span>
+                              {r.placa}
+                              {(r.nombre_propietario || r.apellido_propietario) &&
+                                ` — ${[r.nombre_propietario, r.apellido_propietario].filter(Boolean).join(' ')}`}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            )}
 
             {tipo === 'residente' && (
               <div className="space-y-2">
@@ -258,10 +387,12 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
               </div>
             )}
 
-            {(tipo === 'visitante' || residenteSeleccionado === null) && (
+            {(tipo === 'visitante' || (tipo === 'residente' && residenteSeleccionado === null) || (tipo === 'abonado' && abonadoSeleccionado === null)) && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="placa">{tipo === 'residente' ? 'Placa' : 'Placa (opcional)'}</Label>
+                  <Label htmlFor="placa">
+                    {tipo === 'visitante' ? 'Placa (opcional)' : 'Placa'}
+                  </Label>
                   <Input
                     id="placa"
                     value={placa}
@@ -271,7 +402,7 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
                     onKeyDown={(e) => e.key === 'Enter' && handleRegistrar()}
                   />
                 </div>
-                {tipo === 'residente' && (
+                {(tipo === 'residente' || tipo === 'abonado') && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-2">
                       <Label htmlFor="nombre-res">Nombre</Label>
@@ -279,7 +410,7 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
                         id="nombre-res"
                         value={nombreResidente}
                         onChange={(e) => setNombreResidente(e.target.value)}
-                        placeholder="Nombre del residente"
+                        placeholder={tipo === 'abonado' ? 'Nombre del abonado' : 'Nombre del residente'}
                       />
                     </div>
                     <div className="space-y-2">
@@ -288,7 +419,7 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
                         id="apellido-res"
                         value={apellidoResidente}
                         onChange={(e) => setApellidoResidente(e.target.value)}
-                        placeholder="Apellido del residente"
+                        placeholder={tipo === 'abonado' ? 'Apellido del abonado' : 'Apellido del residente'}
                       />
                     </div>
                     <div className="space-y-2 sm:col-span-2">
@@ -310,6 +441,20 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
                         placeholder="Ej. 987 654 321"
                       />
                     </div>
+                    {tipo === 'abonado' && (
+                      <div className="space-y-2 sm:col-span-2 flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="ya-pago-mensualidad"
+                          checked={yaPagoMensualidad}
+                          onChange={(e) => setYaPagoMensualidad(e.target.checked)}
+                          className="rounded border-border"
+                        />
+                        <Label htmlFor="ya-pago-mensualidad" className="font-normal cursor-pointer">
+                          Ya pagó la mensualidad (vigencia desde hoy + 1 mes)
+                        </Label>
+                      </div>
+                    )}
                   </div>
                 )}
               </>

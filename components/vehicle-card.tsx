@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Clock, Car, DollarSign } from 'lucide-react'
+import { Clock, Car, DollarSign, AlertTriangle } from 'lucide-react'
 import { formatDuration, getElapsedTime, formatCurrency } from '@/lib/billing'
+import { abonoVigente } from '@/app/actions'
 import type { ServicioConVehiculo, Configuracion } from '@/lib/types'
 
 interface VehicleCardProps {
@@ -28,14 +29,23 @@ export function VehicleCard({ servicio, configuracion, onValidate }: VehicleCard
     return () => clearInterval(interval)
   }, [servicio.entrada_real])
 
-  const tarifa = configuracion.find(c => c.tipo_usuario === servicio.vehiculo.tipo)
+  const esAbonado = servicio.vehiculo.tipo === 'abonado'
+  const tarifa = esAbonado ? null : configuracion.find(c => c.tipo_usuario === servicio.vehiculo.tipo)
   const estimatedCost = tarifa 
     ? Math.ceil(elapsed.billableMinutes / 60) * tarifa.precio_hora 
     : 0
 
+  const abonadoVencido = esAbonado && !abonoVigente(servicio.vehiculo.vigencia_abono_hasta)
+
   return (
-    <Card className="border-border hover:border-primary/50 transition-colors">
+    <Card className={`border-border hover:border-primary/50 transition-colors ${abonadoVencido ? 'border-amber-500/60 bg-amber-500/5' : ''}`}>
       <CardContent className="p-3 sm:p-4">
+        {abonadoVencido && (
+          <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 text-sm mb-3 px-2 py-1.5 rounded bg-amber-500/10">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span>Mensualidad no pagada o vencida</span>
+          </div>
+        )}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3 sm:gap-4 min-w-0">
             <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-muted flex items-center justify-center shrink-0">
@@ -47,10 +57,10 @@ export function VehicleCard({ servicio, configuracion, onValidate }: VehicleCard
                   {servicio.vehiculo.placa || 'Sin Placa'}
                 </span>
                 <Badge 
-                  variant={servicio.vehiculo.tipo === 'residente' ? 'secondary' : 'default'}
+                  variant={servicio.vehiculo.tipo === 'residente' ? 'secondary' : servicio.vehiculo.tipo === 'abonado' ? 'outline' : 'default'}
                   className="text-xs"
                 >
-                  {servicio.vehiculo.tipo === 'residente' ? 'Residente' : 'Visitante'}
+                  {servicio.vehiculo.tipo === 'residente' ? 'Residente' : servicio.vehiculo.tipo === 'abonado' ? 'Abonado' : 'Visitante'}
                 </Badge>
               </div>
               {servicio.vehiculo.nombre_propietario && (

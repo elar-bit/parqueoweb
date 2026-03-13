@@ -27,12 +27,14 @@ import {
   resetearPasswordUsuario,
   eliminarServicio,
   actualizarVehiculo,
+  getAbonadosVencidos,
+  renovarAbono,
   type FiltrosAdmin,
   type UsuarioRow,
 } from '@/app/actions'
-import type { ServicioConVehiculo, Configuracion } from '@/lib/types'
+import type { ServicioConVehiculo, Configuracion, Vehiculo } from '@/lib/types'
 import { formatCurrency } from '@/lib/billing'
-import { Car, DollarSign, RefreshCw, BarChart3, LogOut, Settings, Loader2, Users, UserPlus, Pencil, Trash2, Key, FileSpreadsheet, FileText, Info } from 'lucide-react'
+import { Car, DollarSign, RefreshCw, BarChart3, LogOut, Settings, Loader2, Users, UserPlus, Pencil, Trash2, Key, FileSpreadsheet, FileText, Info, CalendarCheck, AlertTriangle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { IncomeChart } from '@/components/income-chart'
@@ -64,7 +66,9 @@ export function AdminDashboard() {
 
   const [filtroFechaDesde, setFiltroFechaDesde] = useState('')
   const [filtroFechaHasta, setFiltroFechaHasta] = useState('')
-  const [filtroTipo, setFiltroTipo] = useState<'visitante' | 'residente' | ''>('')
+  const [filtroTipo, setFiltroTipo] = useState<'visitante' | 'residente' | 'abonado' | ''>('')
+  const [abonadosVencidos, setAbonadosVencidos] = useState<Vehiculo[]>([])
+  const [renovandoAbonoId, setRenovandoAbonoId] = useState<string | null>(null)
 
   const [tarifaVisitante, setTarifaVisitante] = useState('')
   const [tarifaResidente, setTarifaResidente] = useState('')
@@ -124,7 +128,7 @@ export function AdminDashboard() {
       'Compartimos contigo tu ticket generado el día de hoy en nuestra playa de estacionamiento.',
       '',
       `Placa: ${placa}`,
-      `Tipo: ${esResidente ? 'Residente' : 'Visitante'}`,
+      `Tipo: ${servicio.vehiculo?.tipo === 'abonado' ? 'Abonado' : esResidente ? 'Residente' : 'Visitante'}`,
       `Entrada: ${entrada}`,
       `Salida: ${salida}`,
       `Total: ${total}`,
@@ -219,19 +223,20 @@ export function AdminDashboard() {
   const filtros: FiltrosAdmin = {
     fechaDesde: filtroFechaDesde || null,
     fechaHasta: filtroFechaHasta || null,
-    tipo: filtroTipo === '' ? null : (filtroTipo as 'visitante' | 'residente'),
+    tipo: filtroTipo === '' ? null : (filtroTipo as 'visitante' | 'residente' | 'abonado'),
   }
 
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      const [activos, ingresos, ingresosConTipo, servicios, config, users] = await Promise.all([
+      const [activos, ingresos, ingresosConTipo, servicios, config, users, vencidos] = await Promise.all([
         getServiciosActivos(),
         getIngresosFiltrados(filtros),
         filtroTipo === '' ? getIngresosFiltradosConTipo({ ...filtros, tipo: null }) : Promise.resolve([]),
         getServiciosPagadosFiltrados(filtros),
         getConfiguracion(),
         getUsuarios(),
+        getAbonadosVencidos(),
       ])
       setActiveCount(activos.length)
       setChartData(ingresos)
@@ -239,6 +244,7 @@ export function AdminDashboard() {
       setServiciosList(servicios)
       setConfiguracion(config)
       setUsuarios(users)
+      setAbonadosVencidos(vencidos)
       const visitante = config.find((c) => c.tipo_usuario === 'visitante')
       const residente = config.find((c) => c.tipo_usuario === 'residente')
       setTarifaVisitante(visitante ? String(visitante.precio_hora) : '')
@@ -262,7 +268,9 @@ export function AdminDashboard() {
       ? 'Solo visitantes'
       : filtroTipo === 'residente'
         ? 'Solo residentes'
-        : 'Todos los tipos (visitantes y residentes)'
+        : filtroTipo === 'abonado'
+          ? 'Solo abonados (sin ingreso por uso)'
+          : 'Todos los tipos (visitantes y residentes)'
   const textoPeriodo =
     filtroFechaDesde || filtroFechaHasta
       ? `Período: ${filtroFechaDesde || '...'} a ${filtroFechaHasta || '...'}`
@@ -410,7 +418,7 @@ export function AdminDashboard() {
       return [
         s.salida ? new Date(s.salida).toLocaleDateString('es-PE') : '',
         s.vehiculo?.placa || 'Sin placa',
-        s.vehiculo?.tipo === 'residente' ? 'Residente' : 'Visitante',
+        s.vehiculo?.tipo === 'residente' ? 'Residente' : s.vehiculo?.tipo === 'abonado' ? 'Abonado' : 'Visitante',
         nombreResidente,
         s.vehiculo?.numero_oficina_dep ?? '',
         s.vehiculo?.telefono_contacto ?? '',
@@ -473,7 +481,7 @@ export function AdminDashboard() {
                 <tr>
                   <td>${s.salida ? new Date(s.salida).toLocaleDateString('es-PE') : ''}</td>
                   <td>${esc(s.vehiculo?.placa || 'Sin placa')}</td>
-                  <td>${s.vehiculo?.tipo === 'residente' ? 'Residente' : 'Visitante'}</td>
+                  <td>${s.vehiculo?.tipo === 'residente' ? 'Residente' : s.vehiculo?.tipo === 'abonado' ? 'Abonado' : 'Visitante'}</td>
                   <td>${esc(nombreResidente)}</td>
                   <td>${esc(s.vehiculo?.numero_oficina_dep ?? '')}</td>
                   <td>${esc(s.vehiculo?.telefono_contacto ?? '')}</td>
@@ -556,7 +564,7 @@ export function AdminDashboard() {
               </div>
               <div className="space-y-2">
                 <Label>Tipo de usuario</Label>
-                <Select value={filtroTipo || 'todos'} onValueChange={(v) => setFiltroTipo(v === 'todos' ? '' : (v as 'visitante' | 'residente'))}>
+                <Select value={filtroTipo || 'todos'} onValueChange={(v) => setFiltroTipo(v === 'todos' ? '' : (v as 'visitante' | 'residente' | 'abonado'))}>
                   <SelectTrigger className="w-[160px]">
                     <SelectValue placeholder="Todos" />
                   </SelectTrigger>
@@ -564,6 +572,7 @@ export function AdminDashboard() {
                     <SelectItem value="todos">Todos</SelectItem>
                     <SelectItem value="visitante">Visitante</SelectItem>
                     <SelectItem value="residente">Residente</SelectItem>
+                    <SelectItem value="abonado">Abonado</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -614,7 +623,7 @@ export function AdminDashboard() {
                   : 'Sin filtro de fechas'}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                {filtroTipo ? (filtroTipo === 'visitante' ? 'Solo visitantes' : 'Solo residentes') : 'Todos los tipos'}
+                {filtroTipo ? (filtroTipo === 'visitante' ? 'Solo visitantes' : filtroTipo === 'residente' ? 'Solo residentes' : 'Solo abonados') : 'Todos los tipos'}
               </p>
             </CardContent>
           </Card>
@@ -629,6 +638,7 @@ export function AdminDashboard() {
                   Ingresos por día
                   {filtroTipo === 'visitante' && ' — Visitantes'}
                   {filtroTipo === 'residente' && ' — Residentes'}
+                  {filtroTipo === 'abonado' && ' — Abonados'}
                   {filtroTipo === '' && ' — Visitantes y Residentes'}
                 </CardTitle>
                 <p className="text-xs sm:text-sm text-muted-foreground mt-1 break-words">Leyenda: {leyendaDatos}. {textoPeriodo}</p>
@@ -711,6 +721,57 @@ export function AdminDashboard() {
             )}
           </CardContent>
         </Card>
+
+        {/* Abonados con mensualidad vencida */}
+        {abonadosVencidos.length > 0 && (
+          <Card className="border-amber-500/50 bg-amber-500/5">
+            <CardHeader>
+              <CardTitle className="text-foreground flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-amber-600" />
+                Abonados con mensualidad vencida
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">Registre el pago para extender la vigencia 1 mes.</p>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-2">
+                {abonadosVencidos.map((v) => (
+                  <li key={v.id} className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-lg bg-background/80">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="font-mono font-medium">{v.placa || 'Sin placa'}</span>
+                      {(v.nombre_propietario || v.apellido_propietario) && (
+                        <span className="text-sm text-muted-foreground truncate">
+                          {[v.nombre_propietario, v.apellido_propietario].filter(Boolean).join(' ')}
+                        </span>
+                      )}
+                      {v.vigencia_abono_hasta && (
+                        <span className="text-xs text-muted-foreground">Vencía: {v.vigencia_abono_hasta}</span>
+                      )}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="default"
+                      disabled={renovandoAbonoId === v.id}
+                      onClick={async () => {
+                        setRenovandoAbonoId(v.id)
+                        try {
+                          await renovarAbono(v.id)
+                          loadData()
+                        } catch (e) {
+                          console.error(e)
+                        } finally {
+                          setRenovandoAbonoId(null)
+                        }
+                      }}
+                    >
+                      {renovandoAbonoId === v.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarCheck className="h-4 w-4 mr-1" />}
+                      {renovandoAbonoId === v.id ? 'Guardando...' : 'Registrar pago'}
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Gestión de usuarios */}
         <Card className="border-border">
@@ -955,6 +1016,11 @@ export function AdminDashboard() {
                             <p className="font-mono font-medium text-foreground truncate">
                               {servicio.vehiculo?.placa || 'Sin Placa'}
                             </p>
+                            {servicio.vehiculo?.tipo === 'abonado' && (
+                              <Badge variant="outline" className="text-xs shrink-0">
+                                Abonado
+                              </Badge>
+                            )}
                             {nombreResidente && (
                               <Badge variant="secondary" className="text-xs font-normal shrink-0">
                                 {nombreResidente}
@@ -962,7 +1028,7 @@ export function AdminDashboard() {
                             )}
                           </div>
                           <p className="text-xs text-muted-foreground">
-                            {servicio.vehiculo?.tipo === 'residente' ? 'Residente' : 'Visitante'}
+                            {servicio.vehiculo?.tipo === 'residente' ? 'Residente' : servicio.vehiculo?.tipo === 'abonado' ? 'Abonado' : 'Visitante'}
                           </p>
                         </div>
                       </div>
@@ -1018,7 +1084,13 @@ export function AdminDashboard() {
                   <span className="text-muted-foreground">Placa</span>
                   <span className="font-mono font-medium">{servicioDetalle.vehiculo?.placa || '—'}</span>
                   <span className="text-muted-foreground">Tipo</span>
-                  <span>{servicioDetalle.vehiculo?.tipo === 'residente' ? 'Residente' : 'Visitante'}</span>
+                  <span>{servicioDetalle.vehiculo?.tipo === 'residente' ? 'Residente' : servicioDetalle.vehiculo?.tipo === 'abonado' ? 'Abonado' : 'Visitante'}</span>
+                  {servicioDetalle.vehiculo?.tipo === 'abonado' && servicioDetalle.vehiculo?.vigencia_abono_hasta && (
+                    <>
+                      <span className="text-muted-foreground">Vigencia abono hasta</span>
+                      <span>{servicioDetalle.vehiculo.vigencia_abono_hasta}</span>
+                    </>
+                  )}
                   {(servicioDetalle.vehiculo?.nombre_propietario || servicioDetalle.vehiculo?.apellido_propietario) && (
                     <>
                       <span className="text-muted-foreground">Nombre</span>

@@ -4,9 +4,9 @@ import { useState, useEffect, useCallback } from 'react'
 import { QuickRegister } from '@/components/quick-register'
 import { VehicleCard } from '@/components/vehicle-card'
 import { ValidationModal } from '@/components/validation-modal'
-import { getServiciosActivos, getConfiguracion, logoutAdmin } from '@/app/actions'
+import { getServiciosActivos, getConfiguracion, logoutAdmin, abonoVigente } from '@/app/actions'
 import type { ServicioConVehiculo, Configuracion } from '@/lib/types'
-import { Car, RefreshCw, LogOut } from 'lucide-react'
+import { Car, RefreshCw, LogOut, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 
@@ -83,6 +83,13 @@ export function ConserjeDashboard() {
 
       <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-6">
         <QuickRegister onRegistered={loadData} />
+
+        {servicios.some((s) => s.vehiculo?.tipo === 'abonado' && !abonoVigente(s.vehiculo.vigencia_abono_hasta)) && (
+          <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 text-sm px-4 py-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+            <AlertTriangle className="h-5 w-5 shrink-0" />
+            <span>Hay abonados con mensualidad vencida o sin pagar. Verifique antes de validar la salida.</span>
+          </div>
+        )}
 
         <div className="space-y-4">
           <div className="flex items-center justify-between">

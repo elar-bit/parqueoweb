@@ -1,11 +1,12 @@
 export interface Vehiculo {
   id: string
   placa: string | null
-  tipo: 'visitante' | 'residente'
+  tipo: 'visitante' | 'residente' | 'abonado'
   nombre_propietario: string | null
   apellido_propietario?: string | null
   numero_oficina_dep?: string | null
   telefono_contacto?: string | null
+  vigencia_abono_hasta?: string | null
   created_at: string
 }
 

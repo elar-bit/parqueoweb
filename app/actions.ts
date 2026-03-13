@@ -353,6 +353,39 @@ export type ResidenteOption = {
   apellido_propietario: string | null
 }
 
+/** Misma forma que ResidenteOption; usado para abonados. */
+export type AbonadoOption = ResidenteOption
+
+export async function getPlacasAbonados(): Promise<AbonadoOption[]> {
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('vehiculos')
+      .select('id, placa, nombre_propietario, apellido_propietario')
+      .eq('tipo', 'abonado')
+      .not('placa', 'is', null)
+      .order('placa')
+    if (error) {
+      console.error('getPlacasAbonados error:', error)
+      return []
+    }
+    return (data || []).filter(
+      (v): v is AbonadoOption =>
+        v.placa != null &&
+        typeof v.id === 'string' &&
+        typeof v.placa === 'string'
+    ).map((v) => ({
+      id: v.id,
+      placa: v.placa,
+      nombre_propietario: v.nombre_propietario ?? null,
+      apellido_propietario: (v as { apellido_propietario?: string | null }).apellido_propietario ?? null,
+    }))
+  } catch (e) {
+    console.error('getPlacasAbonados exception:', e)
+    return []
+  }
+}
+
 export async function getPlacasResidentes(): Promise<ResidenteOption[]> {
   try {
     const supabase = await createClient()
@@ -407,30 +440,40 @@ export type DatosResidente = {
   telefono_contacto?: string | null
 }
 
+export type DatosAbonado = DatosResidente & {
+  yaPagoMensualidad?: boolean
+}
+
+function addMonths(d: Date, months: number): Date {
+  const out = new Date(d)
+  out.setMonth(out.getMonth() + months)
+  return out
+}
+
 export async function registrarEntrada(
-  tipo: 'visitante' | 'residente',
+  tipo: 'visitante' | 'residente' | 'abonado',
   placa?: string | null,
   vehiculoIdExistente?: string | null,
-  datosResidente?: DatosResidente | null
+  datosResidente?: DatosResidente | null,
+  datosAbonado?: DatosAbonado | null
 ): Promise<{
   vehiculo: Vehiculo
   servicio: { id: string }
 }> {
   const supabase = await createClient()
   let vehiculo: Vehiculo
+  const tipoReuso = tipo === 'residente' ? 'residente' : tipo === 'abonado' ? 'abonado' : null
 
-  if (vehiculoIdExistente) {
-    // Residente: reutilizar vehículo existente
+  if (vehiculoIdExistente && tipoReuso) {
     const { data: existing, error: fetchError } = await supabase
       .from('vehiculos')
       .select('*')
       .eq('id', vehiculoIdExistente)
-      .eq('tipo', 'residente')
+      .eq('tipo', tipoReuso)
       .single()
-    if (fetchError || !existing) throw new Error('Vehículo residente no encontrado')
+    if (fetchError || !existing) throw new Error(tipoReuso === 'abonado' ? 'Vehículo abonado no encontrado' : 'Vehículo residente no encontrado')
     vehiculo = existing as Vehiculo
   } else {
-    // Crear nuevo vehículo (visitante o residente con placa nueva)
     const insertPayload: Record<string, unknown> = {
       tipo,
       placa: placa?.trim() || null,
@@ -440,6 +483,19 @@ export async function registrarEntrada(
       if (datosResidente.apellido != null) insertPayload.apellido_propietario = datosResidente.apellido
       if (datosResidente.numero_oficina_dep != null) insertPayload.numero_oficina_dep = datosResidente.numero_oficina_dep
       if (datosResidente.telefono_contacto != null) insertPayload.telefono_contacto = datosResidente.telefono_contacto
+    }
+    if (tipo === 'abonado' && (datosResidente || datosAbonado)) {
+      const d = datosAbonado ?? datosResidente
+      if (d) {
+        if (d.nombre != null) insertPayload.nombre_propietario = d.nombre
+        if (d.apellido != null) insertPayload.apellido_propietario = d.apellido
+        if (d.numero_oficina_dep != null) insertPayload.numero_oficina_dep = d.numero_oficina_dep
+        if (d.telefono_contacto != null) insertPayload.telefono_contacto = d.telefono_contacto
+      }
+      if (datosAbonado?.yaPagoMensualidad) {
+        const hasta = addMonths(new Date(), 1)
+        insertPayload.vigencia_abono_hasta = hasta.toISOString().split('T')[0]
+      }
     }
     const { data: nuevo, error: vehiculoError } = await supabase
       .from('vehiculos')
@@ -468,11 +524,12 @@ export async function actualizarVehiculo(
   vehiculoId: string,
   data: {
     placa?: string
-    tipo?: 'visitante' | 'residente'
+    tipo?: 'visitante' | 'residente' | 'abonado'
     nombre_propietario?: string
     apellido_propietario?: string | null
     numero_oficina_dep?: string | null
     telefono_contacto?: string | null
+    vigencia_abono_hasta?: string | null
   }
 ): Promise<void> {
   const supabase = await createClient()
@@ -487,6 +544,60 @@ export async function actualizarVehiculo(
   revalidatePath('/admin')
 }
 
+/** True si el abonado tiene mensualidad vigente (incluye hoy). */
+export function abonoVigente(vigencia_abono_hasta: string | null | undefined): boolean {
+  if (!vigencia_abono_hasta) return false
+  const hoy = new Date()
+  hoy.setHours(0, 0, 0, 0)
+  const hasta = new Date(vigencia_abono_hasta)
+  hasta.setHours(0, 0, 0, 0)
+  return hasta >= hoy
+}
+
+/** Registra pago de mensualidad: extiende vigencia 1 mes desde hoy o desde la vigencia actual si es posterior. */
+export async function renovarAbono(vehiculoId: string): Promise<void> {
+  const supabase = await createClient()
+  const { data: v, error: fetchErr } = await supabase
+    .from('vehiculos')
+    .select('vigencia_abono_hasta')
+    .eq('id', vehiculoId)
+    .eq('tipo', 'abonado')
+    .single()
+  if (fetchErr || !v) throw new Error('Vehículo abonado no encontrado')
+  const base = (v.vigencia_abono_hasta && new Date(v.vigencia_abono_hasta) > new Date())
+    ? new Date(v.vigencia_abono_hasta)
+    : new Date()
+  const nuevaVigencia = addMonths(base, 1).toISOString().split('T')[0]
+  const { error } = await supabase
+    .from('vehiculos')
+    .update({ vigencia_abono_hasta: nuevaVigencia })
+    .eq('id', vehiculoId)
+  if (error) throw error
+  revalidatePath('/conserje')
+  revalidatePath('/admin')
+}
+
+/** Lista abonados con mensualidad vencida o sin pagar (para alertas). */
+export async function getAbonadosVencidos(): Promise<Vehiculo[]> {
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('vehiculos')
+      .select('*')
+      .eq('tipo', 'abonado')
+    if (error) return []
+    const hoy = new Date()
+    hoy.setHours(0, 0, 0, 0)
+    return (data || []).filter((v) => {
+      const vig = (v as Vehiculo).vigencia_abono_hasta
+      return !vig || new Date(vig).setHours(0, 0, 0, 0) < hoy.getTime()
+    }) as Vehiculo[]
+  } catch (e) {
+    console.error('getAbonadosVencidos exception:', e)
+    return []
+  }
+}
+
 export async function registrarSalida(
   servicioId: string,
   _totalPagarCliente: number,
@@ -495,10 +606,9 @@ export async function registrarSalida(
 ): Promise<void> {
   const supabase = await createClient()
 
-  // Obtener el servicio para tener entrada_real y recalcular con gracia de 5 min en el servidor
   const { data: servicio, error: fetchError } = await supabase
     .from('servicios')
-    .select('entrada_real')
+    .select('entrada_real, vehiculo:vehiculos(tipo, vigencia_abono_hasta)')
     .eq('id', servicioId)
     .eq('estado', 'activo')
     .single()
@@ -507,10 +617,21 @@ export async function registrarSalida(
     throw fetchError || new Error('Servicio no encontrado o ya finalizado')
   }
 
+  const vehiculo = servicio.vehiculo as { tipo?: string; vigencia_abono_hasta?: string | null } | null
+  const esAbonadoVigente = vehiculo?.tipo === 'abonado' && abonoVigente(vehiculo?.vigencia_abono_hasta)
+
   const salida = new Date()
   const entradaReal = new Date(servicio.entrada_real)
-  // Aplicar gracia de 5 minutos: el total se calcula en servidor para consistencia
-  const { total: totalPagar } = calculateBilling(entradaReal, salida, tarifaAplicada)
+  let totalPagar: number
+  let tarifaFinal: number
+  if (esAbonadoVigente) {
+    totalPagar = 0
+    tarifaFinal = 0
+  } else {
+    const billing = calculateBilling(entradaReal, salida, tarifaAplicada)
+    totalPagar = billing.total
+    tarifaFinal = tarifaAplicada
+  }
 
   const { error } = await supabase
     .from('servicios')
@@ -518,7 +639,7 @@ export async function registrarSalida(
       salida: salida.toISOString(),
       estado: 'pagado',
       total_pagar: totalPagar,
-      tarifa_aplicada: tarifaAplicada,
+      tarifa_aplicada: tarifaFinal,
       ref_pago_yape: refPagoYape || null
     })
     .eq('id', servicioId)
@@ -556,7 +677,7 @@ export async function getServiciosPagadosHoy(): Promise<ServicioConVehiculo[]> {
 export type FiltrosAdmin = {
   fechaDesde?: string | null
   fechaHasta?: string | null
-  tipo?: 'visitante' | 'residente' | null
+  tipo?: 'visitante' | 'residente' | 'abonado' | null
 }
 
 export async function getServiciosPagadosFiltrados(filtros: FiltrosAdmin): Promise<ServicioConVehiculo[]> {
@@ -624,9 +745,11 @@ export async function getIngresosFiltradosConTipo(
     const grouped: Record<string, { visitantes: number; residentes: number }> = {}
     servicios.forEach((s) => {
       if (s.salida && s.total_pagar != null) {
+        const t = s.vehiculo?.tipo
+        if (t === 'abonado') return
         const dateKey = new Date(s.salida).toISOString().split('T')[0]
         if (!grouped[dateKey]) grouped[dateKey] = { visitantes: 0, residentes: 0 }
-        const tipo = s.vehiculo?.tipo === 'residente' ? 'residentes' : 'visitantes'
+        const tipo = t === 'residente' ? 'residentes' : 'visitantes'
         grouped[dateKey][tipo] += Number(s.total_pagar)
       }
     })

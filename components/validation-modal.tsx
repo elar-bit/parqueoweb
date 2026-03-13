@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { calculateBilling, formatCurrency, formatDuration } from '@/lib/billing'
-import { actualizarVehiculo, registrarSalida } from '@/app/actions'
+import { actualizarVehiculo, registrarSalida, abonoVigente } from '@/app/actions'
 import type { ServicioConVehiculo, Configuracion } from '@/lib/types'
 import { Printer, Check, Loader2 } from 'lucide-react'
 
@@ -42,7 +42,7 @@ function buildTicketTextoWhatsApp(opts: {
     'Compartimos contigo tu ticket generado el día de hoy en nuestra playa de estacionamiento.',
     '',
     `Placa: ${placa || 'N/A'}`,
-    `Tipo: ${tipo === 'residente' ? 'Residente' : 'Visitante'}`,
+    `Tipo: ${tipo === 'residente' ? 'Residente' : tipo === 'abonado' ? 'Abonado' : 'Visitante'}`,
     `Entrada: ${entrada.toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })}`,
     `Salida: ${salida.toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })}`,
     `Total: ${formatCurrency(total)}`,
@@ -69,7 +69,7 @@ export function ValidationModal({
   onComplete,
 }: ValidationModalProps) {
   const [placa, setPlaca] = useState('')
-  const [tipo, setTipo] = useState<'visitante' | 'residente'>('visitante')
+  const [tipo, setTipo] = useState<'visitante' | 'residente' | 'abonado'>('visitante')
   const [refYape, setRefYape] = useState('')
   const [loading, setLoading] = useState(false)
   const [showTicket, setShowTicket] = useState(false)
@@ -98,22 +98,28 @@ export function ValidationModal({
       
       const entradaReal = new Date(servicio.entrada_real)
       const salida = new Date()
-      const tarifa = configuracion.find(c => c.tipo_usuario === servicio.vehiculo.tipo)
-      
-      if (tarifa) {
-        setBilling(calculateBilling(entradaReal, salida, tarifa.precio_hora))
+      if (servicio.vehiculo.tipo === 'abonado') {
+        setBilling({ total: 0, minutosCobrados: 0 })
+      } else {
+        const tarifa = configuracion.find(c => c.tipo_usuario === servicio.vehiculo.tipo)
+        if (tarifa) {
+          setBilling(calculateBilling(entradaReal, salida, tarifa.precio_hora))
+        }
       }
     }
   }, [servicio, configuracion])
 
   useEffect(() => {
     if (servicio) {
-      const tarifa = configuracion.find(c => c.tipo_usuario === tipo)
-      const entradaReal = new Date(servicio.entrada_real)
-      const salida = new Date()
-      
-      if (tarifa) {
-        setBilling(calculateBilling(entradaReal, salida, tarifa.precio_hora))
+      if (tipo === 'abonado') {
+        setBilling({ total: 0, minutosCobrados: 0 })
+      } else {
+        const tarifa = configuracion.find(c => c.tipo_usuario === tipo)
+        const entradaReal = new Date(servicio.entrada_real)
+        const salida = new Date()
+        if (tarifa) {
+          setBilling(calculateBilling(entradaReal, salida, tarifa.precio_hora))
+        }
       }
     }
   }, [tipo, servicio, configuracion])
@@ -128,13 +134,12 @@ export function ValidationModal({
         await actualizarVehiculo(servicio.vehiculo.id, { placa, tipo })
       }
       
-      const tarifa = configuracion.find(c => c.tipo_usuario === tipo)
+      const tarifa = tipo === 'abonado' ? null : configuracion.find(c => c.tipo_usuario === tipo)
       
-      // Register exit
       await registrarSalida(
         servicio.id,
         billing.total,
-        tarifa?.precio_hora || 0,
+        tarifa?.precio_hora ?? 0,
         refYape || undefined
       )
       
@@ -203,7 +208,7 @@ export function ValidationModal({
         await actualizarVehiculo(servicio.vehiculo.id, { telefono_contacto: numero })
       }
       const nombreResidente =
-        servicio.vehiculo?.tipo === 'residente' &&
+        (servicio.vehiculo?.tipo === 'residente' || servicio.vehiculo?.tipo === 'abonado') &&
         (servicio.vehiculo.nombre_propietario || servicio.vehiculo.apellido_propietario)
           ? [servicio.vehiculo.nombre_propietario, servicio.vehiculo.apellido_propietario].filter(Boolean).join(' ')
           : null
@@ -264,16 +269,23 @@ export function ValidationModal({
               
               <div className="space-y-2">
                 <Label htmlFor="tipo">Tipo de Usuario</Label>
-                <Select value={tipo} onValueChange={(v) => setTipo(v as 'visitante' | 'residente')}>
+                <Select value={tipo} onValueChange={(v) => setTipo(v as 'visitante' | 'residente' | 'abonado')}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="visitante">Visitante</SelectItem>
                     <SelectItem value="residente">Residente</SelectItem>
+                    <SelectItem value="abonado">Abonado</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+
+              {servicio.vehiculo.tipo === 'abonado' && !abonoVigente(servicio.vehiculo.vigencia_abono_hasta) && (
+                <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 text-sm px-3 py-2 rounded bg-amber-500/10 border border-amber-500/30">
+                  <span>Mensualidad no pagada o vencida. Se registrará salida con total S/ 0.</span>
+                </div>
+              )}
               
               <Separator />
               
@@ -345,7 +357,7 @@ export function ValidationModal({
                 </div>
                 <div className="row flex justify-between">
                   <span>Tipo:</span>
-                  <span>{tipo === 'residente' ? 'Residente' : 'Visitante'}</span>
+                  <span>{tipo === 'residente' ? 'Residente' : tipo === 'abonado' ? 'Abonado' : 'Visitante'}</span>
                 </div>
               </div>
               
