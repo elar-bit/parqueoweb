@@ -248,7 +248,7 @@ export function ConserjeDashboard() {
                         window.open(url, '_blank')
                       }}
                     >
-                      Recordar por WhatsApp
+                      Enviar recordatorio
                     </Button>
                     <Button
                       type="button"
@@ -307,7 +307,7 @@ export function ConserjeDashboard() {
                         window.open(url, '_blank')
                       }}
                     >
-                      Avisar por WhatsApp
+                      Enviar recordatorio
                     </Button>
                     <Button
                       type="button"
