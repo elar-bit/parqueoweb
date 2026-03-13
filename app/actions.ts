@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { createHmac } from 'crypto'
 import { hash, compare } from 'bcryptjs'
-import { calculateBilling } from '@/lib/billing'
+import { calculateBilling, abonoVigente } from '@/lib/billing'
 import type { Configuracion, ServicioConVehiculo, Vehiculo } from '@/lib/types'
 
 const SESSION_COOKIE_NAME = 'parqueo_session'
@@ -542,16 +542,6 @@ export async function actualizarVehiculo(
   if (error) throw error
   revalidatePath('/conserje')
   revalidatePath('/admin')
-}
-
-/** True si el abonado tiene mensualidad vigente (incluye hoy). */
-export function abonoVigente(vigencia_abono_hasta: string | null | undefined): boolean {
-  if (!vigencia_abono_hasta) return false
-  const hoy = new Date()
-  hoy.setHours(0, 0, 0, 0)
-  const hasta = new Date(vigencia_abono_hasta)
-  hasta.setHours(0, 0, 0, 0)
-  return hasta >= hoy
 }
 
 /** Registra pago de mensualidad: extiende vigencia 1 mes desde hoy o desde la vigencia actual si es posterior. */

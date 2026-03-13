@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Clock, Car, DollarSign, AlertTriangle } from 'lucide-react'
 import { formatDuration, getElapsedTime, formatCurrency } from '@/lib/billing'
-import { abonoVigente } from '@/app/actions'
+import { abonoVigente } from '@/lib/billing'
 import type { ServicioConVehiculo, Configuracion } from '@/lib/types'
 
 interface VehicleCardProps {

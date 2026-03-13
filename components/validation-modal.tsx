@@ -20,7 +20,8 @@ import {
 } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { calculateBilling, formatCurrency, formatDuration } from '@/lib/billing'
-import { actualizarVehiculo, registrarSalida, abonoVigente } from '@/app/actions'
+import { actualizarVehiculo, registrarSalida } from '@/app/actions'
+import { abonoVigente } from '@/lib/billing'
 import type { ServicioConVehiculo, Configuracion } from '@/lib/types'
 import { Printer, Check, Loader2 } from 'lucide-react'
 

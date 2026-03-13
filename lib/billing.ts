@@ -48,3 +48,13 @@ export function getElapsedTime(entradaReal: Date): {
   
   return { totalMinutes, billableMinutes }
 }
+
+/** True si el abonado tiene mensualidad vigente (incluye hoy). */
+export function abonoVigente(vigencia_abono_hasta: string | null | undefined): boolean {
+  if (!vigencia_abono_hasta) return false
+  const hoy = new Date()
+  hoy.setHours(0, 0, 0, 0)
+  const hasta = new Date(vigencia_abono_hasta)
+  hasta.setHours(0, 0, 0, 0)
+  return hasta >= hoy
+}
