@@ -69,6 +69,10 @@ export function AdminDashboard() {
   const [filtroTipo, setFiltroTipo] = useState<'visitante' | 'residente' | 'abonado' | ''>('')
   const [abonadosVencidos, setAbonadosVencidos] = useState<Vehiculo[]>([])
   const [renovandoAbonoId, setRenovandoAbonoId] = useState<string | null>(null)
+  const [renovarAbonoDialog, setRenovarAbonoDialog] = useState<Vehiculo | null>(null)
+  const [renovarRefPago, setRenovarRefPago] = useState('')
+  const [renovarCapturaFile, setRenovarCapturaFile] = useState<File | null>(null)
+  const [verCapturaUrl, setVerCapturaUrl] = useState<string | null>(null)
 
   const [tarifaVisitante, setTarifaVisitante] = useState('')
   const [tarifaResidente, setTarifaResidente] = useState('')
@@ -410,7 +414,7 @@ export function AdminDashboard() {
   const exportarExcel = () => {
     const titulo = 'Reporte de ingresos - Estacionamiento'
     const filtrosLinea = `Datos: ${leyendaDatos}. ${textoPeriodo}`
-    const headers = ['Fecha salida', 'Placa', 'Tipo', 'Nombre residente', 'Oficina/Depto', 'Teléfono (WhatsApp)', 'Entrada', 'Salida', 'Total (S/)', 'Ref. Yape']
+    const headers = ['Fecha salida', 'Placa', 'Tipo', 'Nombre residente', 'Oficina/Depto', 'Teléfono (WhatsApp)', 'Ref. pago abono', 'Entrada', 'Salida', 'Total (S/)', 'Ref. Yape']
     const rows = serviciosList.map((s) => {
       const nombreResidente = (s.vehiculo?.tipo === 'residente' && (s.vehiculo.nombre_propietario || s.vehiculo.apellido_propietario))
         ? [s.vehiculo.nombre_propietario, s.vehiculo.apellido_propietario].filter(Boolean).join(' ')
@@ -422,6 +426,7 @@ export function AdminDashboard() {
         nombreResidente,
         s.vehiculo?.numero_oficina_dep ?? '',
         s.vehiculo?.telefono_contacto ?? '',
+        s.vehiculo?.ref_pago_abono ?? '',
         s.entrada_real ? new Date(s.entrada_real).toLocaleString('es-PE') : '',
         s.salida ? new Date(s.salida).toLocaleString('es-PE') : '',
         String(s.total_pagar ?? ''),
@@ -468,7 +473,7 @@ export function AdminDashboard() {
           <p class="fecha">Generado: ${new Date().toLocaleString('es-PE')}</p>
           <table>
             <thead><tr>
-              <th>Fecha salida</th><th>Placa</th><th>Tipo</th><th>Nombre residente</th><th>Oficina/Depto</th><th>Teléfono (WhatsApp)</th>
+              <th>Fecha salida</th><th>Placa</th><th>Tipo</th><th>Nombre residente</th><th>Oficina/Depto</th><th>Teléfono (WhatsApp)</th><th>Ref. pago abono</th>
               <th>Entrada</th><th>Salida</th><th>Total (S/)</th><th>Ref. Yape</th>
             </tr></thead>
             <tbody>
@@ -485,6 +490,7 @@ export function AdminDashboard() {
                   <td>${esc(nombreResidente)}</td>
                   <td>${esc(s.vehiculo?.numero_oficina_dep ?? '')}</td>
                   <td>${esc(s.vehiculo?.telefono_contacto ?? '')}</td>
+                  <td>${esc(s.vehiculo?.ref_pago_abono ?? '')}</td>
                   <td>${s.entrada_real ? new Date(s.entrada_real).toLocaleString('es-PE') : ''}</td>
                   <td>${s.salida ? new Date(s.salida).toLocaleString('es-PE') : ''}</td>
                   <td>${s.total_pagar ?? ''}</td>
@@ -746,21 +752,20 @@ export function AdminDashboard() {
                       {v.vigencia_abono_hasta && (
                         <span className="text-xs text-muted-foreground">Vencía: {v.vigencia_abono_hasta}</span>
                       )}
+                      {v.captura_pago_abono && (
+                        <Button type="button" variant="ghost" size="sm" className="h-7 text-xs text-primary" onClick={() => setVerCapturaUrl(v.captura_pago_abono ?? null)}>
+                          Ver captura
+                        </Button>
+                      )}
                     </div>
                     <Button
                       size="sm"
                       variant="default"
                       disabled={renovandoAbonoId === v.id}
-                      onClick={async () => {
-                        setRenovandoAbonoId(v.id)
-                        try {
-                          await renovarAbono(v.id)
-                          loadData()
-                        } catch (e) {
-                          console.error(e)
-                        } finally {
-                          setRenovandoAbonoId(null)
-                        }
+                      onClick={() => {
+                        setRenovarAbonoDialog(v)
+                        setRenovarRefPago('')
+                        setRenovarCapturaFile(null)
                       }}
                     >
                       {renovandoAbonoId === v.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarCheck className="h-4 w-4 mr-1" />}
@@ -1085,10 +1090,30 @@ export function AdminDashboard() {
                   <span className="font-mono font-medium">{servicioDetalle.vehiculo?.placa || '—'}</span>
                   <span className="text-muted-foreground">Tipo</span>
                   <span>{servicioDetalle.vehiculo?.tipo === 'residente' ? 'Residente' : servicioDetalle.vehiculo?.tipo === 'abonado' ? 'Abonado' : 'Visitante'}</span>
-                  {servicioDetalle.vehiculo?.tipo === 'abonado' && servicioDetalle.vehiculo?.vigencia_abono_hasta && (
+                  {servicioDetalle.vehiculo?.tipo === 'abonado' && (
                     <>
-                      <span className="text-muted-foreground">Vigencia abono hasta</span>
-                      <span>{servicioDetalle.vehiculo.vigencia_abono_hasta}</span>
+                      {servicioDetalle.vehiculo.vigencia_abono_hasta && (
+                        <>
+                          <span className="text-muted-foreground">Vigencia abono hasta</span>
+                          <span>{servicioDetalle.vehiculo.vigencia_abono_hasta}</span>
+                        </>
+                      )}
+                      {servicioDetalle.vehiculo.ref_pago_abono && (
+                        <>
+                          <span className="text-muted-foreground">Ref. pago abono</span>
+                          <span className="font-mono text-xs">{servicioDetalle.vehiculo.ref_pago_abono}</span>
+                        </>
+                      )}
+                      {servicioDetalle.vehiculo.captura_pago_abono && (
+                        <>
+                          <span className="text-muted-foreground">Captura del pago</span>
+                          <span>
+                            <Button type="button" variant="link" size="sm" className="h-auto p-0 text-primary" onClick={() => setVerCapturaUrl(servicioDetalle.vehiculo!.captura_pago_abono ?? null)}>
+                              Ver captura
+                            </Button>
+                          </span>
+                        </>
+                      )}
                     </>
                   )}
                   {(servicioDetalle.vehiculo?.nombre_propietario || servicioDetalle.vehiculo?.apellido_propietario) && (
@@ -1202,6 +1227,94 @@ export function AdminDashboard() {
                 Enviar
               </Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Diálogo: registrar pago abono (ref + captura opcional) */}
+        <Dialog open={!!renovarAbonoDialog} onOpenChange={(open) => !open && (setRenovarAbonoDialog(null), setRenovarCapturaFile(null))}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Registrar pago de mensualidad</DialogTitle>
+              <p className="text-sm text-muted-foreground">
+                {renovarAbonoDialog && `${renovarAbonoDialog.placa || 'Sin placa'} — opcional: ref. y captura.`}
+              </p>
+            </DialogHeader>
+            <div className="grid gap-4 py-2">
+              <div className="space-y-2">
+                <Label htmlFor="renovar-ref">Nº operación Yape / Transferencia (opcional)</Label>
+                <Input
+                  id="renovar-ref"
+                  value={renovarRefPago}
+                  onChange={(e) => setRenovarRefPago(e.target.value)}
+                  placeholder="Ej. 123456789"
+                  disabled={!!renovandoAbonoId}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="renovar-captura">Captura del pago (opcional)</Label>
+                <Input
+                  id="renovar-captura"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setRenovarCapturaFile(e.target.files?.[0] ?? null)}
+                  className="cursor-pointer"
+                  disabled={!!renovandoAbonoId}
+                />
+                {renovarCapturaFile && <p className="text-xs text-muted-foreground">{renovarCapturaFile.name}</p>}
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setRenovarAbonoDialog(null)} disabled={!!renovandoAbonoId}>
+                Cancelar
+              </Button>
+              <Button
+                disabled={!!renovandoAbonoId}
+                onClick={async () => {
+                  if (!renovarAbonoDialog) return
+                  setRenovandoAbonoId(renovarAbonoDialog.id)
+                  try {
+                    let capturaDataUrl: string | null = null
+                    if (renovarCapturaFile) {
+                      capturaDataUrl = await new Promise<string>((resolve, reject) => {
+                        const r = new FileReader()
+                        r.onload = () => resolve(r.result as string)
+                        r.onerror = () => reject(new Error('Error al leer la imagen'))
+                        r.readAsDataURL(renovarCapturaFile!)
+                      })
+                    }
+                    await renovarAbono(renovarAbonoDialog.id, {
+                      refPagoAbono: renovarRefPago.trim() || null,
+                      capturaPagoAbono: capturaDataUrl,
+                    })
+                    setRenovarAbonoDialog(null)
+                    setRenovarRefPago('')
+                    setRenovarCapturaFile(null)
+                    loadData()
+                  } catch (e) {
+                    console.error(e)
+                  } finally {
+                    setRenovandoAbonoId(null)
+                  }
+                }}
+              >
+                {renovandoAbonoId === renovarAbonoDialog?.id ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                Confirmar pago
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Vista previa captura del pago */}
+        <Dialog open={!!verCapturaUrl} onOpenChange={(open) => !open && setVerCapturaUrl(null)}>
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-auto">
+            <DialogHeader>
+              <DialogTitle>Captura del pago</DialogTitle>
+            </DialogHeader>
+            {verCapturaUrl && (
+              <div className="flex justify-center bg-muted/30 rounded-lg p-2">
+                <img src={verCapturaUrl} alt="Captura del pago" className="max-w-full max-h-[70vh] object-contain rounded" />
+              </div>
+            }
           </DialogContent>
         </Dialog>
 

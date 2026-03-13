@@ -442,6 +442,10 @@ export type DatosResidente = {
 
 export type DatosAbonado = DatosResidente & {
   yaPagoMensualidad?: boolean
+  /** Nº operación Yape o transferencia. */
+  refPagoAbono?: string | null
+  /** Captura del pago en base64 (data URL, ej. data:image/jpeg;base64,...). */
+  capturaPagoAbono?: string | null
 }
 
 function addMonths(d: Date, months: number): Date {
@@ -496,6 +500,12 @@ export async function registrarEntrada(
         const hasta = addMonths(new Date(), 1)
         insertPayload.vigencia_abono_hasta = hasta.toISOString().split('T')[0]
       }
+      if (datosAbonado?.refPagoAbono != null && String(datosAbonado.refPagoAbono).trim()) {
+        insertPayload.ref_pago_abono = String(datosAbonado.refPagoAbono).trim()
+      }
+      if (datosAbonado?.capturaPagoAbono != null && String(datosAbonado.capturaPagoAbono).trim()) {
+        insertPayload.captura_pago_abono = String(datosAbonado.capturaPagoAbono).trim()
+      }
     }
     const { data: nuevo, error: vehiculoError } = await supabase
       .from('vehiculos')
@@ -530,6 +540,8 @@ export async function actualizarVehiculo(
     numero_oficina_dep?: string | null
     telefono_contacto?: string | null
     vigencia_abono_hasta?: string | null
+    ref_pago_abono?: string | null
+    captura_pago_abono?: string | null
   }
 ): Promise<void> {
   const supabase = await createClient()
@@ -544,8 +556,11 @@ export async function actualizarVehiculo(
   revalidatePath('/admin')
 }
 
-/** Registra pago de mensualidad: extiende vigencia 1 mes desde hoy o desde la vigencia actual si es posterior. */
-export async function renovarAbono(vehiculoId: string): Promise<void> {
+/** Registra pago de mensualidad: extiende vigencia 1 mes; opcional ref y captura. */
+export async function renovarAbono(
+  vehiculoId: string,
+  opts?: { refPagoAbono?: string | null; capturaPagoAbono?: string | null }
+): Promise<void> {
   const supabase = await createClient()
   const { data: v, error: fetchErr } = await supabase
     .from('vehiculos')
@@ -558,9 +573,16 @@ export async function renovarAbono(vehiculoId: string): Promise<void> {
     ? new Date(v.vigencia_abono_hasta)
     : new Date()
   const nuevaVigencia = addMonths(base, 1).toISOString().split('T')[0]
+  const updatePayload: Record<string, unknown> = { vigencia_abono_hasta: nuevaVigencia }
+  if (opts?.refPagoAbono != null && String(opts.refPagoAbono).trim()) {
+    updatePayload.ref_pago_abono = String(opts.refPagoAbono).trim()
+  }
+  if (opts?.capturaPagoAbono != null && String(opts.capturaPagoAbono).trim()) {
+    updatePayload.captura_pago_abono = String(opts.capturaPagoAbono).trim()
+  }
   const { error } = await supabase
     .from('vehiculos')
-    .update({ vigencia_abono_hasta: nuevaVigencia })
+    .update(updatePayload)
     .eq('id', vehiculoId)
   if (error) throw error
   revalidatePath('/conserje')

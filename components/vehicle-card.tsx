@@ -4,7 +4,13 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Clock, Car, DollarSign, AlertTriangle } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Clock, Car, DollarSign, AlertTriangle, ImageIcon } from 'lucide-react'
 import { formatDuration, getElapsedTime, formatCurrency } from '@/lib/billing'
 import { abonoVigente } from '@/lib/billing'
 import type { ServicioConVehiculo, Configuracion } from '@/lib/types'
@@ -17,6 +23,7 @@ interface VehicleCardProps {
 
 export function VehicleCard({ servicio, configuracion, onValidate }: VehicleCardProps) {
   const [elapsed, setElapsed] = useState({ totalMinutes: 0, billableMinutes: 0 })
+  const [verCapturaUrl, setVerCapturaUrl] = useState<string | null>(null)
 
   useEffect(() => {
     const update = () => {
@@ -38,6 +45,7 @@ export function VehicleCard({ servicio, configuracion, onValidate }: VehicleCard
   const abonadoVencido = esAbonado && !abonoVigente(servicio.vehiculo.vigencia_abono_hasta)
 
   return (
+    <>
     <Card className={`border-border hover:border-primary/50 transition-colors ${abonadoVencido ? 'border-amber-500/60 bg-amber-500/5' : ''}`}>
       <CardContent className="p-3 sm:p-4">
         {abonadoVencido && (
@@ -67,6 +75,19 @@ export function VehicleCard({ servicio, configuracion, onValidate }: VehicleCard
                 <p className="text-sm text-muted-foreground truncate">
                   {servicio.vehiculo.nombre_propietario}
                 </p>
+              )}
+              {esAbonado && (servicio.vehiculo.ref_pago_abono || servicio.vehiculo.captura_pago_abono) && (
+                <div className="flex flex-wrap items-center gap-2 mt-1">
+                  {servicio.vehiculo.ref_pago_abono && (
+                    <span className="text-xs text-muted-foreground">Ref: {servicio.vehiculo.ref_pago_abono}</span>
+                  )}
+                  {servicio.vehiculo.captura_pago_abono && (
+                    <Button type="button" variant="ghost" size="sm" className="h-7 text-xs text-primary" onClick={() => setVerCapturaUrl(servicio.vehiculo.captura_pago_abono ?? null)}>
+                      <ImageIcon className="h-3.5 w-3.5 mr-1" />
+                      Ver captura
+                    </Button>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -104,5 +125,19 @@ export function VehicleCard({ servicio, configuracion, onValidate }: VehicleCard
         </div>
       </CardContent>
     </Card>
+
+    <Dialog open={!!verCapturaUrl} onOpenChange={(open) => !open && setVerCapturaUrl(null)}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-auto">
+        <DialogHeader>
+          <DialogTitle>Captura del pago (abonado)</DialogTitle>
+        </DialogHeader>
+        {verCapturaUrl && (
+          <div className="flex justify-center bg-muted/30 rounded-lg p-2">
+            <img src={verCapturaUrl} alt="Captura del pago" className="max-w-full max-h-[70vh] object-contain rounded" />
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+    </>
   )
 }

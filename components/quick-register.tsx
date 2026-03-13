@@ -60,6 +60,8 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
   const [numeroOficinaDep, setNumeroOficinaDep] = useState('')
   const [telefonoResidente, setTelefonoResidente] = useState('')
   const [yaPagoMensualidad, setYaPagoMensualidad] = useState(false)
+  const [refPagoAbono, setRefPagoAbono] = useState('')
+  const [capturaPagoFile, setCapturaPagoFile] = useState<File | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   const cargarResidentes = async () => {
@@ -94,6 +96,8 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
     setNumeroOficinaDep('')
     setTelefonoResidente('')
     setYaPagoMensualidad(false)
+    setRefPagoAbono('')
+    setCapturaPagoFile(null)
     setComboboxSearch('')
     setErrorMsg(null)
   }
@@ -139,6 +143,15 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
       } else if (tipo === 'abonado' && abonadoSeleccionado) {
         await registrarEntrada('abonado', null, abonadoSeleccionado, undefined, undefined)
       } else if (tipo === 'abonado' && placa.trim()) {
+        let capturaDataUrl: string | null = null
+        if (capturaPagoFile) {
+          capturaDataUrl = await new Promise<string>((resolve, reject) => {
+            const r = new FileReader()
+            r.onload = () => resolve(r.result as string)
+            r.onerror = () => reject(new Error('Error al leer la imagen'))
+            r.readAsDataURL(capturaPagoFile)
+          })
+        }
         await registrarEntrada('abonado', placa.trim(), null, {
           nombre: nombreResidente.trim() || null,
           apellido: apellidoResidente.trim() || null,
@@ -150,6 +163,8 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
           numero_oficina_dep: numeroOficinaDep.trim() || null,
           telefono_contacto: telefonoResidente.trim() || null,
           yaPagoMensualidad,
+          refPagoAbono: refPagoAbono.trim() || null,
+          capturaPagoAbono: capturaDataUrl,
         })
       } else {
         await registrarEntrada(tipo!, placa.trim() || null, null)
@@ -164,6 +179,8 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
       setNumeroOficinaDep('')
       setTelefonoResidente('')
       setYaPagoMensualidad(false)
+      setRefPagoAbono('')
+      setCapturaPagoFile(null)
       setComboboxSearch('')
       onRegistered()
     } catch (error) {
@@ -185,6 +202,8 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
     setNumeroOficinaDep('')
     setTelefonoResidente('')
     setYaPagoMensualidad(false)
+    setRefPagoAbono('')
+    setCapturaPagoFile(null)
     setComboboxSearch('')
     setErrorMsg(null)
   }
@@ -442,18 +461,42 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
                       />
                     </div>
                     {tipo === 'abonado' && (
-                      <div className="space-y-2 sm:col-span-2 flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          id="ya-pago-mensualidad"
-                          checked={yaPagoMensualidad}
-                          onChange={(e) => setYaPagoMensualidad(e.target.checked)}
-                          className="rounded border-border"
-                        />
-                        <Label htmlFor="ya-pago-mensualidad" className="font-normal cursor-pointer">
-                          Ya pagó la mensualidad (vigencia desde hoy + 1 mes)
-                        </Label>
-                      </div>
+                      <>
+                        <div className="space-y-2 sm:col-span-2 flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            id="ya-pago-mensualidad"
+                            checked={yaPagoMensualidad}
+                            onChange={(e) => setYaPagoMensualidad(e.target.checked)}
+                            className="rounded border-border"
+                          />
+                          <Label htmlFor="ya-pago-mensualidad" className="font-normal cursor-pointer">
+                            Ya pagó la mensualidad (vigencia desde hoy + 1 mes)
+                          </Label>
+                        </div>
+                        <div className="space-y-2 sm:col-span-2">
+                          <Label htmlFor="ref-pago-abono">Nº operación Yape / Transferencia (opcional)</Label>
+                          <Input
+                            id="ref-pago-abono"
+                            value={refPagoAbono}
+                            onChange={(e) => setRefPagoAbono(e.target.value)}
+                            placeholder="Ej. 123456789"
+                          />
+                        </div>
+                        <div className="space-y-2 sm:col-span-2">
+                          <Label htmlFor="captura-pago">Captura del pago (opcional)</Label>
+                          <Input
+                            id="captura-pago"
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => setCapturaPagoFile(e.target.files?.[0] ?? null)}
+                            className="cursor-pointer"
+                          />
+                          {capturaPagoFile && (
+                            <p className="text-xs text-muted-foreground">{capturaPagoFile.name}</p>
+                          )}
+                        </div>
+                      </>
                     )}
                   </div>
                 )}

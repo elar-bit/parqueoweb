@@ -7,6 +7,8 @@ export interface Vehiculo {
   numero_oficina_dep?: string | null
   telefono_contacto?: string | null
   vigencia_abono_hasta?: string | null
+  ref_pago_abono?: string | null
+  captura_pago_abono?: string | null
   created_at: string
 }
 

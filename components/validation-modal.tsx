@@ -80,6 +80,7 @@ export function ValidationModal({
   const [whatsappOpcion, setWhatsappOpcion] = useState<'guardado' | 'nuevo'>('guardado')
   const [whatsappPhone, setWhatsappPhone] = useState('')
   const [whatsappSaving, setWhatsappSaving] = useState(false)
+  const [verCapturaUrl, setVerCapturaUrl] = useState<string | null>(null)
   const ticketRef = useRef<HTMLDivElement>(null)
 
   const normalizarTelefonoWhatsApp = (valor: string): string => {
@@ -287,6 +288,18 @@ export function ValidationModal({
                   <span>Mensualidad no pagada o vencida. Se registrará salida con total S/ 0.</span>
                 </div>
               )}
+              {servicio.vehiculo.tipo === 'abonado' && (servicio.vehiculo.ref_pago_abono || servicio.vehiculo.captura_pago_abono) && (
+                <div className="flex flex-wrap items-center gap-2 text-sm">
+                  {servicio.vehiculo.ref_pago_abono && (
+                    <span className="text-muted-foreground">Ref. pago abono: <span className="font-mono">{servicio.vehiculo.ref_pago_abono}</span></span>
+                  )}
+                  {servicio.vehiculo.captura_pago_abono && (
+                    <Button type="button" variant="outline" size="sm" className="text-primary" onClick={() => setVerCapturaUrl(servicio.vehiculo!.captura_pago_abono ?? null)}>
+                      Ver captura del pago
+                    </Button>
+                  )}
+                </div>
+              )}
               
               <Separator />
               
@@ -490,6 +503,20 @@ export function ValidationModal({
             Enviar
           </Button>
         </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    {/* Vista previa captura del pago (conserje) */}
+    <Dialog open={!!verCapturaUrl} onOpenChange={(open) => !open && setVerCapturaUrl(null)}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-auto">
+        <DialogHeader>
+          <DialogTitle>Captura del pago (abonado)</DialogTitle>
+        </DialogHeader>
+        {verCapturaUrl && (
+          <div className="flex justify-center bg-muted/30 rounded-lg p-2">
+            <img src={verCapturaUrl} alt="Captura del pago" className="max-w-full max-h-[70vh] object-contain rounded" />
+          </div>
+        )}
       </DialogContent>
     </Dialog>
     </>
