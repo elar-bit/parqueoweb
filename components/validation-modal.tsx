@@ -24,6 +24,35 @@ import { actualizarVehiculo, registrarSalida } from '@/app/actions'
 import type { ServicioConVehiculo, Configuracion } from '@/lib/types'
 import { Printer, Check } from 'lucide-react'
 
+function buildTicketTextoWhatsApp(opts: {
+  placa: string
+  tipo: 'visitante' | 'residente'
+  nombreResidente: string | null
+  entrada: Date
+  salida: Date
+  total: number
+  refYape: string
+}): string {
+  const { placa, tipo, nombreResidente, entrada, salida, total, refYape } = opts
+  const saludoBase = nombreResidente
+    ? `Hola, ${nombreResidente} 👋`
+    : 'Hola 👋'
+  const lineas = [
+    `${saludoBase}, gracias por usar nuestro servicio de parqueo. 🚗`,
+    'Compartimos contigo tu ticket generado el día de hoy en nuestra playa de estacionamiento. 🧾',
+    '',
+    `Placa: ${placa || 'N/A'}`,
+    `Tipo: ${tipo === 'residente' ? 'Residente' : 'Visitante'}`,
+    `Entrada: ${entrada.toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })}`,
+    `Salida: ${salida.toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })}`,
+    `Total: ${formatCurrency(total)}`,
+  ]
+  if (refYape.trim()) lineas.push(`Ref. Yape: ${refYape.trim()}`)
+  lineas.push('')
+  lineas.push('¡Gracias y que tengas un excelente día! ✨')
+  return lineas.join('\n')
+}
+
 interface ValidationModalProps {
   servicio: ServicioConVehiculo | null
   configuracion: Configuracion[]
@@ -45,6 +74,7 @@ export function ValidationModal({
   const [loading, setLoading] = useState(false)
   const [showTicket, setShowTicket] = useState(false)
   const [billing, setBilling] = useState({ minutosCobrados: 0, total: 0 })
+  const [salidaTicket, setSalidaTicket] = useState<Date | null>(null)
   const ticketRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -53,6 +83,7 @@ export function ValidationModal({
       setTipo(servicio.vehiculo.tipo)
       setRefYape('')
       setShowTicket(false)
+      setSalidaTicket(null)
       
       const entradaReal = new Date(servicio.entrada_real)
       const salida = new Date()
@@ -96,6 +127,7 @@ export function ValidationModal({
         refYape || undefined
       )
       
+      setSalidaTicket(new Date())
       setShowTicket(true)
     } catch (error) {
       console.error('Error processing exit:', error)
@@ -137,6 +169,26 @@ export function ValidationModal({
     }
   }
 
+  const handleEnviarWhatsApp = () => {
+    if (!servicio) return
+    const nombreResidente =
+      servicio.vehiculo?.tipo === 'residente' &&
+      (servicio.vehiculo.nombre_propietario || servicio.vehiculo.apellido_propietario)
+        ? [servicio.vehiculo.nombre_propietario, servicio.vehiculo.apellido_propietario].filter(Boolean).join(' ')
+        : null
+    const salida = salidaTicket ?? new Date()
+    const texto = buildTicketTextoWhatsApp({
+      placa,
+      tipo,
+      nombreResidente,
+      entrada: new Date(servicio.entrada_real),
+      salida,
+      total: billing.total,
+      refYape: refYape.trim(),
+    })
+    window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank')
+  }
+
   const handleClose = () => {
     if (showTicket) {
       onComplete()
@@ -147,7 +199,7 @@ export function ValidationModal({
   if (!servicio) return null
 
   const entradaReal = new Date(servicio.entrada_real)
-  const salida = new Date()
+  const salida = salidaTicket ?? new Date()
   const tarifa = configuracion.find(c => c.tipo_usuario === tipo)
 
   return (
@@ -304,10 +356,13 @@ export function ValidationModal({
               </div>
             </div>
             
-            <DialogFooter className="gap-2">
+            <DialogFooter className="gap-2 flex-wrap">
               <Button variant="outline" onClick={handlePrint}>
                 <Printer className="h-4 w-4 mr-2" />
                 Imprimir
+              </Button>
+              <Button onClick={handleEnviarWhatsApp}>
+                Enviar por WhatsApp
               </Button>
               <Button onClick={handleClose}>
                 Cerrar

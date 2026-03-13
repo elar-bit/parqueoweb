@@ -938,8 +938,15 @@ export function AdminDashboard() {
                           </p>
                         </div>
                         <div className="flex items-center gap-1">
-                          <Button variant="ghost" size="sm" onClick={() => setServicioDetalle(servicio)} title="Ver detalle">
-                            <Info className="h-4 w-4" />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setServicioDetalle(servicio)}
+                            title="Ver ticket, imprimir o enviar por WhatsApp"
+                            className="border-primary text-primary hover:bg-primary/5 min-h-[36px]"
+                          >
+                            <Info className="h-4 w-4 mr-1" />
+                            <span className="hidden sm:inline text-xs font-medium">Ver ticket</span>
                           </Button>
                           <Button variant="ghost" size="sm" onClick={() => setDeletingServicioId(servicio.id)} title="Eliminar registro" className="text-destructive hover:text-destructive shrink-0 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0">
                             <Trash2 className="h-4 w-4" />
