@@ -8,9 +8,10 @@ const CHART_COLORS = ['hsl(var(--primary))', 'hsl(var(--primary) / 0.8)', 'hsl(v
 interface IncomeChartProps {
   data: { fecha: string; total: number }[]
   tipo?: 'bar' | 'pie'
+  leyenda?: string
 }
 
-export function IncomeChart({ data, tipo = 'bar' }: IncomeChartProps) {
+export function IncomeChart({ data, tipo = 'bar', leyenda }: IncomeChartProps) {
   const formattedData = data.map((item) => ({
     ...item,
     name: new Date(item.fecha + 'T00:00:00').toLocaleDateString('es-PE', {
@@ -25,8 +26,11 @@ export function IncomeChart({ data, tipo = 'bar' }: IncomeChartProps) {
 
   if (data.length === 0) {
     return (
-      <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-        No hay datos disponibles
+      <div className="space-y-2">
+        {leyenda && <p className="text-sm text-muted-foreground font-medium">{leyenda}</p>}
+        <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+          No hay datos disponibles
+        </div>
       </div>
     )
   }
@@ -47,7 +51,9 @@ export function IncomeChart({ data, tipo = 'bar' }: IncomeChartProps) {
 
   if (tipo === 'pie') {
     return (
-      <div className="h-[300px] w-full">
+      <div className="space-y-2 w-full">
+        {leyenda && <p className="text-sm text-muted-foreground font-medium">Datos: {leyenda}</p>}
+        <div className="h-[300px] w-full">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
@@ -67,12 +73,15 @@ export function IncomeChart({ data, tipo = 'bar' }: IncomeChartProps) {
             <Legend />
           </PieChart>
         </ResponsiveContainer>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="h-[300px] w-full">
+    <div className="space-y-2 w-full">
+      {leyenda && <p className="text-sm text-muted-foreground font-medium">Datos: {leyenda}</p>}
+      <div className="h-[300px] w-full">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={formattedData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
@@ -91,11 +100,14 @@ export function IncomeChart({ data, tipo = 'bar' }: IncomeChartProps) {
           <Tooltip content={tooltipContent} />
           <Bar
             dataKey="total"
+            name="Ingresos (S/)"
             fill="hsl(var(--primary))"
             radius={[4, 4, 0, 0]}
           />
+          <Legend />
         </BarChart>
       </ResponsiveContainer>
+      </div>
     </div>
   )
 }

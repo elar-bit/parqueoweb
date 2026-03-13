@@ -131,6 +131,17 @@ export function AdminDashboard() {
   const totalFiltrado = chartData.reduce((sum, d) => sum + d.total, 0)
   const serviciosCount = serviciosList.length
 
+  const leyendaDatos =
+    filtroTipo === 'visitante'
+      ? 'Solo visitantes'
+      : filtroTipo === 'residente'
+        ? 'Solo residentes'
+        : 'Todos los tipos (visitantes y residentes)'
+  const textoPeriodo =
+    filtroFechaDesde || filtroFechaHasta
+      ? `Período: ${filtroFechaDesde || '...'} a ${filtroFechaHasta || '...'}`
+      : 'Sin filtro de fechas'
+
   const handleGuardarTarifas = async () => {
     const v = parseFloat(tarifaVisitante)
     const r = parseFloat(tarifaResidente)
@@ -263,6 +274,8 @@ export function AdminDashboard() {
   }
 
   const exportarExcel = () => {
+    const titulo = 'Reporte de ingresos - Estacionamiento'
+    const filtrosLinea = `Datos: ${leyendaDatos}. ${textoPeriodo}`
     const headers = ['Fecha', 'Placa', 'Tipo', 'Total (S/)', 'Salida']
     const rows = serviciosList.map((s) => [
       s.salida ? new Date(s.salida).toLocaleDateString('es-PE') : '',
@@ -271,7 +284,14 @@ export function AdminDashboard() {
       String(s.total_pagar ?? ''),
       s.salida ? new Date(s.salida).toLocaleString('es-PE') : '',
     ])
-    const csv = [headers.join(','), ...rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(','))].join('\n')
+    const csv = [
+      `"${titulo}"`,
+      `"${filtrosLinea.replace(/"/g, '""')}"`,
+      '"Generado: ' + new Date().toLocaleString('es-PE') + '"',
+      '',
+      headers.join(','),
+      ...rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')),
+    ].join('\n')
     const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -295,10 +315,12 @@ export function AdminDashboard() {
             th { background: #f5f5f5; }
             h1 { font-size: 18px; }
             .fecha { color: #666; font-size: 12px; margin-top: 8px; }
+            .leyenda { font-size: 14px; margin-top: 4px; font-weight: 500; }
           </style>
         </head>
         <body>
           <h1>Reporte de ingresos - Estacionamiento</h1>
+          <p class="leyenda">Datos: ${leyendaDatos}. ${textoPeriodo}</p>
           <p class="fecha">Generado: ${new Date().toLocaleString('es-PE')}</p>
           <table>
             <thead><tr><th>Fecha</th><th>Placa</th><th>Tipo</th><th>Total (S/)</th><th>Salida</th></tr></thead>
@@ -451,7 +473,10 @@ export function AdminDashboard() {
         <Card className="border-border">
           <CardHeader>
             <div className="flex flex-wrap items-center justify-between gap-4">
-              <CardTitle className="text-foreground">Ingresos por día</CardTitle>
+              <div>
+                <CardTitle className="text-foreground">Ingresos por día</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">Leyenda: {leyendaDatos}. {textoPeriodo}</p>
+              </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Select value={tipoGrafico} onValueChange={(v) => setTipoGrafico(v as 'bar' | 'pie')}>
                   <SelectTrigger className="w-[140px]">
@@ -474,7 +499,7 @@ export function AdminDashboard() {
             </div>
           </CardHeader>
           <CardContent>
-            <IncomeChart data={chartData} tipo={tipoGrafico} />
+            <IncomeChart data={chartData} tipo={tipoGrafico} leyenda={leyendaDatos} />
           </CardContent>
         </Card>
 
@@ -728,7 +753,7 @@ export function AdminDashboard() {
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => deletingUserId && handleEliminarUsuario(deletingUserId)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      <AlertDialogAction onClick={() => deletingUserId && handleEliminarUsuario(deletingUserId)} className="bg-destructive text-white hover:bg-destructive/90 hover:text-white">
                         Eliminar
                       </AlertDialogAction>
                     </AlertDialogFooter>
@@ -799,7 +824,7 @@ export function AdminDashboard() {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={() => deletingServicioId && handleEliminarServicio(deletingServicioId)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              <AlertDialogAction onClick={() => deletingServicioId && handleEliminarServicio(deletingServicioId)} className="bg-destructive text-white hover:bg-destructive/90 hover:text-white">
                 Eliminar
               </AlertDialogAction>
             </AlertDialogFooter>
