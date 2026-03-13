@@ -5,7 +5,7 @@ import { QuickRegister } from '@/components/quick-register'
 import { VehicleCard } from '@/components/vehicle-card'
 import { ValidationModal } from '@/components/validation-modal'
 import { getServiciosActivos, getConfiguracion, logoutAdmin, getAbonadosVencidos, getAbonadosPorVencer, renovarAbono, getServiciosPagadosFiltrados, getMesesConServicios } from '@/app/actions'
-import { abonoVigente, formatCurrency, formatMesAno, montoServicioParaMostrar } from '@/lib/billing'
+import { abonoVigente, formatCurrency, formatMesAno, montoServicioParaMostrar, tiempoRestanteAbono } from '@/lib/billing'
 import type { ServicioConVehiculo, Configuracion, Vehiculo } from '@/lib/types'
 import { Car, RefreshCw, LogOut, AlertTriangle, Info, CalendarCheck, Loader2, Star } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -494,17 +494,10 @@ export function ConserjeDashboard() {
                             {servicio.vehiculo?.placa || 'Sin Placa'}
                           </p>
                           {tipo === 'abonado' && (
-                            <>
-                              <Badge variant="outline" className="text-xs shrink-0 border-sky-300 text-sky-700 bg-sky-50">
-                                <Star className="h-3 w-3 mr-0.5 fill-current" />
-                                Abonado
-                              </Badge>
-                              {nombreAbonado && (
-                                <Badge variant="secondary" className="text-xs font-normal shrink-0 bg-sky-100 text-sky-800">
-                                  {nombreAbonado}
-                                </Badge>
-                              )}
-                            </>
+                            <Badge variant="outline" className="text-xs shrink-0 border-sky-300 text-sky-700 bg-sky-50">
+                              <Star className="h-3 w-3 mr-0.5 fill-current" />
+                              {nombreAbonado || 'Abonado'}
+                            </Badge>
                           )}
                           {nombreResidente && (
                             <Badge variant="secondary" className="text-xs font-normal shrink-0">
@@ -516,7 +509,7 @@ export function ConserjeDashboard() {
                           {tipo === 'residente'
                             ? 'Residente'
                             : tipo === 'abonado'
-                              ? 'Abonado'
+                              ? `Abonado${servicio.vehiculo?.ultimo_numero_meses_abono ? ` (${servicio.vehiculo.ultimo_numero_meses_abono} ${servicio.vehiculo.ultimo_numero_meses_abono === 1 ? 'mes' : 'meses'})` : ''} - Tiempo restante: ${tiempoRestanteAbono(servicio.vehiculo?.vigencia_abono_hasta)}`
                               : 'Visitante'}
                         </p>
                       </div>

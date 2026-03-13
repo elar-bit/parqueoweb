@@ -90,3 +90,23 @@ export function abonoVigente(vigencia_abono_hasta: string | null | undefined): b
   hasta.setHours(0, 0, 0, 0)
   return hasta >= hoy
 }
+
+/** Tiempo restante hasta fin de vigencia del abono: "X días, Y horas, Z minutos" o "Vencido". */
+export function tiempoRestanteAbono(vigenciaHasta: string | null | undefined): string {
+  if (!vigenciaHasta) return 'Vencido'
+  const ahora = new Date()
+  const fin = new Date(vigenciaHasta)
+  fin.setHours(23, 59, 59, 999)
+  const ms = fin.getTime() - ahora.getTime()
+  if (ms <= 0) return 'Vencido'
+  const totalMin = Math.floor(ms / (1000 * 60))
+  const dias = Math.floor(totalMin / (60 * 24))
+  const restoMin = totalMin % (60 * 24)
+  const horas = Math.floor(restoMin / 60)
+  const minutos = restoMin % 60
+  const parts: string[] = []
+  if (dias > 0) parts.push(`${dias} ${dias === 1 ? 'día' : 'días'}`)
+  if (horas > 0) parts.push(`${horas} ${horas === 1 ? 'hora' : 'horas'}`)
+  if (minutos > 0 || parts.length === 0) parts.push(`${minutos} ${minutos === 1 ? 'minuto' : 'minutos'}`)
+  return parts.join(', ')
+}

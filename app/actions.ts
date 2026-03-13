@@ -504,6 +504,7 @@ export async function registrarEntrada(
         const meses = Math.min(6, Math.max(1, Math.floor(datosAbonado.numeroMeses)))
         const hasta = addMonths(new Date(), meses)
         insertPayload.vigencia_abono_hasta = hasta.toISOString().split('T')[0]
+        insertPayload.ultimo_numero_meses_abono = meses
         const config = await getConfiguracion()
         const precioAbonado = config.find((c) => c.tipo_usuario === 'abonado')?.precio_hora ?? 0
         const montoAbono = calcularTotalAbonado(precioAbonado, meses)
@@ -611,6 +612,7 @@ export async function renovarAbono(
   const updatePayload: Record<string, unknown> = {
     vigencia_abono_hasta: nuevaVigencia,
     monto_ultimo_pago_abono: montoAbono,
+    ultimo_numero_meses_abono: meses,
   }
   if (opts?.refPagoAbono != null && String(opts.refPagoAbono).trim()) {
     updatePayload.ref_pago_abono = String(opts.refPagoAbono).trim()

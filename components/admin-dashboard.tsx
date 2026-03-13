@@ -35,7 +35,7 @@ import {
   type UsuarioRow,
 } from '@/app/actions'
 import type { ServicioConVehiculo, Configuracion, Vehiculo } from '@/lib/types'
-import { formatCurrency, formatMesAno, montoServicioParaMostrar } from '@/lib/billing'
+import { formatCurrency, formatMesAno, montoServicioParaMostrar, tiempoRestanteAbono } from '@/lib/billing'
 import { Car, DollarSign, RefreshCw, BarChart3, LogOut, Settings, Loader2, Users, UserPlus, Pencil, Trash2, Key, FileSpreadsheet, FileText, Info, CalendarCheck, AlertTriangle, Star } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
@@ -313,14 +313,24 @@ export function AdminDashboard() {
   const loadReportesData = useCallback(async () => {
     setLoadingReportes(true)
     try {
-      const [ingresos, ingresosConTipo, servicios] = await Promise.all([
-        getIngresosFiltrados(filtrosReportes),
-        filtroTipo === '' ? getIngresosFiltradosConTipo({ ...filtrosReportes, tipo: null }) : Promise.resolve([]),
-        getServiciosPagadosFiltrados(filtrosReportes),
-      ])
-      setChartData(ingresos)
-      setChartDataConTipo(ingresosConTipo)
-      setServiciosParaReportes(servicios)
+      if (filtroTipo === '') {
+        const [ingresosConTipo, servicios] = await Promise.all([
+          getIngresosFiltradosConTipo({ ...filtrosReportes, tipo: null }),
+          getServiciosPagadosFiltrados({ ...filtrosReportes, tipo: null }),
+        ])
+        const chartDiario = ingresosConTipo.map(({ fecha, visitantes, residentes }) => ({ fecha, total: visitantes + residentes }))
+        setChartData(chartDiario)
+        setChartDataConTipo(ingresosConTipo)
+        setServiciosParaReportes(servicios)
+      } else {
+        const [ingresos, servicios] = await Promise.all([
+          getIngresosFiltrados(filtrosReportes),
+          getServiciosPagadosFiltrados(filtrosReportes),
+        ])
+        setChartData(ingresos)
+        setChartDataConTipo([])
+        setServiciosParaReportes(servicios)
+      }
     } catch (error) {
       console.error('Error loading reportes data:', error)
     } finally {
@@ -337,6 +347,12 @@ export function AdminDashboard() {
   }, [reportesExpandido, loadReportesData])
 
   const totalFiltradoReportes = serviciosParaReportes.reduce((sum, s) => sum + montoServicioParaMostrar(s), 0)
+  const totalDiarioReportes = serviciosParaReportes
+    .filter((s) => s.vehiculo?.tipo === 'visitante' || s.vehiculo?.tipo === 'residente')
+    .reduce((sum, s) => sum + montoServicioParaMostrar(s), 0)
+  const totalAbonadosReportes = serviciosParaReportes
+    .filter((s) => s.vehiculo?.tipo === 'abonado')
+    .reduce((sum, s) => sum + montoServicioParaMostrar(s), 0)
   const serviciosCountReportes = serviciosParaReportes.length
   const filtroPlacaApellidoNorm = filtroPlacaApellido.trim().toLowerCase()
   const serviciosListFiltrados =
@@ -883,17 +899,10 @@ export function AdminDashboard() {
                               {servicio.vehiculo?.placa || 'Sin Placa'}
                             </p>
                             {tipo === 'abonado' && (
-                              <>
-                                <Badge variant="outline" className="text-xs shrink-0 border-sky-300 text-sky-700 bg-sky-50">
-                                  <Star className="h-3 w-3 mr-0.5 fill-current" />
-                                  Abonado
-                                </Badge>
-                                {nombreAbonado && (
-                                  <Badge variant="secondary" className="text-xs font-normal shrink-0 bg-sky-100 text-sky-800">
-                                    {nombreAbonado}
-                                  </Badge>
-                                )}
-                              </>
+                              <Badge variant="outline" className="text-xs shrink-0 border-sky-300 text-sky-700 bg-sky-50">
+                                <Star className="h-3 w-3 mr-0.5 fill-current" />
+                                {nombreAbonado || 'Abonado'}
+                              </Badge>
                             )}
                             {nombreResidente && (
                               <Badge variant="secondary" className="text-xs font-normal shrink-0">
@@ -902,7 +911,11 @@ export function AdminDashboard() {
                             )}
                           </div>
                           <p className="text-xs text-muted-foreground">
-                            {tipo === 'residente' ? 'Residente' : tipo === 'abonado' ? 'Abonado' : 'Visitante'}
+                            {tipo === 'residente'
+                              ? 'Residente'
+                              : tipo === 'abonado'
+                                ? `Abonado${servicio.vehiculo?.ultimo_numero_meses_abono ? ` (${servicio.vehiculo.ultimo_numero_meses_abono} ${servicio.vehiculo.ultimo_numero_meses_abono === 1 ? 'mes' : 'meses'})` : ''} - Tiempo restante: ${tiempoRestanteAbono(servicio.vehiculo?.vigencia_abono_hasta)}`
+                              : 'Visitante'}
                           </p>
                         </div>
                       </div>
@@ -1255,7 +1268,7 @@ export function AdminDashboard() {
                   </div>
                   <Button variant="secondary" onClick={loadReportesData} disabled={loadingReportes}>Aplicar filtros</Button>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                   <Card className="border-border">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                       <CardTitle className="text-sm font-medium text-muted-foreground">Vehículos activos</CardTitle>
@@ -1266,16 +1279,41 @@ export function AdminDashboard() {
                       <p className="text-xs text-muted-foreground mt-1">En el estacionamiento ahora</p>
                     </CardContent>
                   </Card>
-                  <Card className="border-border">
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                      <CardTitle className="text-sm font-medium text-muted-foreground">Total (filtro)</CardTitle>
-                      <DollarSign className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-3xl font-bold text-foreground">{formatCurrency(totalFiltradoReportes)}</div>
-                      <p className="text-xs text-muted-foreground mt-1">{serviciosCountReportes} servicios</p>
-                    </CardContent>
-                  </Card>
+                  {filtroTipo === '' ? (
+                    <>
+                      <Card className="border-border">
+                        <CardHeader className="flex flex-row items-center justify-between pb-2">
+                          <CardTitle className="text-sm font-medium text-muted-foreground">Total ingresos diarios</CardTitle>
+                          <DollarSign className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-3xl font-bold text-foreground">{formatCurrency(totalDiarioReportes)}</div>
+                          <p className="text-xs text-muted-foreground mt-1">Visitantes y residentes (día a día)</p>
+                        </CardContent>
+                      </Card>
+                      <Card className="border-border">
+                        <CardHeader className="flex flex-row items-center justify-between pb-2">
+                          <CardTitle className="text-sm font-medium text-muted-foreground">Total abonados</CardTitle>
+                          <DollarSign className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-3xl font-bold text-foreground">{formatCurrency(totalAbonadosReportes)}</div>
+                          <p className="text-xs text-muted-foreground mt-1">Mensualidades abonados</p>
+                        </CardContent>
+                      </Card>
+                    </>
+                  ) : (
+                    <Card className="border-border">
+                      <CardHeader className="flex flex-row items-center justify-between pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground">Total (filtro)</CardTitle>
+                        <DollarSign className="h-4 w-4 text-muted-foreground" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-3xl font-bold text-foreground">{formatCurrency(totalFiltradoReportes)}</div>
+                        <p className="text-xs text-muted-foreground mt-1">{serviciosCountReportes} servicios</p>
+                      </CardContent>
+                    </Card>
+                  )}
                   <Card className="border-border">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                       <CardTitle className="text-sm font-medium text-muted-foreground">Período</CardTitle>
@@ -1296,11 +1334,13 @@ export function AdminDashboard() {
                     <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                       <div className="min-w-0">
                         <CardTitle className="text-foreground text-base sm:text-lg">
-                          Ingresos por día
-                          {filtroTipo === 'visitante' && ' — Visitantes'}
-                          {filtroTipo === 'residente' && ' — Residentes'}
-                          {filtroTipo === 'abonado' && ' — Abonados'}
-                          {filtroTipo === '' && ' — Visitantes y Residentes'}
+                          {filtroTipo === 'abonado'
+                            ? 'Ingresos por abonados'
+                            : filtroTipo === 'visitante'
+                              ? 'Ingresos por día — Visitantes'
+                              : filtroTipo === 'residente'
+                                ? 'Ingresos por día — Residentes'
+                                : 'Ingresos por día (visitantes y residentes)'}
                         </CardTitle>
                         <p className="text-xs sm:text-sm text-muted-foreground mt-1 break-words">Leyenda: {leyendaDatos}. {textoPeriodo}</p>
                       </div>

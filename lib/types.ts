@@ -11,6 +11,8 @@ export interface Vehiculo {
   captura_pago_abono?: string | null
   /** Monto del último pago de mensualidad (para mostrar en tabla de servicios). */
   monto_ultimo_pago_abono?: number | null
+  /** Cantidad de meses del último pago (1-6) para mostrar "Abonado (N meses)". */
+  ultimo_numero_meses_abono?: number | null
   created_at: string
 }
 
