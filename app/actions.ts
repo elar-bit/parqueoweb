@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { createHmac } from 'crypto'
 import { hash, compare } from 'bcryptjs'
-import { calculateBilling, abonoVigente } from '@/lib/billing'
+import { calculateBilling, abonoVigente, calcularTotalAbonado, montoServicioParaMostrar } from '@/lib/billing'
 import type { Configuracion, ServicioConVehiculo, Vehiculo } from '@/lib/types'
 
 const SESSION_COOKIE_NAME = 'parqueo_session'
@@ -504,6 +504,10 @@ export async function registrarEntrada(
         const meses = Math.min(6, Math.max(1, Math.floor(datosAbonado.numeroMeses)))
         const hasta = addMonths(new Date(), meses)
         insertPayload.vigencia_abono_hasta = hasta.toISOString().split('T')[0]
+        const config = await getConfiguracion()
+        const precioAbonado = config.find((c) => c.tipo_usuario === 'abonado')?.precio_hora ?? 0
+        const montoAbono = calcularTotalAbonado(precioAbonado, meses)
+        insertPayload.monto_ultimo_pago_abono = montoAbono
       }
       if (datosAbonado?.refPagoAbono != null && String(datosAbonado.refPagoAbono).trim()) {
         insertPayload.ref_pago_abono = String(datosAbonado.refPagoAbono).trim()
@@ -533,7 +537,8 @@ export async function registrarEntrada(
     baseServicio.estado = 'pagado'
     baseServicio.salida = ahoraIso
     baseServicio.tarifa_aplicada = 0
-    baseServicio.total_pagar = 0
+    const montoAbono = (vehiculo as Vehiculo & { monto_ultimo_pago_abono?: number })?.monto_ultimo_pago_abono ?? 0
+    baseServicio.total_pagar = montoAbono
   }
 
   const { data: servicio, error: servicioError } = await supabase
@@ -600,7 +605,13 @@ export async function renovarAbono(
       ? vigenciaDate
       : hoy
   const nuevaVigencia = addMonths(base, meses).toISOString().split('T')[0]
-  const updatePayload: Record<string, unknown> = { vigencia_abono_hasta: nuevaVigencia }
+  const config = await getConfiguracion()
+  const precioAbonado = config.find((c) => c.tipo_usuario === 'abonado')?.precio_hora ?? 0
+  const montoAbono = calcularTotalAbonado(precioAbonado, meses)
+  const updatePayload: Record<string, unknown> = {
+    vigencia_abono_hasta: nuevaVigencia,
+    monto_ultimo_pago_abono: montoAbono,
+  }
   if (opts?.refPagoAbono != null && String(opts.refPagoAbono).trim()) {
     updatePayload.ref_pago_abono = String(opts.refPagoAbono).trim()
   }
@@ -674,7 +685,7 @@ export async function registrarSalida(
 
   const { data: servicio, error: fetchError } = await supabase
     .from('servicios')
-    .select('entrada_real, vehiculo:vehiculos(tipo, vigencia_abono_hasta)')
+    .select('entrada_real, vehiculo:vehiculos(tipo, vigencia_abono_hasta, monto_ultimo_pago_abono)')
     .eq('id', servicioId)
     .eq('estado', 'activo')
     .single()
@@ -683,7 +694,7 @@ export async function registrarSalida(
     throw fetchError || new Error('Servicio no encontrado o ya finalizado')
   }
 
-  const vehiculo = servicio.vehiculo as { tipo?: string; vigencia_abono_hasta?: string | null } | null
+  const vehiculo = servicio.vehiculo as { tipo?: string; vigencia_abono_hasta?: string | null; monto_ultimo_pago_abono?: number | null } | null
   const esAbonadoVigente = vehiculo?.tipo === 'abonado' && abonoVigente(vehiculo?.vigencia_abono_hasta)
 
   const salida = new Date()
@@ -691,7 +702,7 @@ export async function registrarSalida(
   let totalPagar: number
   let tarifaFinal: number
   if (esAbonadoVigente) {
-    totalPagar = 0
+    totalPagar = vehiculo?.monto_ultimo_pago_abono ?? 0
     tarifaFinal = 0
   } else {
     const billing = calculateBilling(entradaReal, salida, tarifaAplicada)
@@ -817,9 +828,10 @@ export async function getIngresosFiltrados(filtros: FiltrosAdmin): Promise<{ fec
     const servicios = await getServiciosPagadosFiltrados(filtros)
     const grouped: Record<string, number> = {}
     servicios.forEach((s) => {
-      if (s.salida && s.total_pagar != null) {
+      if (s.salida) {
         const dateKey = new Date(s.salida).toISOString().split('T')[0]
-        grouped[dateKey] = (grouped[dateKey] || 0) + Number(s.total_pagar)
+        const monto = montoServicioParaMostrar(s)
+        grouped[dateKey] = (grouped[dateKey] || 0) + monto
       }
     })
     return Object.entries(grouped)
@@ -844,8 +856,9 @@ export async function getIngresosFiltradosConTipo(
         if (t === 'abonado') return
         const dateKey = new Date(s.salida).toISOString().split('T')[0]
         if (!grouped[dateKey]) grouped[dateKey] = { visitantes: 0, residentes: 0 }
+        const monto = montoServicioParaMostrar(s)
         const tipo = t === 'residente' ? 'residentes' : 'visitantes'
-        grouped[dateKey][tipo] += Number(s.total_pagar)
+        grouped[dateKey][tipo] += monto
       }
     })
     return Object.entries(grouped)

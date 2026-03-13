@@ -71,6 +71,16 @@ export function calcularTotalAbonado(precioMensual: number, numeroMeses: number)
   return Math.round(precioMensual * mult)
 }
 
+/** Monto a mostrar en tabla de servicios: para abonados con total 0 usa monto_ultimo_pago_abono del vehículo. */
+export function montoServicioParaMostrar(servicio: { total_pagar?: number | null; vehiculo?: { tipo?: string; monto_ultimo_pago_abono?: number | null } | null }): number {
+  const esAbonado = servicio.vehiculo?.tipo === 'abonado'
+  const total = servicio.total_pagar ?? 0
+  if (esAbonado && total === 0 && servicio.vehiculo?.monto_ultimo_pago_abono != null) {
+    return servicio.vehiculo.monto_ultimo_pago_abono
+  }
+  return total
+}
+
 /** True si el abonado tiene mensualidad vigente (incluye hoy). */
 export function abonoVigente(vigencia_abono_hasta: string | null | undefined): boolean {
   if (!vigencia_abono_hasta) return false

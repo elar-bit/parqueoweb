@@ -35,7 +35,7 @@ import {
   type UsuarioRow,
 } from '@/app/actions'
 import type { ServicioConVehiculo, Configuracion, Vehiculo } from '@/lib/types'
-import { formatCurrency, formatMesAno } from '@/lib/billing'
+import { formatCurrency, formatMesAno, montoServicioParaMostrar } from '@/lib/billing'
 import { Car, DollarSign, RefreshCw, BarChart3, LogOut, Settings, Loader2, Users, UserPlus, Pencil, Trash2, Key, FileSpreadsheet, FileText, Info, CalendarCheck, AlertTriangle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
@@ -142,7 +142,7 @@ export function AdminDashboard() {
     } else if (servicio.salida) {
       salida = new Date(servicio.salida).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })
     }
-    const total = formatCurrency(servicio.total_pagar ?? 0)
+    const total = formatCurrency(montoServicioParaMostrar(servicio))
 
     const saludoBase = nombreResidente
       ? `Hola, ${nombreResidente}`
@@ -336,7 +336,7 @@ export function AdminDashboard() {
     if (reportesExpandido) loadReportesData()
   }, [reportesExpandido, loadReportesData])
 
-  const totalFiltradoReportes = chartData.reduce((sum, d) => sum + d.total, 0)
+  const totalFiltradoReportes = serviciosParaReportes.reduce((sum, s) => sum + montoServicioParaMostrar(s), 0)
   const serviciosCountReportes = serviciosParaReportes.length
   const filtroPlacaApellidoNorm = filtroPlacaApellido.trim().toLowerCase()
   const serviciosListFiltrados =
@@ -528,7 +528,7 @@ export function AdminDashboard() {
         s.vehiculo?.telefono_contacto ?? '',
         s.entrada_real ? new Date(s.entrada_real).toLocaleString('es-PE') : '',
         s.salida ? new Date(s.salida).toLocaleString('es-PE') : '',
-        String(s.total_pagar ?? ''),
+        String(montoServicioParaMostrar(s)),
         refPago,
       ]
     })
@@ -592,7 +592,7 @@ export function AdminDashboard() {
                   <td>${esc(s.vehiculo?.telefono_contacto ?? '')}</td>
                   <td>${s.entrada_real ? new Date(s.entrada_real).toLocaleString('es-PE') : ''}</td>
                   <td>${s.salida ? new Date(s.salida).toLocaleString('es-PE') : ''}</td>
-                  <td>${s.total_pagar ?? ''}</td>
+                  <td>${montoServicioParaMostrar(s)}</td>
                   <td>${esc(refPago)}</td>
                 </tr>
               `}).join('')}
@@ -881,7 +881,7 @@ export function AdminDashboard() {
                       <div className="flex flex-wrap items-center gap-4 sm:gap-6">
                         <div className="text-left sm:text-right">
                           <p className="font-semibold text-foreground text-sm">
-                            {formatCurrency(servicio.total_pagar || 0)}
+                            {formatCurrency(montoServicioParaMostrar(servicio))}
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {servicio.salida &&
@@ -1381,7 +1381,7 @@ export function AdminDashboard() {
                         : '—'}
                   </span>
                   <span className="text-muted-foreground">Total</span>
-                  <span className="font-semibold">{formatCurrency(servicioDetalle.total_pagar ?? 0)}</span>
+                  <span className="font-semibold">{formatCurrency(montoServicioParaMostrar(servicioDetalle))}</span>
                   {servicioDetalle.ref_pago_yape && (
                     <>
                       <span className="text-muted-foreground">Ref. Yape</span>

@@ -5,7 +5,7 @@ import { QuickRegister } from '@/components/quick-register'
 import { VehicleCard } from '@/components/vehicle-card'
 import { ValidationModal } from '@/components/validation-modal'
 import { getServiciosActivos, getConfiguracion, logoutAdmin, getAbonadosVencidos, getAbonadosPorVencer, renovarAbono, getServiciosPagadosFiltrados, getMesesConServicios } from '@/app/actions'
-import { abonoVigente, formatCurrency, formatMesAno } from '@/lib/billing'
+import { abonoVigente, formatCurrency, formatMesAno, montoServicioParaMostrar } from '@/lib/billing'
 import type { ServicioConVehiculo, Configuracion, Vehiculo } from '@/lib/types'
 import { Car, RefreshCw, LogOut, AlertTriangle, Info, CalendarCheck, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -137,7 +137,7 @@ export function ConserjeDashboard() {
     } else if (servicio.salida) {
       salida = new Date(servicio.salida).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })
     }
-    const total = formatCurrency(servicio.total_pagar ?? 0)
+    const total = formatCurrency(montoServicioParaMostrar(servicio))
 
     const saludoBase = nombreResidente
       ? `Hola, ${nombreResidente}`
@@ -495,7 +495,7 @@ export function ConserjeDashboard() {
                     <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
                       <div className="text-left sm:text-right">
                         <p className="font-semibold text-foreground text-sm">
-                          {formatCurrency(servicio.total_pagar || 0)}
+                          {formatCurrency(montoServicioParaMostrar(servicio))}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {servicio.salida &&

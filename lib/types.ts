@@ -9,6 +9,8 @@ export interface Vehiculo {
   vigencia_abono_hasta?: string | null
   ref_pago_abono?: string | null
   captura_pago_abono?: string | null
+  /** Monto del último pago de mensualidad (para mostrar en tabla de servicios). */
+  monto_ultimo_pago_abono?: number | null
   created_at: string
 }
 
