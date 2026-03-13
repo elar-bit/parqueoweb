@@ -35,11 +35,11 @@ function buildTicketTextoWhatsApp(opts: {
 }): string {
   const { placa, tipo, nombreResidente, entrada, salida, total, refYape } = opts
   const saludoBase = nombreResidente
-    ? `Hola, ${nombreResidente} \u{1F44B}`
-    : 'Hola \u{1F44B}'
+    ? `Hola, ${nombreResidente}`
+    : 'Hola'
   const lineas = [
-    `${saludoBase}, gracias por usar nuestro servicio de parqueo. \u{1F697}`,
-    'Compartimos contigo tu ticket generado el día de hoy en nuestra playa de estacionamiento. \u{1F9FE}',
+    `${saludoBase}, gracias por usar nuestro servicio de parqueo.`,
+    'Compartimos contigo tu ticket generado el día de hoy en nuestra playa de estacionamiento.',
     '',
     `Placa: ${placa || 'N/A'}`,
     `Tipo: ${tipo === 'residente' ? 'Residente' : 'Visitante'}`,
@@ -49,7 +49,7 @@ function buildTicketTextoWhatsApp(opts: {
   ]
   if (refYape.trim()) lineas.push(`Ref. Yape: ${refYape.trim()}`)
   lineas.push('')
-  lineas.push('¡Gracias y que tengas un excelente día! \u2728')
+  lineas.push('¡Gracias y que tengas un excelente día!')
   return lineas.join('\n')
 }
 
