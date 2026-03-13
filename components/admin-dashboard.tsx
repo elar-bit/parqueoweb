@@ -196,8 +196,8 @@ export function AdminDashboard() {
       const url = numero
         ? `https://wa.me/${numero}?text=${encodeURIComponent(texto)}`
         : `https://wa.me/?text=${encodeURIComponent(texto)}`
-      window.open(url, '_blank')
       setWhatsappOpen(false)
+      window.location.href = url
       loadData()
     } finally {
       setWhatsappSaving(false)
