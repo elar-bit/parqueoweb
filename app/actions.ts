@@ -516,12 +516,24 @@ export async function registrarEntrada(
     vehiculo = nuevo as Vehiculo
   }
 
+  const ahoraIso = new Date().toISOString()
+  const baseServicio: Record<string, unknown> = {
+    vehiculo_id: vehiculo.id,
+    entrada_real: ahoraIso,
+  }
+
+  // Para abonados: el registro representa el pago adelantado del mes,
+  // por lo que se marca como pagado inmediatamente (sin necesidad de validar salida).
+  if (tipo === 'abonado') {
+    baseServicio.estado = 'pagado'
+    baseServicio.salida = ahoraIso
+    baseServicio.tarifa_aplicada = 0
+    baseServicio.total_pagar = 0
+  }
+
   const { data: servicio, error: servicioError } = await supabase
     .from('servicios')
-    .insert({
-      vehiculo_id: vehiculo.id,
-      entrada_real: new Date().toISOString(),
-    })
+    .insert(baseServicio)
     .select('id')
     .single()
 
@@ -606,6 +618,33 @@ export async function getAbonadosVencidos(): Promise<Vehiculo[]> {
     }) as Vehiculo[]
   } catch (e) {
     console.error('getAbonadosVencidos exception:', e)
+    return []
+  }
+}
+
+/** Lista abonados cuyo abono vence en los próximos `dias` días (por defecto 7). */
+export async function getAbonadosPorVencer(dias: number = 7): Promise<Vehiculo[]> {
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('vehiculos')
+      .select('*')
+      .eq('tipo', 'abonado')
+    if (error) return []
+    const hoy = new Date()
+    hoy.setHours(0, 0, 0, 0)
+    const limite = new Date(hoy)
+    limite.setDate(limite.getDate() + dias)
+    limite.setHours(0, 0, 0, 0)
+    return (data || []).filter((v) => {
+      const vig = (v as Vehiculo).vigencia_abono_hasta
+      if (!vig) return false
+      const d = new Date(vig)
+      d.setHours(0, 0, 0, 0)
+      return d >= hoy && d <= limite
+    }) as Vehiculo[]
+  } catch (e) {
+    console.error('getAbonadosPorVencer exception:', e)
     return []
   }
 }

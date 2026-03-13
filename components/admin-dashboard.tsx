@@ -28,6 +28,7 @@ import {
   eliminarServicio,
   actualizarVehiculo,
   getAbonadosVencidos,
+  getAbonadosPorVencer,
   renovarAbono,
   type FiltrosAdmin,
   type UsuarioRow,
@@ -68,6 +69,7 @@ export function AdminDashboard() {
   const [filtroFechaHasta, setFiltroFechaHasta] = useState('')
   const [filtroTipo, setFiltroTipo] = useState<'visitante' | 'residente' | 'abonado' | ''>('')
   const [abonadosVencidos, setAbonadosVencidos] = useState<Vehiculo[]>([])
+  const [abonadosPorVencer, setAbonadosPorVencer] = useState<Vehiculo[]>([])
   const [renovandoAbonoId, setRenovandoAbonoId] = useState<string | null>(null)
   const [renovarAbonoDialog, setRenovarAbonoDialog] = useState<Vehiculo | null>(null)
   const [renovarRefPago, setRenovarRefPago] = useState('')
@@ -233,7 +235,7 @@ export function AdminDashboard() {
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      const [activos, ingresos, ingresosConTipo, servicios, config, users, vencidos] = await Promise.all([
+      const [activos, ingresos, ingresosConTipo, servicios, config, users, vencidos, porVencer] = await Promise.all([
         getServiciosActivos(),
         getIngresosFiltrados(filtros),
         filtroTipo === '' ? getIngresosFiltradosConTipo({ ...filtros, tipo: null }) : Promise.resolve([]),
@@ -241,6 +243,7 @@ export function AdminDashboard() {
         getConfiguracion(),
         getUsuarios(),
         getAbonadosVencidos(),
+        getAbonadosPorVencer(7),
       ])
       setActiveCount(activos.length)
       setChartData(ingresos)
@@ -249,6 +252,7 @@ export function AdminDashboard() {
       setConfiguracion(config)
       setUsuarios(users)
       setAbonadosVencidos(vencidos)
+      setAbonadosPorVencer(porVencer)
       const visitante = config.find((c) => c.tipo_usuario === 'visitante')
       const residente = config.find((c) => c.tipo_usuario === 'residente')
       setTarifaVisitante(visitante ? String(visitante.precio_hora) : '')
@@ -526,6 +530,24 @@ export function AdminDashboard() {
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
+              <Button
+                variant={abonadosVencidos.length > 0 || abonadosPorVencer.length > 0 ? 'destructive' : 'outline'}
+                size="sm"
+                className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0 flex items-center gap-1"
+                onClick={() => {
+                  // Abrimos el card desplazándonos a la sección de abonados; por simplicidad, solo hacemos scroll al main.
+                  const el = document.getElementById('abonados-alertas')
+                  if (el) el.scrollIntoView({ behavior: 'smooth' })
+                }}
+              >
+                <AlertTriangle className="h-4 w-4" />
+                <span className="hidden sm:inline text-xs font-medium">
+                  {abonadosVencidos.length + abonadosPorVencer.length > 0
+                    ? `Abonados con alerta (${abonadosVencidos.length + abonadosPorVencer.length})`
+                    : 'Abonados sin alerta'}
+                </span>
+                <span className="sm:hidden text-xs">Abonados</span>
+              </Button>
               <Button variant="outline" size="sm" onClick={loadData} disabled={loading} className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0">
                 <RefreshCw className={`h-4 w-4 sm:mr-2 ${loading ? 'animate-spin' : ''}`} />
                 <span className="hidden sm:inline">Actualizar</span>
@@ -728,18 +750,62 @@ export function AdminDashboard() {
           </CardContent>
         </Card>
 
-        {/* Abonados con mensualidad vencida */}
-        {abonadosVencidos.length > 0 && (
-          <Card className="border-amber-500/50 bg-amber-500/5">
+        {/* Abonados con mensualidad por vencer / vencida */}
+        {(abonadosVencidos.length > 0 || abonadosPorVencer.length > 0) && (
+          <Card className="border-amber-500/50 bg-amber-500/5" id="abonados-alertas">
             <CardHeader>
               <CardTitle className="text-foreground flex items-center gap-2">
                 <AlertTriangle className="h-5 w-5 text-amber-600" />
-                Abonados con mensualidad vencida
+                Alertas de abonados
               </CardTitle>
-              <p className="text-sm text-muted-foreground">Registre el pago para extender la vigencia 1 mes.</p>
+              <p className="text-sm text-muted-foreground">
+                Abonados con mensualidad vencida o que vence en los próximos 7 días.
+              </p>
             </CardHeader>
             <CardContent>
               <ul className="space-y-2">
+                {abonadosPorVencer.map((v) => (
+                  <li key={v.id} className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-lg bg-background/80">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="font-mono font-medium">{v.placa || 'Sin placa'}</span>
+                      {(v.nombre_propietario || v.apellido_propietario) && (
+                        <span className="text-sm text-muted-foreground truncate">
+                          {[v.nombre_propietario, v.apellido_propietario].filter(Boolean).join(' ')}
+                        </span>
+                      )}
+                      {v.vigencia_abono_hasta && (
+                        <span className="text-xs text-muted-foreground">Vence: {v.vigencia_abono_hasta}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          if (!v.telefono_contacto) return
+                          const telefono = normalizarTelefonoWhatsApp(v.telefono_contacto)
+                          const nombre = [v.nombre_propietario, v.apellido_propietario].filter(Boolean).join(' ')
+                          const saludo = nombre ? `Hola, ${nombre}` : 'Hola'
+                          const texto = [
+                            `${saludo}, te recordamos que tu abono de estacionamiento está próximo a vencer.`,
+                            '',
+                            v.vigencia_abono_hasta ? `Vence el: ${v.vigencia_abono_hasta}` : '',
+                            '',
+                            'Por favor acércate a renovar tu mensualidad para seguir disfrutando del servicio sin inconvenientes.',
+                          ].join('\n')
+                          const url = telefono
+                            ? `https://wa.me/${telefono}?text=${encodeURIComponent(texto)}`
+                            : `https://wa.me/?text=${encodeURIComponent(texto)}`
+                          window.open(url, '_blank')
+                        }}
+                        disabled={!v.telefono_contacto}
+                      >
+                        Enviar recordatorio
+                      </Button>
+                    </div>
+                  </li>
+                ))}
                 {abonadosVencidos.map((v) => (
                   <li key={v.id} className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-lg bg-background/80">
                     <div className="flex items-center gap-2 min-w-0">

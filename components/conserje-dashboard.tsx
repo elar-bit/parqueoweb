@@ -4,9 +4,9 @@ import { useState, useEffect, useCallback } from 'react'
 import { QuickRegister } from '@/components/quick-register'
 import { VehicleCard } from '@/components/vehicle-card'
 import { ValidationModal } from '@/components/validation-modal'
-import { getServiciosActivos, getConfiguracion, logoutAdmin } from '@/app/actions'
+import { getServiciosActivos, getConfiguracion, logoutAdmin, getAbonadosVencidos, getAbonadosPorVencer } from '@/app/actions'
 import { abonoVigente } from '@/lib/billing'
-import type { ServicioConVehiculo, Configuracion } from '@/lib/types'
+import type { ServicioConVehiculo, Configuracion, Vehiculo } from '@/lib/types'
 import { Car, RefreshCw, LogOut, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
@@ -17,16 +17,22 @@ export function ConserjeDashboard() {
   const [selectedServicio, setSelectedServicio] = useState<ServicioConVehiculo | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [abonadosVencidos, setAbonadosVencidos] = useState<Vehiculo[]>([])
+  const [abonadosPorVencer, setAbonadosPorVencer] = useState<Vehiculo[]>([])
 
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      const [serviciosData, configData] = await Promise.all([
+      const [serviciosData, configData, vencidos, porVencer] = await Promise.all([
         getServiciosActivos(),
         getConfiguracion(),
+        getAbonadosVencidos(),
+        getAbonadosPorVencer(7),
       ])
       setServicios(serviciosData)
       setConfiguracion(configData)
+      setAbonadosVencidos(vencidos)
+      setAbonadosPorVencer(porVencer)
     } catch (error) {
       console.error('Error loading data:', error)
     } finally {
@@ -63,6 +69,23 @@ export function ConserjeDashboard() {
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
+              <Button
+                variant={abonadosVencidos.length > 0 || abonadosPorVencer.length > 0 ? 'destructive' : 'outline'}
+                size="sm"
+                className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0 flex items-center gap-1"
+                onClick={() => {
+                  const el = document.getElementById('abonados-alertas-conserje')
+                  if (el) el.scrollIntoView({ behavior: 'smooth' })
+                }}
+              >
+                <AlertTriangle className="h-4 w-4" />
+                <span className="hidden sm:inline text-xs font-medium">
+                  {abonadosVencidos.length + abonadosPorVencer.length > 0
+                    ? `Abonados con alerta (${abonadosVencidos.length + abonadosPorVencer.length})`
+                    : 'Abonados sin alerta'}
+                </span>
+                <span className="sm:hidden text-xs">Abonados</span>
+              </Button>
               <Button variant="outline" size="sm" onClick={loadData} disabled={loading} className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0">
                 <RefreshCw className={`h-4 w-4 sm:mr-2 ${loading ? 'animate-spin' : ''}`} />
                 <span className="hidden sm:inline">Actualizar</span>
@@ -84,6 +107,50 @@ export function ConserjeDashboard() {
 
       <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-6">
         <QuickRegister onRegistered={loadData} />
+
+        {(abonadosVencidos.length > 0 || abonadosPorVencer.length > 0) && (
+          <div
+            id="abonados-alertas-conserje"
+            className="border border-amber-500/40 bg-amber-500/5 rounded-lg p-3 sm:p-4 space-y-2"
+          >
+            <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+              <AlertTriangle className="h-4 w-4" />
+              <p className="font-medium text-sm">Alertas de abonados (próximos a vencer o vencidos)</p>
+            </div>
+            <ul className="space-y-1 text-sm">
+              {abonadosPorVencer.map((v) => (
+                <li key={v.id} className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono font-medium">{v.placa || 'Sin placa'}</span>
+                  {(v.nombre_propietario || v.apellido_propietario) && (
+                    <span className="text-muted-foreground">
+                      {[v.nombre_propietario, v.apellido_propietario].filter(Boolean).join(' ')}
+                    </span>
+                  )}
+                  {v.vigencia_abono_hasta && (
+                    <span className="text-xs text-muted-foreground">
+                      Vence: {v.vigencia_abono_hasta}
+                    </span>
+                  )}
+                </li>
+              ))}
+              {abonadosVencidos.map((v) => (
+                <li key={v.id} className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono font-medium">{v.placa || 'Sin placa'}</span>
+                  {(v.nombre_propietario || v.apellido_propietario) && (
+                    <span className="text-muted-foreground">
+                      {[v.nombre_propietario, v.apellido_propietario].filter(Boolean).join(' ')}
+                    </span>
+                  )}
+                  {v.vigencia_abono_hasta && (
+                    <span className="text-xs text-muted-foreground">
+                      Vencido desde: {v.vigencia_abono_hasta}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {servicios.some((s) => s.vehiculo?.tipo === 'abonado' && !abonoVigente(s.vehiculo.vigencia_abono_hasta)) && (
           <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 text-sm px-4 py-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
