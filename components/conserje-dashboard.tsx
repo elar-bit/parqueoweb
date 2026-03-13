@@ -594,10 +594,17 @@ export function ConserjeDashboard() {
                             {servicio.vehiculo?.placa || 'Sin Placa'}
                           </p>
                           {tipo === 'abonado' && (
-                            <Badge variant="outline" className="text-xs shrink-0 border-sky-300 text-sky-700 bg-sky-50">
-                              <Star className="h-3 w-3 mr-0.5 fill-current" />
-                              {nombreAbonado || 'Abonado'}
-                            </Badge>
+                            <>
+                              <Badge variant="outline" className="text-xs shrink-0 border-sky-300 text-sky-700 bg-sky-50">
+                                <Star className="h-3 w-3 mr-0.5 fill-current" />
+                                {nombreAbonado || 'Abonado'}
+                              </Badge>
+                              {servicio.vehiculo?.abono_cancelado && (
+                                <Badge variant="secondary" className="text-xs shrink-0 bg-muted text-muted-foreground">
+                                  Cancelado
+                                </Badge>
+                              )}
+                            </>
                           )}
                           {nombreResidente && (
                             <Badge variant="secondary" className="text-xs font-normal shrink-0">
@@ -609,7 +616,9 @@ export function ConserjeDashboard() {
                           {tipo === 'residente'
                             ? 'Residente'
                             : tipo === 'abonado'
-                              ? `Abonado${servicio.vehiculo?.ultimo_numero_meses_abono ? ` (${servicio.vehiculo.ultimo_numero_meses_abono} ${servicio.vehiculo.ultimo_numero_meses_abono === 1 ? 'mes' : 'meses'})` : ''} - Tiempo restante: ${tiempoRestanteAbono(servicio.vehiculo?.vigencia_abono_hasta)}`
+                              ? servicio.vehiculo?.abono_cancelado
+                                ? 'Abonado - Cancelado'
+                                : `Abonado${servicio.vehiculo?.ultimo_numero_meses_abono ? ` (${servicio.vehiculo.ultimo_numero_meses_abono} ${servicio.vehiculo.ultimo_numero_meses_abono === 1 ? 'mes' : 'meses'})` : ''} - Tiempo restante: ${tiempoRestanteAbono(servicio.vehiculo?.vigencia_abono_hasta)}`
                               : 'Visitante'}
                         </p>
                       </div>
@@ -665,7 +674,7 @@ export function ConserjeDashboard() {
                   {servicioDetalle.vehiculo?.tipo === 'residente'
                     ? 'Residente'
                     : servicioDetalle.vehiculo?.tipo === 'abonado'
-                      ? 'Abonado'
+                      ? (servicioDetalle.vehiculo?.abono_cancelado ? 'Abonado - Cancelado' : 'Abonado')
                       : 'Visitante'}
                 </span>
                 {(servicioDetalle.vehiculo?.nombre_propietario || servicioDetalle.vehiculo?.apellido_propietario) && (

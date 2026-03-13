@@ -569,7 +569,7 @@ export function AdminDashboard() {
       return [
         fechaCreacion,
         s.vehiculo?.placa || 'Sin placa',
-        s.vehiculo?.tipo === 'residente' ? 'Residente' : s.vehiculo?.tipo === 'abonado' ? 'Abonado' : 'Visitante',
+        s.vehiculo?.tipo === 'residente' ? 'Residente' : s.vehiculo?.tipo === 'abonado' ? (s.vehiculo?.abono_cancelado ? 'Abonado - Cancelado' : 'Abonado') : 'Visitante',
         periodoStr,
         nombre,
         s.vehiculo?.numero_oficina_dep ?? '',
@@ -638,7 +638,7 @@ export function AdminDashboard() {
                 <tr>
                   <td>${fechaCreacion}</td>
                   <td>${esc(s.vehiculo?.placa || 'Sin placa')}</td>
-                  <td>${s.vehiculo?.tipo === 'residente' ? 'Residente' : s.vehiculo?.tipo === 'abonado' ? 'Abonado' : 'Visitante'}</td>
+                  <td>${s.vehiculo?.tipo === 'residente' ? 'Residente' : s.vehiculo?.tipo === 'abonado' ? (s.vehiculo?.abono_cancelado ? 'Abonado - Cancelado' : 'Abonado') : 'Visitante'}</td>
                   <td>${esc(periodoStr)}</td>
                   <td>${esc(nombre)}</td>
                   <td>${esc(s.vehiculo?.numero_oficina_dep ?? '')}</td>
@@ -963,8 +963,9 @@ export function AdminDashboard() {
                   className="max-w-xs"
                 />
               </div>
-              <div className="space-y-1 min-h-[60px] flex flex-col justify-center">
-                <div className="flex items-center gap-4 text-xs text-muted-foreground shrink-0">
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground block opacity-0 select-none pointer-events-none">Leyenda</Label>
+                <div className="flex items-center gap-4 text-xs text-muted-foreground shrink-0 h-9 items-center">
                   <span className="flex items-center gap-1.5">
                     <span className="h-2.5 w-2.5 rounded-full bg-amber-200" aria-hidden />
                     Visitantes
@@ -1014,10 +1015,17 @@ export function AdminDashboard() {
                               {servicio.vehiculo?.placa || 'Sin Placa'}
                             </p>
                             {tipo === 'abonado' && (
-                              <Badge variant="outline" className="text-xs shrink-0 border-sky-300 text-sky-700 bg-sky-50">
-                                <Star className="h-3 w-3 mr-0.5 fill-current" />
-                                {nombreAbonado || 'Abonado'}
-                              </Badge>
+                              <>
+                                <Badge variant="outline" className="text-xs shrink-0 border-sky-300 text-sky-700 bg-sky-50">
+                                  <Star className="h-3 w-3 mr-0.5 fill-current" />
+                                  {nombreAbonado || 'Abonado'}
+                                </Badge>
+                                {servicio.vehiculo?.abono_cancelado && (
+                                  <Badge variant="secondary" className="text-xs shrink-0 bg-muted text-muted-foreground">
+                                    Cancelado
+                                  </Badge>
+                                )}
+                              </>
                             )}
                             {nombreResidente && (
                               <Badge variant="secondary" className="text-xs font-normal shrink-0">
@@ -1029,8 +1037,10 @@ export function AdminDashboard() {
                             {tipo === 'residente'
                               ? 'Residente'
                               : tipo === 'abonado'
-                                ? `Abonado${servicio.vehiculo?.ultimo_numero_meses_abono ? ` (${servicio.vehiculo.ultimo_numero_meses_abono} ${servicio.vehiculo.ultimo_numero_meses_abono === 1 ? 'mes' : 'meses'})` : ''} - Tiempo restante: ${tiempoRestanteAbono(servicio.vehiculo?.vigencia_abono_hasta)}`
-                              : 'Visitante'}
+                                ? servicio.vehiculo?.abono_cancelado
+                                  ? 'Abonado - Cancelado'
+                                  : `Abonado${servicio.vehiculo?.ultimo_numero_meses_abono ? ` (${servicio.vehiculo.ultimo_numero_meses_abono} ${servicio.vehiculo.ultimo_numero_meses_abono === 1 ? 'mes' : 'meses'})` : ''} - Tiempo restante: ${tiempoRestanteAbono(servicio.vehiculo?.vigencia_abono_hasta)}`
+                                : 'Visitante'}
                           </p>
                         </div>
                       </div>
@@ -1523,7 +1533,7 @@ export function AdminDashboard() {
                   <span className="text-muted-foreground">Placa</span>
                   <span className="font-mono font-medium">{servicioDetalle.vehiculo?.placa || '—'}</span>
                   <span className="text-muted-foreground">Tipo</span>
-                  <span>{servicioDetalle.vehiculo?.tipo === 'residente' ? 'Residente' : servicioDetalle.vehiculo?.tipo === 'abonado' ? 'Abonado' : 'Visitante'}</span>
+                  <span>{servicioDetalle.vehiculo?.tipo === 'residente' ? 'Residente' : servicioDetalle.vehiculo?.tipo === 'abonado' ? (servicioDetalle.vehiculo?.abono_cancelado ? 'Abonado - Cancelado' : 'Abonado') : 'Visitante'}</span>
                   {servicioDetalle.vehiculo?.tipo === 'abonado' && (
                     <>
                       {servicioDetalle.vehiculo.vigencia_abono_hasta && (
