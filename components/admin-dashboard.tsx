@@ -36,7 +36,7 @@ import {
 } from '@/app/actions'
 import type { ServicioConVehiculo, Configuracion, Vehiculo } from '@/lib/types'
 import { formatCurrency, formatMesAno, montoServicioParaMostrar } from '@/lib/billing'
-import { Car, DollarSign, RefreshCw, BarChart3, LogOut, Settings, Loader2, Users, UserPlus, Pencil, Trash2, Key, FileSpreadsheet, FileText, Info, CalendarCheck, AlertTriangle } from 'lucide-react'
+import { Car, DollarSign, RefreshCw, BarChart3, LogOut, Settings, Loader2, Users, UserPlus, Pencil, Trash2, Key, FileSpreadsheet, FileText, Info, CalendarCheck, AlertTriangle, Star } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { IncomeChart } from '@/components/income-chart'
@@ -824,6 +824,20 @@ export function AdminDashboard() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="flex items-center gap-4 text-xs text-muted-foreground shrink-0">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-amber-200" aria-hidden />
+                  Visitantes
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-200" aria-hidden />
+                  Residentes
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-sky-200" aria-hidden />
+                  Abonados
+                </span>
+              </div>
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Filtrar por placa o apellido</Label>
                 <Input
@@ -844,28 +858,42 @@ export function AdminDashboard() {
             ) : (
               <div className="space-y-3 max-h-[400px] overflow-y-auto overflow-x-hidden">
                 {serviciosListFiltrados.map((servicio) => {
-                  const nombreResidente = servicio.vehiculo?.tipo === 'residente' &&
-                    (servicio.vehiculo.nombre_propietario || servicio.vehiculo.apellido_propietario)
+                  const tipo = servicio.vehiculo?.tipo
+                  const nombreResidente = tipo === 'residente' &&
+                    (servicio.vehiculo?.nombre_propietario || servicio.vehiculo?.apellido_propietario)
                     ? [servicio.vehiculo.nombre_propietario, servicio.vehiculo.apellido_propietario].filter(Boolean).join(' ')
                     : null
+                  const nombreAbonado = tipo === 'abonado' &&
+                    (servicio.vehiculo?.nombre_propietario || servicio.vehiculo?.apellido_propietario)
+                    ? [servicio.vehiculo.nombre_propietario, servicio.vehiculo.apellido_propietario].filter(Boolean).join(' ')
+                    : null
+                  const iconColor = tipo === 'abonado' ? 'bg-sky-100 text-sky-600' : tipo === 'residente' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'
                   return (
                     <div
                       key={servicio.id}
                       className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 bg-muted/50 rounded-lg gap-2"
                     >
                       <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <div className="h-8 w-8 rounded-full bg-background flex items-center justify-center shrink-0">
-                          <Car className="h-4 w-4 text-muted-foreground" />
+                        <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${iconColor}`}>
+                          <Car className="h-4 w-4" />
                         </div>
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="font-mono font-medium text-foreground truncate">
                               {servicio.vehiculo?.placa || 'Sin Placa'}
                             </p>
-                            {servicio.vehiculo?.tipo === 'abonado' && (
-                              <Badge variant="outline" className="text-xs shrink-0">
-                                Abonado
-                              </Badge>
+                            {tipo === 'abonado' && (
+                              <>
+                                <Badge variant="outline" className="text-xs shrink-0 border-sky-300 text-sky-700 bg-sky-50">
+                                  <Star className="h-3 w-3 mr-0.5 fill-current" />
+                                  Abonado
+                                </Badge>
+                                {nombreAbonado && (
+                                  <Badge variant="secondary" className="text-xs font-normal shrink-0 bg-sky-100 text-sky-800">
+                                    {nombreAbonado}
+                                  </Badge>
+                                )}
+                              </>
                             )}
                             {nombreResidente && (
                               <Badge variant="secondary" className="text-xs font-normal shrink-0">
@@ -874,7 +902,7 @@ export function AdminDashboard() {
                             )}
                           </div>
                           <p className="text-xs text-muted-foreground">
-                            {servicio.vehiculo?.tipo === 'residente' ? 'Residente' : servicio.vehiculo?.tipo === 'abonado' ? 'Abonado' : 'Visitante'}
+                            {tipo === 'residente' ? 'Residente' : tipo === 'abonado' ? 'Abonado' : 'Visitante'}
                           </p>
                         </div>
                       </div>
