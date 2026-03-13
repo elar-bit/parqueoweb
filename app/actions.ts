@@ -210,6 +210,95 @@ export async function crearUsuario(
   }
 }
 
+export async function actualizarUsuario(
+  id: string,
+  data: { nombre?: string; apellido?: string; usuario?: string; rol?: 'admin' | 'conserje' }
+): Promise<{ ok: boolean; error?: string }> {
+  const authed = await getAdminAuth()
+  if (!authed) return { ok: false, error: 'No autorizado' }
+  try {
+    const supabase = await createClient()
+    const updates: Record<string, unknown> = {}
+    if (data.nombre != null) updates.nombre = (data.nombre || '').trim()
+    if (data.apellido != null) updates.apellido = (data.apellido || '').trim()
+    if (data.usuario != null) updates.usuario = (data.usuario || '').trim().toLowerCase()
+    if (data.rol != null) updates.rol = data.rol
+    if (Object.keys(updates).length === 0) return { ok: true }
+    if (updates.usuario != null) {
+      const { data: existing } = await supabase.from('usuarios').select('id').eq('usuario', updates.usuario).neq('id', id).maybeSingle()
+      if (existing) return { ok: false, error: 'Ese usuario ya existe' }
+    }
+    const { error } = await supabase.from('usuarios').update(updates).eq('id', id)
+    if (error) {
+      console.error('actualizarUsuario error:', error)
+      return { ok: false, error: error.message }
+    }
+    revalidatePath('/admin')
+    return { ok: true }
+  } catch (e) {
+    console.error('actualizarUsuario exception:', e)
+    return { ok: false, error: String(e) }
+  }
+}
+
+export async function eliminarUsuario(id: string): Promise<{ ok: boolean; error?: string }> {
+  const authed = await getAdminAuth()
+  if (!authed) return { ok: false, error: 'No autorizado' }
+  try {
+    const supabase = await createClient()
+    const { error } = await supabase.from('usuarios').delete().eq('id', id)
+    if (error) {
+      console.error('eliminarUsuario error:', error)
+      return { ok: false, error: error.message }
+    }
+    revalidatePath('/admin')
+    return { ok: true }
+  } catch (e) {
+    console.error('eliminarUsuario exception:', e)
+    return { ok: false, error: String(e) }
+  }
+}
+
+export async function resetearPasswordUsuario(id: string, nuevaPassword: string): Promise<{ ok: boolean; error?: string }> {
+  const authed = await getAdminAuth()
+  if (!authed) return { ok: false, error: 'No autorizado' }
+  const pass = (nuevaPassword || '').trim()
+  if (pass.length < 4) return { ok: false, error: 'La contraseña debe tener al menos 4 caracteres' }
+  try {
+    const supabase = await createClient()
+    const password_hash = await hash(pass, 10)
+    const { error } = await supabase.from('usuarios').update({ password_hash }).eq('id', id)
+    if (error) {
+      console.error('resetearPasswordUsuario error:', error)
+      return { ok: false, error: error.message }
+    }
+    revalidatePath('/admin')
+    return { ok: true }
+  } catch (e) {
+    console.error('resetearPasswordUsuario exception:', e)
+    return { ok: false, error: String(e) }
+  }
+}
+
+export async function eliminarServicio(id: string): Promise<{ ok: boolean; error?: string }> {
+  const authed = await getAdminAuth()
+  if (!authed) return { ok: false, error: 'No autorizado' }
+  try {
+    const supabase = await createClient()
+    const { error } = await supabase.from('servicios').delete().eq('id', id)
+    if (error) {
+      console.error('eliminarServicio error:', error)
+      return { ok: false, error: error.message }
+    }
+    revalidatePath('/admin')
+    revalidatePath('/conserje')
+    return { ok: true }
+  } catch (e) {
+    console.error('eliminarServicio exception:', e)
+    return { ok: false, error: String(e) }
+  }
+}
+
 export async function getConfiguracion(): Promise<Configuracion[]> {
   try {
     const supabase = await createClient()

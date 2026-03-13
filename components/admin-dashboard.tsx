@@ -21,14 +21,35 @@ import {
   logoutAdmin,
   getUsuarios,
   crearUsuario,
+  actualizarUsuario,
+  eliminarUsuario,
+  resetearPasswordUsuario,
+  eliminarServicio,
   type FiltrosAdmin,
   type UsuarioRow,
 } from '@/app/actions'
 import type { ServicioConVehiculo, Configuracion } from '@/lib/types'
 import { formatCurrency } from '@/lib/billing'
-import { Car, DollarSign, RefreshCw, BarChart3, LogOut, Settings, Loader2, Users, UserPlus } from 'lucide-react'
+import { Car, DollarSign, RefreshCw, BarChart3, LogOut, Settings, Loader2, Users, UserPlus, Pencil, Trash2, Key } from 'lucide-react'
 import Link from 'next/link'
 import { IncomeChart } from '@/components/income-chart'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 export function AdminDashboard() {
   const [activeCount, setActiveCount] = useState(0)
@@ -54,6 +75,20 @@ export function AdminDashboard() {
   const [rolUser, setRolUser] = useState<'admin' | 'conserje'>('conserje')
   const [savingUser, setSavingUser] = useState(false)
   const [usuarioMsg, setUsuarioMsg] = useState('')
+
+  const [editingUser, setEditingUser] = useState<UsuarioRow | null>(null)
+  const [editNombre, setEditNombre] = useState('')
+  const [editApellido, setEditApellido] = useState('')
+  const [editUsuario, setEditUsuario] = useState('')
+  const [editRol, setEditRol] = useState<'admin' | 'conserje'>('conserje')
+  const [savingEdit, setSavingEdit] = useState(false)
+
+  const [resetPasswordUser, setResetPasswordUser] = useState<UsuarioRow | null>(null)
+  const [newPassword, setNewPassword] = useState('')
+  const [savingReset, setSavingReset] = useState(false)
+
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null)
+  const [deletingServicioId, setDeletingServicioId] = useState<string | null>(null)
 
   const filtros: FiltrosAdmin = {
     fechaDesde: filtroFechaDesde || null,
@@ -146,6 +181,82 @@ export function AdminDashboard() {
       setUsuarioMsg('Error de conexión')
     } finally {
       setSavingUser(false)
+    }
+  }
+
+  const openEditUser = (u: UsuarioRow) => {
+    setEditingUser(u)
+    setEditNombre(u.nombre)
+    setEditApellido(u.apellido)
+    setEditUsuario(u.usuario)
+    setEditRol(u.rol)
+  }
+
+  const handleGuardarEdicionUsuario = async () => {
+    if (!editingUser) return
+    setSavingEdit(true)
+    try {
+      const result = await actualizarUsuario(editingUser.id, {
+        nombre: editNombre.trim(),
+        apellido: editApellido.trim(),
+        usuario: editUsuario.trim().toLowerCase(),
+        rol: editRol,
+      })
+      if (result.ok) {
+        setEditingUser(null)
+        const users = await getUsuarios()
+        setUsuarios(users)
+      } else {
+        setUsuarioMsg(result.error || 'Error al actualizar')
+      }
+    } catch {
+      setUsuarioMsg('Error de conexión')
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
+  const openResetPassword = (u: UsuarioRow) => {
+    setResetPasswordUser(u)
+    setNewPassword('')
+  }
+
+  const handleResetPassword = async () => {
+    if (!resetPasswordUser || newPassword.trim().length < 4) return
+    setSavingReset(true)
+    try {
+      const result = await resetearPasswordUsuario(resetPasswordUser.id, newPassword.trim())
+      if (result.ok) {
+        setResetPasswordUser(null)
+        setNewPassword('')
+      } else {
+        setUsuarioMsg(result.error || 'Error al resetear')
+      }
+    } catch {
+      setUsuarioMsg('Error de conexión')
+    } finally {
+      setSavingReset(false)
+    }
+  }
+
+  const handleEliminarUsuario = async (id: string) => {
+    const result = await eliminarUsuario(id)
+    setDeletingUserId(null)
+    if (result.ok) {
+      const users = await getUsuarios()
+      setUsuarios(users)
+    } else {
+      setUsuarioMsg(result.error || 'Error al eliminar')
+    }
+  }
+
+  const handleEliminarServicio = async (id: string) => {
+    const result = await eliminarServicio(id)
+    setDeletingServicioId(null)
+    if (result.ok) {
+      loadData()
+    } else {
+      setUsuarioMsg(result.error || 'Error al eliminar servicio')
     }
   }
 
@@ -421,6 +532,7 @@ export function AdminDashboard() {
                         <th className="text-left p-3 font-medium">Nombre</th>
                         <th className="text-left p-3 font-medium">Usuario</th>
                         <th className="text-left p-3 font-medium">Rol</th>
+                        <th className="text-right p-3 font-medium">Acciones</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -433,11 +545,107 @@ export function AdminDashboard() {
                               {u.rol === 'admin' ? 'Administrador' : 'Conserje'}
                             </span>
                           </td>
+                          <td className="p-3 text-right">
+                            <div className="flex justify-end gap-1">
+                              <Button variant="ghost" size="sm" onClick={() => openEditUser(u)} title="Editar">
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => openResetPassword(u)} title="Resetear contraseña">
+                                <Key className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => setDeletingUserId(u.id)} title="Eliminar" className="text-destructive hover:text-destructive">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
+
+                {/* Editar usuario */}
+                <Dialog open={!!editingUser} onOpenChange={(open) => !open && setEditingUser(null)}>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Editar usuario</DialogTitle>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Nombre</Label>
+                          <Input value={editNombre} onChange={(e) => setEditNombre(e.target.value)} disabled={savingEdit} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Apellido</Label>
+                          <Input value={editApellido} onChange={(e) => setEditApellido(e.target.value)} disabled={savingEdit} />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Usuario (inicio de sesión)</Label>
+                        <Input value={editUsuario} onChange={(e) => setEditUsuario(e.target.value)} disabled={savingEdit} className="font-mono" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Rol</Label>
+                        <Select value={editRol} onValueChange={(v) => setEditRol(v as 'admin' | 'conserje')} disabled={savingEdit}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="admin">Administrador</SelectItem>
+                            <SelectItem value="conserje">Conserje</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setEditingUser(null)} disabled={savingEdit}>Cancelar</Button>
+                      <Button onClick={handleGuardarEdicionUsuario} disabled={savingEdit || !editNombre.trim() || !editApellido.trim() || !editUsuario.trim()}>
+                        {savingEdit ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                        Guardar
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+
+                {/* Resetear contraseña */}
+                <Dialog open={!!resetPasswordUser} onOpenChange={(open) => !open && setResetPasswordUser(null)}>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Resetear contraseña</DialogTitle>
+                      {resetPasswordUser && (
+                        <p className="text-sm text-muted-foreground">Nueva contraseña para {resetPasswordUser.nombre} {resetPasswordUser.apellido} ({resetPasswordUser.usuario})</p>
+                      )}
+                    </DialogHeader>
+                    <div className="py-4">
+                      <Label>Nueva contraseña (mínimo 4 caracteres)</Label>
+                      <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="••••••••" className="mt-2" disabled={savingReset} minLength={4} />
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setResetPasswordUser(null)} disabled={savingReset}>Cancelar</Button>
+                      <Button onClick={handleResetPassword} disabled={savingReset || newPassword.trim().length < 4}>
+                        {savingReset ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                        Guardar
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+
+                {/* Confirmar eliminar usuario */}
+                <AlertDialog open={!!deletingUserId} onOpenChange={(open) => !open && setDeletingUserId(null)}>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>¿Eliminar usuario?</AlertDialogTitle>
+                      <AlertDialogDescription>Esta acción no se puede deshacer. El usuario no podrá volver a iniciar sesión.</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => deletingUserId && handleEliminarUsuario(deletingUserId)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                        Eliminar
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               )}
             </div>
           </CardContent>
@@ -456,10 +664,10 @@ export function AdminDashboard() {
                 {serviciosList.map((servicio) => (
                   <div
                     key={servicio.id}
-                    className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                    className="flex items-center justify-between p-3 bg-muted/50 rounded-lg gap-2"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-background flex items-center justify-center">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="h-8 w-8 rounded-full bg-background flex items-center justify-center shrink-0">
                         <Car className="h-4 w-4 text-muted-foreground" />
                       </div>
                       <div>
@@ -471,7 +679,7 @@ export function AdminDashboard() {
                         </p>
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right shrink-0">
                       <p className="font-semibold text-foreground">
                         {formatCurrency(servicio.total_pagar || 0)}
                       </p>
@@ -483,12 +691,31 @@ export function AdminDashboard() {
                           })}
                       </p>
                     </div>
+                    <Button variant="ghost" size="sm" onClick={() => setDeletingServicioId(servicio.id)} title="Eliminar registro" className="text-destructive hover:text-destructive shrink-0">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 ))}
               </div>
             )}
           </CardContent>
         </Card>
+
+        {/* Confirmar eliminar servicio - siempre en DOM */}
+        <AlertDialog open={!!deletingServicioId} onOpenChange={(open) => !open && setDeletingServicioId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Eliminar registro de servicio?</AlertDialogTitle>
+              <AlertDialogDescription>El registro se borrará de la base de datos de forma permanente.</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={() => deletingServicioId && handleEliminarServicio(deletingServicioId)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Eliminar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </main>
     </div>
   )
