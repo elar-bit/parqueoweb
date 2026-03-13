@@ -70,8 +70,8 @@ export function LoginCarAnimation() {
           <use href="#road-2" stroke="currentColor" strokeWidth="2" strokeDasharray="8 6" opacity="0.35" />
         </g>
 
-        {/* Carritos recorriendo la pista superior (colores variados) */}
-        <g fill="hsl(var(--chart-1))" className="text-primary">
+        {/* Carritos pista superior: uno con color, otro con otro color */}
+        <g fill="var(--chart-1)" className="opacity-90">
           <use href="#car-sprite" />
           <animateMotion
             path={path1}
@@ -80,7 +80,7 @@ export function LoginCarAnimation() {
             rotate="auto"
           />
         </g>
-        <g fill="hsl(var(--chart-2))" className="text-primary opacity-85">
+        <g fill="var(--chart-2)" className="opacity-90">
           <use href="#car-sprite" />
           <animateMotion
             path={path1}
@@ -91,8 +91,8 @@ export function LoginCarAnimation() {
           />
         </g>
 
-        {/* Carritos recorriendo la pista inferior */}
-        <g fill="hsl(var(--chart-3))" className="text-primary opacity-90">
+        {/* Carritos pista inferior: uno con color, otro con otro color */}
+        <g fill="var(--chart-3)" className="opacity-90">
           <use href="#car-sprite" />
           <animateMotion
             path={path2}
@@ -101,7 +101,7 @@ export function LoginCarAnimation() {
             rotate="auto"
           />
         </g>
-        <g fill="hsl(var(--chart-4))" className="text-primary opacity-75">
+        <g fill="var(--chart-4)" className="opacity-90">
           <use href="#car-sprite" />
           <animateMotion
             path={path2}
