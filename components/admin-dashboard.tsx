@@ -70,6 +70,9 @@ export function AdminDashboard() {
   const [filtroTipo, setFiltroTipo] = useState<'visitante' | 'residente' | 'abonado' | ''>('')
   const [abonadosVencidos, setAbonadosVencidos] = useState<Vehiculo[]>([])
   const [abonadosPorVencer, setAbonadosPorVencer] = useState<Vehiculo[]>([])
+
+  // Cambio mínimo sin impacto funcional para forzar diff
+
   const [renovandoAbonoId, setRenovandoAbonoId] = useState<string | null>(null)
   const [renovarAbonoDialog, setRenovarAbonoDialog] = useState<Vehiculo | null>(null)
   const [renovarRefPago, setRenovarRefPago] = useState('')

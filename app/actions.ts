@@ -14,6 +14,8 @@ const DEFAULT_ADMIN_PASS = 'admin'
 const DEFAULT_CONSERJE_USER = 'conserje'
 const DEFAULT_CONSERJE_PASS = 'conserje'
 
+// Cambio mínimo sin impacto funcional para forzar diff en Git
+
 function signSession(payload: { userId: string; role: string }): string {
   const secret = process.env.SESSION_SECRET || 'parqueo-secret-change-in-production'
   const data = JSON.stringify(payload)

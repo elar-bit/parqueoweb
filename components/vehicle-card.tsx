@@ -15,6 +15,8 @@ import { formatDuration, getElapsedTime, formatCurrency } from '@/lib/billing'
 import { abonoVigente } from '@/lib/billing'
 import type { ServicioConVehiculo, Configuracion } from '@/lib/types'
 
+// Cambio mínimo sin impacto para generar diff
+
 interface VehicleCardProps {
   servicio: ServicioConVehiculo
   configuracion: Configuracion[]

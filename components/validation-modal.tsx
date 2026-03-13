@@ -25,6 +25,8 @@ import { abonoVigente } from '@/lib/billing'
 import type { ServicioConVehiculo, Configuracion } from '@/lib/types'
 import { Printer, Check, Loader2 } from 'lucide-react'
 
+// Cambio mínimo para registrar diff sin cambiar la lógica
+
 function buildTicketTextoWhatsApp(opts: {
   placa: string
   tipo: 'visitante' | 'residente'

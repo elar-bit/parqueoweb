@@ -20,6 +20,8 @@ export function ConserjeDashboard() {
   const [abonadosVencidos, setAbonadosVencidos] = useState<Vehiculo[]>([])
   const [abonadosPorVencer, setAbonadosPorVencer] = useState<Vehiculo[]>([])
 
+  // Cambio mínimo para forzar diff sin afectar la lógica
+
   const normalizarTelefonoWhatsApp = (valor: string): string => {
     const digits = valor.replace(/\D/g, '')
     if (digits.length === 9 && digits.startsWith('9')) return '51' + digits
