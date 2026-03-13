@@ -4,11 +4,19 @@ import { useState, useEffect, useCallback } from 'react'
 import { QuickRegister } from '@/components/quick-register'
 import { VehicleCard } from '@/components/vehicle-card'
 import { ValidationModal } from '@/components/validation-modal'
-import { getServiciosActivos, getConfiguracion, logoutAdmin, getAbonadosVencidos, getAbonadosPorVencer, renovarAbono } from '@/app/actions'
-import { abonoVigente } from '@/lib/billing'
+import { getServiciosActivos, getConfiguracion, logoutAdmin, getAbonadosVencidos, getAbonadosPorVencer, renovarAbono, getServiciosPagadosHoy } from '@/app/actions'
+import { abonoVigente, formatCurrency } from '@/lib/billing'
 import type { ServicioConVehiculo, Configuracion, Vehiculo } from '@/lib/types'
-import { Car, RefreshCw, LogOut, AlertTriangle } from 'lucide-react'
+import { Car, RefreshCw, LogOut, AlertTriangle, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
 import Link from 'next/link'
 
 export function ConserjeDashboard() {
@@ -19,8 +27,8 @@ export function ConserjeDashboard() {
   const [loading, setLoading] = useState(true)
   const [abonadosVencidos, setAbonadosVencidos] = useState<Vehiculo[]>([])
   const [abonadosPorVencer, setAbonadosPorVencer] = useState<Vehiculo[]>([])
-
-  // Cambio mínimo para forzar diff sin afectar la lógica
+  const [serviciosHoy, setServiciosHoy] = useState<ServicioConVehiculo[]>([])
+  const [servicioDetalle, setServicioDetalle] = useState<ServicioConVehiculo | null>(null)
 
   const normalizarTelefonoWhatsApp = (valor: string): string => {
     const digits = valor.replace(/\D/g, '')
@@ -32,16 +40,18 @@ export function ConserjeDashboard() {
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      const [serviciosData, configData, vencidos, porVencer] = await Promise.all([
+      const [serviciosData, configData, vencidos, porVencer, pagadosHoy] = await Promise.all([
         getServiciosActivos(),
         getConfiguracion(),
         getAbonadosVencidos(),
         getAbonadosPorVencer(7),
+        getServiciosPagadosHoy(),
       ])
       setServicios(serviciosData)
       setConfiguracion(configData)
       setAbonadosVencidos(vencidos)
       setAbonadosPorVencer(porVencer)
+      setServiciosHoy(pagadosHoy)
     } catch (error) {
       console.error('Error loading data:', error)
     } finally {
@@ -61,6 +71,51 @@ export function ConserjeDashboard() {
   const handleSalir = async () => {
     await logoutAdmin()
     window.location.href = '/'
+  }
+
+  const buildTicketTexto = (servicio: ServicioConVehiculo): string => {
+    const esResidente = servicio.vehiculo?.tipo === 'residente'
+    const esAbonado = servicio.vehiculo?.tipo === 'abonado'
+    const nombreResidente =
+      esResidente && (servicio.vehiculo.nombre_propietario || servicio.vehiculo.apellido_propietorio)
+        ? [servicio.vehiculo.nombre_propietorio, servicio.vehiculo.apellido_propietorio].filter(Boolean).join(' ')
+        : ''
+    const placa = servicio.vehiculo?.placa || 'Sin placa'
+    const entrada = new Date(servicio.entrada_real).toLocaleString('es-PE', {
+      dateStyle: 'short',
+      timeStyle: 'short',
+    })
+    let salida = '—'
+    if (esAbonado && servicio.vehiculo?.vigencia_abono_hasta) {
+      salida = new Date(servicio.vehiculo.vigencia_abono_hasta).toLocaleDateString('es-PE')
+    } else if (servicio.salida) {
+      salida = new Date(servicio.salida).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })
+    }
+    const total = formatCurrency(servicio.total_pagar ?? 0)
+
+    const saludoBase = nombreResidente
+      ? `Hola, ${nombreResidente}`
+      : 'Hola'
+
+    const lineas = [
+      `${saludoBase}, gracias por usar nuestro servicio de parqueo.`,
+      'Compartimos contigo tu ticket generado el día de hoy en nuestra playa de estacionamiento.',
+      '',
+      `Placa: ${placa}`,
+      `Tipo: ${esAbonado ? 'Abonado' : esResidente ? 'Residente' : 'Visitante'}`,
+      `Entrada: ${entrada}`,
+      `Salida: ${salida}`,
+      `Total: ${total}`,
+    ]
+
+    if (servicio.ref_pago_yape) {
+      lineas.push(`Ref. Yape: ${servicio.ref_pago_yape}`)
+    }
+
+    lineas.push('')
+    lineas.push('¡Gracias y que tengas un excelente día!')
+
+    return lineas.join('\n')
   }
 
   return (
@@ -288,7 +343,97 @@ export function ConserjeDashboard() {
             </div>
           )}
         </div>
+
+        {/* Servicios pagados hoy (solo consulta) */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-foreground">
+              Servicios pagados hoy ({serviciosHoy.length})
+            </h2>
+          </div>
+          {serviciosHoy.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No hay servicios pagados el día de hoy.
+            </p>
+          ) : (
+            <div className="space-y-3 max-h-[360px] overflow-y-auto overflow-x-hidden">
+              {serviciosHoy.map((servicio) => {
+                const nombreResidente =
+                  servicio.vehiculo?.tipo === 'residente' &&
+                  (servicio.vehiculo.nombre_propietario || servicio.vehiculo.apellido_propietorio)
+                    ? [servicio.vehiculo.nombre_propietorio, servicio.vehiculo.apellido_propietorio].filter(Boolean).join(' ')
+                    : null
+                return (
+                  <div
+                    key={servicio.id}
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 bg-muted/50 rounded-lg gap-2"
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="h-8 w-8 rounded-full bg-background flex items-center justify-center shrink-0">
+                        <Car className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-mono font-medium text-foreground truncate">
+                            {servicio.vehiculo?.placa || 'Sin Placa'}
+                          </p>
+                          {servicio.vehiculo?.tipo === 'abonado' && (
+                            <Badge variant="outline" className="text-xs shrink-0">
+                              Abonado
+                            </Badge>
+                          )}
+                          {nombreResidente && (
+                            <Badge variant="secondary" className="text-xs font-normal shrink-0">
+                              {nombreResidente}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {servicio.vehiculo?.tipo === 'residente'
+                            ? 'Residente'
+                            : servicio.vehiculo?.tipo === 'abonado'
+                              ? 'Abonado'
+                              : 'Visitante'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
+                      <div className="text-left sm:text-right">
+                        <p className="font-semibold text-foreground text-sm">
+                          {formatCurrency(servicio.total_pagar || 0)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {servicio.salida &&
+                            new Date(servicio.salida).toLocaleString('es-PE', {
+                              dateStyle: 'short',
+                              timeStyle: 'short',
+                            })}
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setServicioDetalle(servicio)}
+                        title="Ver ticket, imprimir o enviar por WhatsApp"
+                        className="border-primary text-primary hover:bg-primary/5 min-h-[36px]"
+                      >
+                        <Info className="h-4 w-4 mr-1" />
+                        <span className="hidden sm:inline text-xs font-medium">Ver ticket</span>
+                      </Button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
       </main>
+
+      {/* Detalle de servicio pagado (ticket) */}
+      {/* Reutilizamos la lógica de admin para construir el ticket y WhatsApp */}
+      {servicioDetalle && (
+        <div className="hidden" />
+      )}
 
       <ValidationModal
         servicio={selectedServicio}
