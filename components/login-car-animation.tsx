@@ -8,13 +8,20 @@ export function LoginCarAnimation() {
   const path1 = 'M -40 85 Q 90 45 180 85 T 360 85 T 540 85'
   const path2 = 'M 540 195 Q 380 235 260 195 T -40 195'
 
+  // Duraciones de los ciclos (coinciden con los semáforos)
   const dur1 = 22
-  const keyTimes1 = '0;0.18;0.36;0.36;0.55;0.73;0.73;0.91;1'
-  const values1 = '0;0.28;0.28;0.28;0.58;0.58;0.58;0.88;1'
-
   const dur2 = 20
-  const keyTimes2 = '0;0.2;0.4;0.4;0.6;0.8;0.8;1'
-  const values2 = '0;0.35;0.35;0.35;0.7;0.7;0.7;1'
+
+  // Autos en camino 1: avanzan, se detienen cerca del primer semáforo,
+  // avanzan de nuevo, se detienen cerca del segundo, y continúan.
+  // Usamos keyPoints (posición en el path) y keyTimes (tiempo) para "congelar"
+  // la posición durante varios segundos.
+  const keyTimes1 = '0;0.18;0.4;0.4;0.7;0.9;0.9;1'
+  const keyPoints1 = '0;0.25;0.25;0.55;0.55;0.9;0.9;1'
+
+  // Autos en camino 2: mismo concepto, con otro ritmo.
+  const keyTimes2 = '0;0.2;0.45;0.45;0.7;0.9;0.9;1'
+  const keyPoints2 = '0;0.3;0.3;0.6;0.6;0.9;0.9;1'
 
   return (
     <div
@@ -111,27 +118,70 @@ export function LoginCarAnimation() {
           <animate href="#tl4-green" attributeName="opacity" values="0.9;0.9;0.15;0.15" keyTimes="0;0.2;0.2;1" dur={`${dur2}s`} repeatCount="indefinite" />
         </g>
 
-        {/* Carritos camino 1 (paran con rojo y avanzan con verde según keyTimes/values) */}
+        {/* Carritos camino 1 (avanzan y se detienen cerca de los semáforos rojos) */}
         <g fill="hsl(var(--primary))" className="text-primary">
           <use href="#car-sprite" />
-          <animateMotion path={path1} dur={`${dur1}s`} repeatCount="indefinite" rotate="auto" keyTimes={keyTimes1} values={values1} calcMode="linear" />
+          <animateMotion
+            path={path1}
+            dur={`${dur1}s`}
+            repeatCount="indefinite"
+            rotate="auto"
+            keyTimes={keyTimes1}
+            keyPoints={keyPoints1}
+            calcMode="linear"
+          />
         </g>
         <g fill="hsl(var(--primary))" className="text-primary opacity-80">
           <use href="#car-sprite" />
-          <animateMotion path={path1} dur={`${dur1}s`} repeatCount="indefinite" begin="2.5s" rotate="auto" keyTimes={keyTimes1} values={values1} calcMode="linear" />
+          <animateMotion
+            path={path1}
+            dur={`${dur1}s`}
+            repeatCount="indefinite"
+            begin="2.5s"
+            rotate="auto"
+            keyTimes={keyTimes1}
+            keyPoints={keyPoints1}
+            calcMode="linear"
+          />
         </g>
         <g fill="hsl(var(--primary))" className="text-primary opacity-60">
           <use href="#car-sprite" />
-          <animateMotion path={path1} dur={`${dur1}s`} repeatCount="indefinite" begin="5s" rotate="auto" keyTimes={keyTimes1} values={values1} calcMode="linear" />
+          <animateMotion
+            path={path1}
+            dur={`${dur1}s`}
+            repeatCount="indefinite"
+            begin="5s"
+            rotate="auto"
+            keyTimes={keyTimes1}
+            keyPoints={keyPoints1}
+            calcMode="linear"
+          />
         </g>
 
         <g fill="hsl(var(--primary))" className="text-primary opacity-75">
           <use href="#car-sprite" />
-          <animateMotion path={path2} dur={`${dur2}s`} repeatCount="indefinite" rotate="auto" keyTimes={keyTimes2} values={values2} calcMode="linear" />
+          <animateMotion
+            path={path2}
+            dur={`${dur2}s`}
+            repeatCount="indefinite"
+            rotate="auto"
+            keyTimes={keyTimes2}
+            keyPoints={keyPoints2}
+            calcMode="linear"
+          />
         </g>
         <g fill="hsl(var(--primary))" className="text-primary opacity-55">
           <use href="#car-sprite" />
-          <animateMotion path={path2} dur={`${dur2}s`} repeatCount="indefinite" begin="4s" rotate="auto" keyTimes={keyTimes2} values={values2} calcMode="linear" />
+          <animateMotion
+            path={path2}
+            dur={`${dur2}s`}
+            repeatCount="indefinite"
+            begin="4s"
+            rotate="auto"
+            keyTimes={keyTimes2}
+            keyPoints={keyPoints2}
+            calcMode="linear"
+          />
         </g>
 
         {/* Águila surcando el cielo en la parte superior */}
