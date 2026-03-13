@@ -1,5 +1,4 @@
 'use client'
-// Registro rápido de entrada (visitante, residente, abonado)
 
 import { useState, useEffect, useMemo } from 'react'
 import { Button } from '@/components/ui/button'

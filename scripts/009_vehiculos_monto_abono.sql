@@ -1,4 +1,4 @@
--- 009: Monto del último pago de abono (para mostrar en tabla de servicios)
+-- Monto del último pago de abono (para mostrar en tabla de servicios)
 ALTER TABLE vehiculos
   ADD COLUMN IF NOT EXISTS monto_ultimo_pago_abono NUMERIC(10, 2);
 

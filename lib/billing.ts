@@ -1,4 +1,3 @@
-// Utilidades de facturación y abonos
 const GRACE_PERIOD_MINUTES = 5
 
 export function calculateBilling(
