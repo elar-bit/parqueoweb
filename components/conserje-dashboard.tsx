@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { QuickRegister } from '@/components/quick-register'
 import { VehicleCard } from '@/components/vehicle-card'
 import { ValidationModal } from '@/components/validation-modal'
-import { getServiciosActivos, getConfiguracion, logoutAdmin, getAbonadosVencidos, getAbonadosPorVencer } from '@/app/actions'
+import { getServiciosActivos, getConfiguracion, logoutAdmin, getAbonadosVencidos, getAbonadosPorVencer, renovarAbono } from '@/app/actions'
 import { abonoVigente } from '@/lib/billing'
 import type { ServicioConVehiculo, Configuracion, Vehiculo } from '@/lib/types'
 import { Car, RefreshCw, LogOut, AlertTriangle } from 'lucide-react'
@@ -19,6 +19,13 @@ export function ConserjeDashboard() {
   const [loading, setLoading] = useState(true)
   const [abonadosVencidos, setAbonadosVencidos] = useState<Vehiculo[]>([])
   const [abonadosPorVencer, setAbonadosPorVencer] = useState<Vehiculo[]>([])
+
+  const normalizarTelefonoWhatsApp = (valor: string): string => {
+    const digits = valor.replace(/\D/g, '')
+    if (digits.length === 9 && digits.startsWith('9')) return '51' + digits
+    if (digits.startsWith('51') && digits.length >= 11) return digits.slice(0, 11)
+    return digits || ''
+  }
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -119,33 +126,121 @@ export function ConserjeDashboard() {
             </div>
             <ul className="space-y-1 text-sm">
               {abonadosPorVencer.map((v) => (
-                <li key={v.id} className="flex flex-wrap items-center gap-2">
-                  <span className="font-mono font-medium">{v.placa || 'Sin placa'}</span>
-                  {(v.nombre_propietario || v.apellido_propietario) && (
-                    <span className="text-muted-foreground">
-                      {[v.nombre_propietario, v.apellido_propietario].filter(Boolean).join(' ')}
-                    </span>
-                  )}
-                  {v.vigencia_abono_hasta && (
-                    <span className="text-xs text-muted-foreground">
-                      Vence: {v.vigencia_abono_hasta}
-                    </span>
-                  )}
+                <li key={v.id} className="flex flex-wrap items-center gap-2 justify-between">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-mono font-medium">{v.placa || 'Sin placa'}</span>
+                    {(v.nombre_propietario || v.apellido_propietario) && (
+                      <span className="text-muted-foreground">
+                        {[v.nombre_propietario, v.apellido_propietario].filter(Boolean).join(' ')}
+                      </span>
+                    )}
+                    {v.vigencia_abono_hasta && (
+                      <span className="text-xs text-muted-foreground">
+                        Vence: {v.vigencia_abono_hasta}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={!v.telefono_contacto}
+                      onClick={() => {
+                        if (!v.telefono_contacto) return
+                        const telefono = normalizarTelefonoWhatsApp(v.telefono_contacto)
+                        const nombre = [v.nombre_propietario, v.apellido_propietario].filter(Boolean).join(' ')
+                        const saludo = nombre ? `Hola, ${nombre}` : 'Hola'
+                        const texto = [
+                          `${saludo}, te recordamos que tu abono de estacionamiento está próximo a vencer.`,
+                          '',
+                          v.vigencia_abono_hasta ? `Vence el: ${v.vigencia_abono_hasta}` : '',
+                          '',
+                          'Por favor acércate a renovar tu mensualidad para seguir usando el estacionamiento sin inconvenientes.',
+                        ].join('\n')
+                        const url = telefono
+                          ? `https://wa.me/${telefono}?text=${encodeURIComponent(texto)}`
+                          : `https://wa.me/?text=${encodeURIComponent(texto)}`
+                        window.open(url, '_blank')
+                      }}
+                    >
+                      Recordar por WhatsApp
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          await renovarAbono(v.id)
+                          loadData()
+                        } catch (e) {
+                          console.error(e)
+                        }
+                      }}
+                    >
+                      Registrar pago
+                    </Button>
+                  </div>
                 </li>
               ))}
               {abonadosVencidos.map((v) => (
-                <li key={v.id} className="flex flex-wrap items-center gap-2">
-                  <span className="font-mono font-medium">{v.placa || 'Sin placa'}</span>
-                  {(v.nombre_propietario || v.apellido_propietario) && (
-                    <span className="text-muted-foreground">
-                      {[v.nombre_propietario, v.apellido_propietario].filter(Boolean).join(' ')}
-                    </span>
-                  )}
-                  {v.vigencia_abono_hasta && (
-                    <span className="text-xs text-muted-foreground">
-                      Vencido desde: {v.vigencia_abono_hasta}
-                    </span>
-                  )}
+                <li key={v.id} className="flex flex-wrap items-center gap-2 justify-between">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-mono font-medium">{v.placa || 'Sin placa'}</span>
+                    {(v.nombre_propietario || v.apellido_propietario) && (
+                      <span className="text-muted-foreground">
+                        {[v.nombre_propietario, v.apellido_propietario].filter(Boolean).join(' ')}
+                      </span>
+                    )}
+                    {v.vigencia_abono_hasta && (
+                      <span className="text-xs text-muted-foreground">
+                        Vencido desde: {v.vigencia_abono_hasta}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={!v.telefono_contacto}
+                      onClick={() => {
+                        if (!v.telefono_contacto) return
+                        const telefono = normalizarTelefonoWhatsApp(v.telefono_contacto)
+                        const nombre = [v.nombre_propietario, v.apellido_propietario].filter(Boolean).join(' ')
+                        const saludo = nombre ? `Hola, ${nombre}` : 'Hola'
+                        const texto = [
+                          `${saludo}, tu abono de estacionamiento se encuentra vencido.`,
+                          '',
+                          v.vigencia_abono_hasta ? `Venció el: ${v.vigencia_abono_hasta}` : '',
+                          '',
+                          'Por favor acércate a renovar tu mensualidad para seguir usando el estacionamiento.',
+                        ].join('\n')
+                        const url = telefono
+                          ? `https://wa.me/${telefono}?text=${encodeURIComponent(texto)}`
+                          : `https://wa.me/?text=${encodeURIComponent(texto)}`
+                        window.open(url, '_blank')
+                      }}
+                    >
+                      Avisar por WhatsApp
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          await renovarAbono(v.id)
+                          loadData()
+                        } catch (e) {
+                          console.error(e)
+                        }
+                      }}
+                    >
+                      Registrar pago
+                    </Button>
+                  </div>
                 </li>
               ))}
             </ul>

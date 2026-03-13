@@ -111,6 +111,7 @@ export function AdminDashboard() {
 
   const buildTicketTexto = (servicio: ServicioConVehiculo): string => {
     const esResidente = servicio.vehiculo?.tipo === 'residente'
+    const esAbonado = servicio.vehiculo?.tipo === 'abonado'
     const nombreResidente =
       esResidente && (servicio.vehiculo.nombre_propietario || servicio.vehiculo.apellido_propietario)
         ? [servicio.vehiculo.nombre_propietario, servicio.vehiculo.apellido_propietario].filter(Boolean).join(' ')
@@ -120,9 +121,13 @@ export function AdminDashboard() {
       dateStyle: 'short',
       timeStyle: 'short',
     })
-    const salida = servicio.salida
-      ? new Date(servicio.salida).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })
-      : '—'
+    let salida = '—'
+    if (esAbonado && servicio.vehiculo?.vigencia_abono_hasta) {
+      const d = new Date(servicio.vehiculo.vigencia_abono_hasta)
+      salida = d.toLocaleDateString('es-PE')
+    } else if (servicio.salida) {
+      salida = new Date(servicio.salida).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })
+    }
     const total = formatCurrency(servicio.total_pagar ?? 0)
 
     const saludoBase = nombreResidente
@@ -134,7 +139,7 @@ export function AdminDashboard() {
       'Compartimos contigo tu ticket generado el día de hoy en nuestra playa de estacionamiento.',
       '',
       `Placa: ${placa}`,
-      `Tipo: ${servicio.vehiculo?.tipo === 'abonado' ? 'Abonado' : esResidente ? 'Residente' : 'Visitante'}`,
+      `Tipo: ${esAbonado ? 'Abonado' : esResidente ? 'Residente' : 'Visitante'}`,
       `Entrada: ${entrada}`,
       `Salida: ${salida}`,
       `Total: ${total}`,
@@ -1200,9 +1205,14 @@ export function AdminDashboard() {
                   <span>{new Date(servicioDetalle.entrada_real).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })}</span>
                   <span className="text-muted-foreground">Salida</span>
                   <span>
-                    {servicioDetalle.salida
-                      ? new Date(servicioDetalle.salida).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })
-                      : '—'}
+                    {servicioDetalle.vehiculo?.tipo === 'abonado' && servicioDetalle.vehiculo.vigencia_abono_hasta
+                      ? new Date(servicioDetalle.vehiculo.vigencia_abono_hasta).toLocaleDateString('es-PE')
+                      : servicioDetalle.salida
+                        ? new Date(servicioDetalle.salida).toLocaleString('es-PE', {
+                            dateStyle: 'short',
+                            timeStyle: 'short',
+                          })
+                        : '—'}
                   </span>
                   <span className="text-muted-foreground">Total</span>
                   <span className="font-semibold">{formatCurrency(servicioDetalle.total_pagar ?? 0)}</span>
