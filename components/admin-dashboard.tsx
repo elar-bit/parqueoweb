@@ -1314,7 +1314,7 @@ export function AdminDashboard() {
               <div className="flex justify-center bg-muted/30 rounded-lg p-2">
                 <img src={verCapturaUrl} alt="Captura del pago" className="max-w-full max-h-[70vh] object-contain rounded" />
               </div>
-            }
+            )}
           </DialogContent>
         </Dialog>
 
