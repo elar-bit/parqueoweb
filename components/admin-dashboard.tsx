@@ -94,6 +94,86 @@ export function AdminDashboard() {
   const [deletingServicioId, setDeletingServicioId] = useState<string | null>(null)
   const [servicioDetalle, setServicioDetalle] = useState<ServicioConVehiculo | null>(null)
 
+  const buildTicketTexto = (servicio: ServicioConVehiculo): string => {
+    const esResidente = servicio.vehiculo?.tipo === 'residente'
+    const nombreResidente =
+      esResidente && (servicio.vehiculo.nombre_propietario || servicio.vehiculo.apellido_propietario)
+        ? [servicio.vehiculo.nombre_propietario, servicio.vehiculo.apellido_propietario].filter(Boolean).join(' ')
+        : ''
+    const placa = servicio.vehiculo?.placa || 'Sin placa'
+    const entrada = new Date(servicio.entrada_real).toLocaleString('es-PE', {
+      dateStyle: 'short',
+      timeStyle: 'short',
+    })
+    const salida = servicio.salida
+      ? new Date(servicio.salida).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })
+      : '—'
+    const total = formatCurrency(servicio.total_pagar ?? 0)
+
+    const saludoBase = nombreResidente
+      ? `Hola, ${nombreResidente} 👋`
+      : 'Hola 👋'
+
+    const lineas = [
+      `${saludoBase}, gracias por usar nuestro servicio de parqueo. 🚗`,
+      'Compartimos contigo tu ticket generado el día de hoy en nuestra playa de estacionamiento. 🧾',
+      '',
+      `Placa: ${placa}`,
+      `Tipo: ${esResidente ? 'Residente' : 'Visitante'}`,
+      `Entrada: ${entrada}`,
+      `Salida: ${salida}`,
+      `Total: ${total}`,
+    ]
+
+    if (servicio.ref_pago_yape) {
+      lineas.push(`Ref. Yape: ${servicio.ref_pago_yape}`)
+    }
+
+    lineas.push('')
+    lineas.push('¡Gracias y que tengas un excelente día! ✨')
+
+    return lineas.join('\n')
+  }
+
+  const handleImprimirServicioDetalle = () => {
+    if (!servicioDetalle) return
+    const ticket = buildTicketTexto(servicioDetalle).replace(/\n/g, '<br/>')
+    const ventana = window.open('', '_blank')
+    if (!ventana) return
+    ventana.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>Ticket de servicio</title>
+          <style>
+            body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 24px; font-size: 14px; }
+            h1 { font-size: 18px; margin-bottom: 12px; }
+            .ticket { border: 1px dashed #ccc; padding: 16px 20px; border-radius: 8px; max-width: 360px; }
+          </style>
+        </head>
+        <body>
+          <div class="ticket">
+            <h1>Ticket de servicio</h1>
+            <p>${ticket}</p>
+          </div>
+        </body>
+      </html>
+    `)
+    ventana.document.close()
+    ventana.onload = () => {
+      ventana.print()
+      ventana.onafterprint = () => ventana.close()
+    }
+  }
+
+  const handleEnviarWhatsAppServicio = () => {
+    if (!servicioDetalle) return
+    const texto = buildTicketTexto(servicioDetalle)
+    const url = `https://wa.me/?text=${encodeURIComponent(texto)}`
+    window.open(url, '_blank')
+  }
+
   const [tipoGrafico, setTipoGrafico] = useState<'bar' | 'pie'>('bar')
 
   const filtros: FiltrosAdmin = {
@@ -920,6 +1000,14 @@ export function AdminDashboard() {
                       <span className="font-mono text-xs break-all">{servicioDetalle.ref_pago_yape}</span>
                     </>
                   )}
+                </div>
+                <div className="flex flex-wrap gap-2 pt-2">
+                  <Button variant="outline" size="sm" onClick={handleImprimirServicioDetalle}>
+                    Imprimir ticket
+                  </Button>
+                  <Button variant="default" size="sm" onClick={handleEnviarWhatsAppServicio}>
+                    Enviar por WhatsApp
+                  </Button>
                 </div>
               </div>
             )}
