@@ -56,6 +56,7 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
   const [nombreResidente, setNombreResidente] = useState('')
   const [apellidoResidente, setApellidoResidente] = useState('')
   const [numeroOficinaDep, setNumeroOficinaDep] = useState('')
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   const cargarResidentes = async () => {
     const list = await getPlacasResidentes()
@@ -79,6 +80,7 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
     setApellidoResidente('')
     setNumeroOficinaDep('')
     setComboboxSearch('')
+    setErrorMsg(null)
   }
 
   const handleSeleccionarResidente = async (id: string) => {
@@ -87,6 +89,7 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
       alert('Este vehículo ya tiene una entrada activa. No se puede duplicar la entrada.')
       return
     }
+    setErrorMsg(null)
     setResidenteSeleccionado(id)
     setPlaca('')
     setComboboxOpen(false)
@@ -95,6 +98,7 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
   const handleRegistrar = async () => {
     if (!tipo) return
     setLoading(true)
+    setErrorMsg(null)
     try {
       if (tipo === 'residente' && residenteSeleccionado) {
         await registrarEntrada('residente', null, residenteSeleccionado)
@@ -118,6 +122,7 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
       onRegistered()
     } catch (error) {
       console.error('Error registering entry:', error)
+      setErrorMsg('No se pudo registrar la entrada. Verifique los datos e inténtelo nuevamente.')
     } finally {
       setLoading(false)
     }
@@ -132,6 +137,7 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
     setApellidoResidente('')
     setNumeroOficinaDep('')
     setComboboxSearch('')
+    setErrorMsg(null)
   }
 
   const puedeRegistrar =
@@ -304,6 +310,11 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
                 {loading ? ' Registrando...' : 'Registrar entrada'}
               </Button>
             </div>
+            {errorMsg && (
+              <p className="text-sm text-destructive pt-1">
+                {errorMsg}
+              </p>
+            )}
           </div>
         )}
       </CardContent>
