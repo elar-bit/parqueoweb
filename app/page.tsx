@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Car, BarChart3 } from 'lucide-react'
+import { Car, BarChart3, User } from 'lucide-react'
 
 export default function HomePage() {
   return (
@@ -15,7 +15,7 @@ export default function HomePage() {
             Sistema de Control de Estacionamiento
           </h1>
           <p className="text-muted-foreground">
-            Seleccione el modulo al que desea acceder
+            ¿Qué tipo de usuario eres?
           </p>
         </div>
 
@@ -23,16 +23,16 @@ export default function HomePage() {
           <Card className="border-border hover:border-primary/50 transition-colors">
             <CardHeader>
               <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-2">
-                <Car className="h-6 w-6 text-primary" />
+                <BarChart3 className="h-6 w-6 text-primary" />
               </div>
-              <CardTitle className="text-foreground">Vista Conserje</CardTitle>
+              <CardTitle className="text-foreground">Administrador</CardTitle>
               <CardDescription>
-                Registro de entradas y salidas de vehiculos
+                Acceso con usuario y contraseña
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button asChild className="w-full">
-                <Link href="/conserje">Acceder</Link>
+              <Button asChild className="w-full" variant="outline">
+                <Link href="/admin">Entrar</Link>
               </Button>
             </CardContent>
           </Card>
@@ -40,16 +40,16 @@ export default function HomePage() {
           <Card className="border-border hover:border-primary/50 transition-colors">
             <CardHeader>
               <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-2">
-                <BarChart3 className="h-6 w-6 text-primary" />
+                <User className="h-6 w-6 text-primary" />
               </div>
-              <CardTitle className="text-foreground">Dashboard Admin</CardTitle>
+              <CardTitle className="text-foreground">Conserje</CardTitle>
               <CardDescription>
-                Reportes e ingresos del estacionamiento
+                Registro de entradas y salidas
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button asChild variant="outline" className="w-full">
-                <Link href="/admin">Acceder</Link>
+              <Button asChild className="w-full">
+                <Link href="/conserje">Entrar</Link>
               </Button>
             </CardContent>
           </Card>

@@ -1,29 +1,30 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { loginUsuario } from '@/app/actions'
-import { Lock, Loader2 } from 'lucide-react'
+import { User, Loader2, Home } from 'lucide-react'
+import Link from 'next/link'
 
-export function AdminLoginForm() {
-  const [usuario, setUsuario] = useState('')
-  const [password, setPassword] = useState('')
+export function ConserjeLoginForm() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setLoading(true)
     try {
-      const result = await loginUsuario(usuario, password, { soloAdmin: true })
+      const result = await loginUsuario('conserje', '', { soloAdmin: false })
       if (result.ok) {
-        window.location.reload()
+        router.refresh()
       } else {
-        setError(result.error || 'Error al iniciar sesión')
+        setError(result.error || 'Error al entrar')
       }
     } catch {
       setError('Error de conexión')
@@ -38,12 +39,12 @@ export function AdminLoginForm() {
         <CardHeader>
           <div className="flex justify-center mb-2">
             <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-              <Lock className="h-6 w-6 text-primary" />
+              <User className="h-6 w-6 text-primary" />
             </div>
           </div>
-          <CardTitle className="text-center text-foreground">Acceso Administrativo</CardTitle>
+          <CardTitle className="text-center text-foreground">Vista Conserje</CardTitle>
           <p className="text-sm text-muted-foreground text-center">
-            Ingrese usuario y contraseña
+            Ingrese su usuario para continuar
           </p>
         </CardHeader>
         <CardContent>
@@ -53,22 +54,9 @@ export function AdminLoginForm() {
               <Input
                 id="usuario"
                 type="text"
-                value={usuario}
-                onChange={(e) => setUsuario(e.target.value)}
-                placeholder="Usuario"
-                autoComplete="username"
-                disabled={loading}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Contraseña</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                autoComplete="current-password"
+                value="conserje"
+                readOnly
+                className="bg-muted font-mono"
                 disabled={loading}
               />
             </div>
@@ -78,6 +66,12 @@ export function AdminLoginForm() {
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Entrar
+            </Button>
+            <Button variant="ghost" className="w-full mt-2" asChild>
+              <Link href="/">
+                <Home className="h-4 w-4 mr-2" />
+                Volver al inicio
+              </Link>
             </Button>
           </form>
         </CardContent>

@@ -11,6 +11,7 @@ import type { Configuracion, ServicioConVehiculo, Vehiculo } from '@/lib/types'
 const SESSION_COOKIE_NAME = 'parqueo_session'
 const DEFAULT_ADMIN_USER = 'admin'
 const DEFAULT_ADMIN_PASS = 'admin'
+const DEFAULT_CONSERJE_USER = 'conserje'
 
 function signSession(payload: { userId: string; role: string }): string {
   const secret = process.env.SESSION_SECRET || 'parqueo-secret-change-in-production'
@@ -32,24 +33,49 @@ function verifySession(token: string): { userId: string; role: string } | null {
 }
 
 export async function getAdminAuth(): Promise<boolean> {
-  const cookieStore = await cookies()
-  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value
-  if (!token) return false
-  const session = verifySession(token)
+  const session = await getSession()
   return session?.role === 'admin'
 }
 
+export async function getSession(): Promise<{ userId: string; role: string } | null> {
+  const cookieStore = await cookies()
+  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value
+  if (!token) return null
+  return verifySession(token)
+}
+
 async function ensureDefaultAdmin(supabase: Awaited<ReturnType<typeof createClient>>) {
-  const { data: existing } = await supabase.from('usuarios').select('id').eq('usuario', DEFAULT_ADMIN_USER).single()
-  if (existing) return
-  const password_hash = await hash(DEFAULT_ADMIN_PASS, 10)
-  await supabase.from('usuarios').insert({
-    nombre: 'Admin',
-    apellido: 'Sistema',
-    usuario: DEFAULT_ADMIN_USER,
-    password_hash,
-    rol: 'admin',
-  })
+  try {
+    const { data: existing } = await supabase.from('usuarios').select('id').eq('usuario', DEFAULT_ADMIN_USER).single()
+    if (existing) return
+    const password_hash = await hash(DEFAULT_ADMIN_PASS, 10)
+    await supabase.from('usuarios').insert({
+      nombre: 'Admin',
+      apellido: 'Sistema',
+      usuario: DEFAULT_ADMIN_USER,
+      password_hash,
+      rol: 'admin',
+    })
+  } catch (e) {
+    console.error('ensureDefaultAdmin:', e)
+  }
+}
+
+async function ensureDefaultConserje(supabase: Awaited<ReturnType<typeof createClient>>) {
+  try {
+    const { data: existing } = await supabase.from('usuarios').select('id').eq('usuario', DEFAULT_CONSERJE_USER).single()
+    if (existing) return
+    const password_hash = await hash('', 10)
+    await supabase.from('usuarios').insert({
+      nombre: 'Conserje',
+      apellido: 'Sistema',
+      usuario: DEFAULT_CONSERJE_USER,
+      password_hash,
+      rol: 'conserje',
+    })
+  } catch (e) {
+    console.error('ensureDefaultConserje:', e)
+  }
 }
 
 export async function loginUsuario(
@@ -64,6 +90,9 @@ export async function loginUsuario(
   if (usuarioNorm === DEFAULT_ADMIN_USER && passwordNorm === DEFAULT_ADMIN_PASS) {
     await ensureDefaultAdmin(supabase)
   }
+  if (usuarioNorm === DEFAULT_CONSERJE_USER) {
+    await ensureDefaultConserje(supabase)
+  }
 
   const { data: user, error } = await supabase
     .from('usuarios')
@@ -75,8 +104,9 @@ export async function loginUsuario(
     return { ok: false, error: 'Usuario o contraseña incorrectos' }
   }
 
-  const valid = await compare(passwordNorm, user.password_hash)
-  if (!valid) {
+  const validConserjeSinPassword = user.rol === 'conserje' && passwordNorm === ''
+  const validPassword = validConserjeSinPassword || (await compare(passwordNorm, user.password_hash))
+  if (!validPassword) {
     return { ok: false, error: 'Usuario o contraseña incorrectos' }
   }
 
