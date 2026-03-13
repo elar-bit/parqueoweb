@@ -30,7 +30,7 @@ import {
 } from '@/app/actions'
 import type { ServicioConVehiculo, Configuracion } from '@/lib/types'
 import { formatCurrency } from '@/lib/billing'
-import { Car, DollarSign, RefreshCw, BarChart3, LogOut, Settings, Loader2, Users, UserPlus, Pencil, Trash2, Key } from 'lucide-react'
+import { Car, DollarSign, RefreshCw, BarChart3, LogOut, Settings, Loader2, Users, UserPlus, Pencil, Trash2, Key, FileSpreadsheet, FileText } from 'lucide-react'
 import Link from 'next/link'
 import { IncomeChart } from '@/components/income-chart'
 import {
@@ -89,6 +89,8 @@ export function AdminDashboard() {
 
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null)
   const [deletingServicioId, setDeletingServicioId] = useState<string | null>(null)
+
+  const [tipoGrafico, setTipoGrafico] = useState<'bar' | 'pie'>('bar')
 
   const filtros: FiltrosAdmin = {
     fechaDesde: filtroFechaDesde || null,
@@ -260,6 +262,70 @@ export function AdminDashboard() {
     }
   }
 
+  const exportarExcel = () => {
+    const headers = ['Fecha', 'Placa', 'Tipo', 'Total (S/)', 'Salida']
+    const rows = serviciosList.map((s) => [
+      s.salida ? new Date(s.salida).toLocaleDateString('es-PE') : '',
+      s.vehiculo?.placa || 'Sin placa',
+      s.vehiculo?.tipo === 'residente' ? 'Residente' : 'Visitante',
+      String(s.total_pagar ?? ''),
+      s.salida ? new Date(s.salida).toLocaleString('es-PE') : '',
+    ])
+    const csv = [headers.join(','), ...rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(','))].join('\n')
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `reporte-ingresos-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const exportarPDF = () => {
+    const ventana = window.open('', '_blank')
+    if (!ventana) return
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head><meta charset="utf-8"><title>Reporte de ingresos</title>
+          <style>
+            body { font-family: sans-serif; padding: 20px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background: #f5f5f5; }
+            h1 { font-size: 18px; }
+            .fecha { color: #666; font-size: 12px; margin-top: 8px; }
+          </style>
+        </head>
+        <body>
+          <h1>Reporte de ingresos - Estacionamiento</h1>
+          <p class="fecha">Generado: ${new Date().toLocaleString('es-PE')}</p>
+          <table>
+            <thead><tr><th>Fecha</th><th>Placa</th><th>Tipo</th><th>Total (S/)</th><th>Salida</th></tr></thead>
+            <tbody>
+              ${serviciosList.map((s) => `
+                <tr>
+                  <td>${s.salida ? new Date(s.salida).toLocaleDateString('es-PE') : ''}</td>
+                  <td>${(s.vehiculo?.placa || 'Sin placa').replace(/</g, '&lt;')}</td>
+                  <td>${s.vehiculo?.tipo === 'residente' ? 'Residente' : 'Visitante'}</td>
+                  <td>${s.total_pagar ?? ''}</td>
+                  <td>${s.salida ? new Date(s.salida).toLocaleString('es-PE') : ''}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          <p class="fecha" style="margin-top: 16px;">Total: S/ ${totalFiltrado.toFixed(2)} (${serviciosCount} servicios)</p>
+        </body>
+      </html>
+    `
+    ventana.document.write(html)
+    ventana.document.close()
+    ventana.onload = () => {
+      ventana.print()
+      ventana.onafterprint = () => ventana.close()
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card">
@@ -381,13 +447,34 @@ export function AdminDashboard() {
           </Card>
         </div>
 
-        {/* Chart */}
+        {/* Chart y reportes */}
         <Card className="border-border">
           <CardHeader>
-            <CardTitle className="text-foreground">Ingresos por día</CardTitle>
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <CardTitle className="text-foreground">Ingresos por día</CardTitle>
+              <div className="flex flex-wrap items-center gap-2">
+                <Select value={tipoGrafico} onValueChange={(v) => setTipoGrafico(v as 'bar' | 'pie')}>
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="bar">Barras</SelectItem>
+                    <SelectItem value="pie">Circular</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" size="sm" onClick={exportarExcel} disabled={serviciosList.length === 0}>
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Exportar Excel
+                </Button>
+                <Button variant="outline" size="sm" onClick={exportarPDF} disabled={serviciosList.length === 0}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Exportar PDF
+                </Button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            <IncomeChart data={chartData} />
+            <IncomeChart data={chartData} tipo={tipoGrafico} />
           </CardContent>
         </Card>
 

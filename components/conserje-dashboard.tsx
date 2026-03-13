@@ -4,9 +4,9 @@ import { useState, useEffect, useCallback } from 'react'
 import { QuickRegister } from '@/components/quick-register'
 import { VehicleCard } from '@/components/vehicle-card'
 import { ValidationModal } from '@/components/validation-modal'
-import { getServiciosActivos, getConfiguracion } from '@/app/actions'
+import { getServiciosActivos, getConfiguracion, logoutAdmin } from '@/app/actions'
 import type { ServicioConVehiculo, Configuracion } from '@/lib/types'
-import { Car, RefreshCw } from 'lucide-react'
+import { Car, RefreshCw, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 
@@ -42,6 +42,11 @@ export function ConserjeDashboard() {
     setModalOpen(true)
   }
 
+  const handleSalir = async () => {
+    await logoutAdmin()
+    window.location.href = '/'
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card">
@@ -65,6 +70,10 @@ export function ConserjeDashboard() {
             </Button>
             <Button variant="ghost" size="sm" asChild>
               <Link href="/admin">Ver Dashboard Admin</Link>
+            </Button>
+            <Button variant="ghost" size="sm" onClick={handleSalir}>
+              <LogOut className="h-4 w-4 mr-2" />
+              Salir
             </Button>
           </div>
         </div>

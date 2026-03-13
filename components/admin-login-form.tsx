@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import Link from 'next/link'
 import { loginUsuario } from '@/app/actions'
-import { Lock, Loader2 } from 'lucide-react'
+import { Lock, Loader2, Home } from 'lucide-react'
 
 export function AdminLoginForm() {
   const [usuario, setUsuario] = useState('')
@@ -78,6 +79,12 @@ export function AdminLoginForm() {
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Entrar
+            </Button>
+            <Button variant="ghost" className="w-full mt-2" asChild>
+              <Link href="/">
+                <Home className="h-4 w-4 mr-2" />
+                Volver al inicio
+              </Link>
             </Button>
           </form>
         </CardContent>
