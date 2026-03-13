@@ -494,23 +494,23 @@ export function AdminDashboard() {
   const exportarExcel = () => {
     const titulo = 'Reporte de ingresos - Estacionamiento'
     const filtrosLinea = `Datos: ${leyendaDatos}. ${textoPeriodo}`
-    const headers = ['Fecha salida', 'Placa', 'Tipo', 'Nombre residente', 'Oficina/Depto', 'Teléfono (WhatsApp)', 'Ref. pago abono', 'Entrada', 'Salida', 'Total (S/)', 'Ref. Yape']
+    const headers = ['Fecha salida', 'Placa', 'Tipo', 'Nombre', 'Oficina/Depto', 'Teléfono (WhatsApp)', 'Entrada', 'Salida', 'Total (S/)', 'Ref. Yape o Transferencia']
     const rows = serviciosParaReportes.map((s) => {
-      const nombreResidente = (s.vehiculo?.tipo === 'residente' && (s.vehiculo.nombre_propietario || s.vehiculo.apellido_propietario))
+      const nombre = (s.vehiculo?.tipo === 'residente' || s.vehiculo?.tipo === 'abonado') && (s.vehiculo.nombre_propietario || s.vehiculo.apellido_propietario)
         ? [s.vehiculo.nombre_propietario, s.vehiculo.apellido_propietario].filter(Boolean).join(' ')
         : ''
+      const refPago = (s.ref_pago_yape ?? s.vehiculo?.ref_pago_abono ?? '') as string
       return [
         s.salida ? new Date(s.salida).toLocaleDateString('es-PE') : '',
         s.vehiculo?.placa || 'Sin placa',
         s.vehiculo?.tipo === 'residente' ? 'Residente' : s.vehiculo?.tipo === 'abonado' ? 'Abonado' : 'Visitante',
-        nombreResidente,
+        nombre,
         s.vehiculo?.numero_oficina_dep ?? '',
         s.vehiculo?.telefono_contacto ?? '',
-        s.vehiculo?.ref_pago_abono ?? '',
         s.entrada_real ? new Date(s.entrada_real).toLocaleString('es-PE') : '',
         s.salida ? new Date(s.salida).toLocaleString('es-PE') : '',
         String(s.total_pagar ?? ''),
-        s.ref_pago_yape ?? '',
+        refPago,
       ]
     })
     const csv = [
@@ -553,28 +553,28 @@ export function AdminDashboard() {
           <p class="fecha">Generado: ${new Date().toLocaleString('es-PE')}</p>
           <table>
             <thead><tr>
-              <th>Fecha salida</th><th>Placa</th><th>Tipo</th><th>Nombre residente</th><th>Oficina/Depto</th><th>Teléfono (WhatsApp)</th><th>Ref. pago abono</th>
-              <th>Entrada</th><th>Salida</th><th>Total (S/)</th><th>Ref. Yape</th>
+              <th>Fecha salida</th><th>Placa</th><th>Tipo</th><th>Nombre</th><th>Oficina/Depto</th><th>Teléfono (WhatsApp)</th>
+              <th>Entrada</th><th>Salida</th><th>Total (S/)</th><th>Ref. Yape o Transferencia</th>
             </tr></thead>
             <tbody>
               ${serviciosParaReportes.map((s) => {
-                const nombreResidente = (s.vehiculo?.tipo === 'residente' && (s.vehiculo.nombre_propietario || s.vehiculo.apellido_propietario))
+                const nombre = (s.vehiculo?.tipo === 'residente' || s.vehiculo?.tipo === 'abonado') && (s.vehiculo.nombre_propietario || s.vehiculo.apellido_propietario)
                   ? [s.vehiculo.nombre_propietario, s.vehiculo.apellido_propietario].filter(Boolean).join(' ')
                   : ''
+                const refPago = s.ref_pago_yape ?? s.vehiculo?.ref_pago_abono ?? ''
                 const esc = (v: string) => (v ?? '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
                 return `
                 <tr>
                   <td>${s.salida ? new Date(s.salida).toLocaleDateString('es-PE') : ''}</td>
                   <td>${esc(s.vehiculo?.placa || 'Sin placa')}</td>
                   <td>${s.vehiculo?.tipo === 'residente' ? 'Residente' : s.vehiculo?.tipo === 'abonado' ? 'Abonado' : 'Visitante'}</td>
-                  <td>${esc(nombreResidente)}</td>
+                  <td>${esc(nombre)}</td>
                   <td>${esc(s.vehiculo?.numero_oficina_dep ?? '')}</td>
                   <td>${esc(s.vehiculo?.telefono_contacto ?? '')}</td>
-                  <td>${esc(s.vehiculo?.ref_pago_abono ?? '')}</td>
                   <td>${s.entrada_real ? new Date(s.entrada_real).toLocaleString('es-PE') : ''}</td>
                   <td>${s.salida ? new Date(s.salida).toLocaleString('es-PE') : ''}</td>
                   <td>${s.total_pagar ?? ''}</td>
-                  <td>${esc(s.ref_pago_yape ?? '')}</td>
+                  <td>${esc(refPago)}</td>
                 </tr>
               `}).join('')}
             </tbody>
