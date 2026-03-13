@@ -31,7 +31,8 @@ import {
 } from '@/app/actions'
 import type { ServicioConVehiculo, Configuracion } from '@/lib/types'
 import { formatCurrency } from '@/lib/billing'
-import { Car, DollarSign, RefreshCw, BarChart3, LogOut, Settings, Loader2, Users, UserPlus, Pencil, Trash2, Key, FileSpreadsheet, FileText } from 'lucide-react'
+import { Car, DollarSign, RefreshCw, BarChart3, LogOut, Settings, Loader2, Users, UserPlus, Pencil, Trash2, Key, FileSpreadsheet, FileText, Info } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { IncomeChart } from '@/components/income-chart'
 import {
@@ -91,6 +92,7 @@ export function AdminDashboard() {
 
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null)
   const [deletingServicioId, setDeletingServicioId] = useState<string | null>(null)
+  const [servicioDetalle, setServicioDetalle] = useState<ServicioConVehiculo | null>(null)
 
   const [tipoGrafico, setTipoGrafico] = useState<'bar' | 'pie'>('bar')
 
@@ -791,47 +793,117 @@ export function AdminDashboard() {
               <p className="text-muted-foreground text-center py-8">No hay servicios con los filtros aplicados</p>
             ) : (
               <div className="space-y-3 max-h-[400px] overflow-y-auto overflow-x-hidden">
-                {serviciosList.map((servicio) => (
-                  <div
-                    key={servicio.id}
-                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 bg-muted/50 rounded-lg gap-2"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="h-8 w-8 rounded-full bg-background flex items-center justify-center shrink-0">
-                        <Car className="h-4 w-4 text-muted-foreground" />
+                {serviciosList.map((servicio) => {
+                  const nombreResidente = servicio.vehiculo?.tipo === 'residente' &&
+                    (servicio.vehiculo.nombre_propietario || servicio.vehiculo.apellido_propietario)
+                    ? [servicio.vehiculo.nombre_propietario, servicio.vehiculo.apellido_propietario].filter(Boolean).join(' ')
+                    : null
+                  return (
+                    <div
+                      key={servicio.id}
+                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 bg-muted/50 rounded-lg gap-2"
+                    >
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="h-8 w-8 rounded-full bg-background flex items-center justify-center shrink-0">
+                          <Car className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-mono font-medium text-foreground truncate">
+                              {servicio.vehiculo?.placa || 'Sin Placa'}
+                            </p>
+                            {nombreResidente && (
+                              <Badge variant="secondary" className="text-xs font-normal shrink-0">
+                                {nombreResidente}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {servicio.vehiculo?.tipo === 'residente' ? 'Residente' : 'Visitante'}
+                          </p>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <p className="font-mono font-medium text-foreground truncate">
-                          {servicio.vehiculo?.placa || 'Sin Placa'}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {servicio.vehiculo?.tipo === 'residente' ? 'Residente' : 'Visitante'}
-                        </p>
+                      <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
+                        <div className="text-left sm:text-right">
+                          <p className="font-semibold text-foreground text-sm">
+                            {formatCurrency(servicio.total_pagar || 0)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {servicio.salida &&
+                              new Date(servicio.salida).toLocaleString('es-PE', {
+                                dateStyle: 'short',
+                                timeStyle: 'short',
+                              })}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => setServicioDetalle(servicio)} title="Ver detalle">
+                            <Info className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => setDeletingServicioId(servicio.id)} title="Eliminar registro" className="text-destructive hover:text-destructive shrink-0 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
-                      <div className="text-left sm:text-right">
-                        <p className="font-semibold text-foreground text-sm">
-                          {formatCurrency(servicio.total_pagar || 0)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {servicio.salida &&
-                            new Date(servicio.salida).toLocaleString('es-PE', {
-                              dateStyle: 'short',
-                              timeStyle: 'short',
-                            })}
-                        </p>
-                      </div>
-                      <Button variant="ghost" size="sm" onClick={() => setDeletingServicioId(servicio.id)} title="Eliminar registro" className="text-destructive hover:text-destructive shrink-0 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </CardContent>
         </Card>
+
+        {/* Detalle del servicio */}
+        <Dialog open={!!servicioDetalle} onOpenChange={(open) => !open && setServicioDetalle(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Car className="h-5 w-5" />
+                Detalle del servicio
+              </DialogTitle>
+            </DialogHeader>
+            {servicioDetalle && (
+              <div className="grid gap-4 py-2">
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <span className="text-muted-foreground">Placa</span>
+                  <span className="font-mono font-medium">{servicioDetalle.vehiculo?.placa || '—'}</span>
+                  <span className="text-muted-foreground">Tipo</span>
+                  <span>{servicioDetalle.vehiculo?.tipo === 'residente' ? 'Residente' : 'Visitante'}</span>
+                  {(servicioDetalle.vehiculo?.nombre_propietario || servicioDetalle.vehiculo?.apellido_propietario) && (
+                    <>
+                      <span className="text-muted-foreground">Nombre</span>
+                      <span>
+                        {[servicioDetalle.vehiculo.nombre_propietario, servicioDetalle.vehiculo.apellido_propietario].filter(Boolean).join(' ')}
+                      </span>
+                    </>
+                  )}
+                  {servicioDetalle.vehiculo?.numero_oficina_dep && (
+                    <>
+                      <span className="text-muted-foreground">Oficina / Depto.</span>
+                      <span>{servicioDetalle.vehiculo.numero_oficina_dep}</span>
+                    </>
+                  )}
+                  <span className="text-muted-foreground">Entrada</span>
+                  <span>{new Date(servicioDetalle.entrada_real).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                  <span className="text-muted-foreground">Salida</span>
+                  <span>
+                    {servicioDetalle.salida
+                      ? new Date(servicioDetalle.salida).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })
+                      : '—'}
+                  </span>
+                  <span className="text-muted-foreground">Total</span>
+                  <span className="font-semibold">{formatCurrency(servicioDetalle.total_pagar ?? 0)}</span>
+                  {servicioDetalle.ref_pago_yape && (
+                    <>
+                      <span className="text-muted-foreground">Ref. Yape</span>
+                      <span className="font-mono text-xs break-all">{servicioDetalle.ref_pago_yape}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* Confirmar eliminar servicio - siempre en DOM */}
         <AlertDialog open={!!deletingServicioId} onOpenChange={(open) => !open && setDeletingServicioId(null)}>

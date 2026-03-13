@@ -5,8 +5,9 @@ import { formatCurrency } from '@/lib/billing'
 
 const CHART_COLORS = ['hsl(var(--primary))', 'hsl(var(--primary) / 0.8)', 'hsl(var(--primary) / 0.6)', 'hsl(var(--primary) / 0.5)', 'hsl(var(--primary) / 0.4)', 'hsl(var(--primary) / 0.3)']
 
-const COLOR_VISITANTES = 'var(--chart-1)'
-const COLOR_RESIDENTES = 'var(--chart-2)'
+/* Pastel: azul y lila/magenta suaves */
+const COLOR_VISITANTES = 'hsl(218, 48%, 76%)'
+const COLOR_RESIDENTES = 'hsl(278, 42%, 76%)'
 
 interface IncomeChartProps {
   data: { fecha: string; total: number }[]
