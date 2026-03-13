@@ -1834,12 +1834,14 @@ export function AdminDashboard() {
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>¿Eliminar registro de servicio?</AlertDialogTitle>
-              <AlertDialogDescription>El registro se borrará de la base de datos de forma permanente.</AlertDialogDescription>
+              <AlertDialogDescription>
+                Esta acción es irreversible. El registro no podrá recuperarse y se eliminará de la base de datos de forma permanente. Tampoco volverá a aparecer en los reportes ni en ninguna consulta. ¿Está seguro de que desea continuar?
+              </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
               <AlertDialogAction onClick={() => deletingServicioId && handleEliminarServicio(deletingServicioId)} className="bg-destructive text-white hover:bg-destructive/90 hover:text-white">
-                Eliminar
+                Sí, eliminar
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
