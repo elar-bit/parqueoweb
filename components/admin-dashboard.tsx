@@ -71,6 +71,7 @@ export function AdminDashboard() {
   const [filtroFechaDesde, setFiltroFechaDesde] = useState('')
   const [filtroFechaHasta, setFiltroFechaHasta] = useState('')
   const [filtroTipo, setFiltroTipo] = useState<'visitante' | 'residente' | 'abonado' | ''>('')
+  const [filtroPeriodoReportes, setFiltroPeriodoReportes] = useState<string>('')
   const [abonadosVencidos, setAbonadosVencidos] = useState<Vehiculo[]>([])
   const [abonadosPorVencer, setAbonadosPorVencer] = useState<Vehiculo[]>([])
 
@@ -88,6 +89,8 @@ export function AdminDashboard() {
   const [savingTarifas, setSavingTarifas] = useState(false)
   const [tarifaMsg, setTarifaMsg] = useState('')
   const [filtroPlacaApellido, setFiltroPlacaApellido] = useState('')
+  const [filtroTipoServicios, setFiltroTipoServicios] = useState<'visitante' | 'residente' | 'abonado' | ''>('')
+  const [filtroPeriodoServicios, setFiltroPeriodoServicios] = useState<string>('')
   const [renovarNumeroMeses, setRenovarNumeroMeses] = useState<number>(1)
   const [reportesExpandido, setReportesExpandido] = useState(false)
   const [filtroMesServicios, setFiltroMesServicios] = useState<string>('')
@@ -327,16 +330,32 @@ export function AdminDashboard() {
           getIngresosFiltrados(filtrosReportes),
           getServiciosPagadosFiltrados(filtrosReportes),
         ])
-        setChartData(ingresos)
+        let serviciosFiltrados = servicios
+        if (filtroTipo === 'abonado' && filtroPeriodoReportes) {
+          const n = Number(filtroPeriodoReportes)
+          serviciosFiltrados = servicios.filter((s) => (s.vehiculo?.ultimo_numero_meses_abono ?? 0) === n)
+        }
+        let chartAbonado = ingresos
+        if (filtroTipo === 'abonado' && filtroPeriodoReportes) {
+          const grouped: Record<string, number> = {}
+          serviciosFiltrados.forEach((s) => {
+            if (s.salida) {
+              const dateKey = new Date(s.salida).toISOString().split('T')[0]
+              grouped[dateKey] = (grouped[dateKey] || 0) + montoServicioParaMostrar(s)
+            }
+          })
+          chartAbonado = Object.entries(grouped).map(([fecha, total]) => ({ fecha, total })).sort((a, b) => a.fecha.localeCompare(b.fecha))
+        }
+        setChartData(chartAbonado)
         setChartDataConTipo([])
-        setServiciosParaReportes(servicios)
+        setServiciosParaReportes(serviciosFiltrados)
       }
     } catch (error) {
       console.error('Error loading reportes data:', error)
     } finally {
       setLoadingReportes(false)
     }
-  }, [filtroFechaDesde, filtroFechaHasta, filtroTipo])
+  }, [filtroFechaDesde, filtroFechaHasta, filtroTipo, filtroPeriodoReportes])
 
   useEffect(() => {
     loadData()
@@ -355,19 +374,23 @@ export function AdminDashboard() {
     .reduce((sum, s) => sum + montoServicioParaMostrar(s), 0)
   const serviciosCountReportes = serviciosParaReportes.length
   const filtroPlacaApellidoNorm = filtroPlacaApellido.trim().toLowerCase()
-  const serviciosListFiltrados =
-    !filtroPlacaApellidoNorm
-      ? serviciosList
-      : serviciosList.filter((s) => {
-          const placa = (s.vehiculo?.placa ?? '').toLowerCase()
-          const apellido = (s.vehiculo?.apellido_propietario ?? '').toLowerCase()
-          const nombre = (s.vehiculo?.nombre_propietario ?? '').toLowerCase()
-          return (
-            placa.includes(filtroPlacaApellidoNorm) ||
-            apellido.includes(filtroPlacaApellidoNorm) ||
-            nombre.includes(filtroPlacaApellidoNorm)
-          )
-        })
+  const serviciosListFiltrados = (() => {
+    let list = serviciosList
+    if (filtroTipoServicios) {
+      list = list.filter((s) => s.vehiculo?.tipo === filtroTipoServicios)
+      if (filtroTipoServicios === 'abonado' && filtroPeriodoServicios) {
+        const n = Number(filtroPeriodoServicios)
+        list = list.filter((s) => (s.vehiculo?.ultimo_numero_meses_abono ?? 0) === n)
+      }
+    }
+    if (!filtroPlacaApellidoNorm) return list
+    return list.filter((s) => {
+      const placa = (s.vehiculo?.placa ?? '').toLowerCase()
+      const apellido = (s.vehiculo?.apellido_propietario ?? '').toLowerCase()
+      const nombre = (s.vehiculo?.nombre_propietario ?? '').toLowerCase()
+      return placa.includes(filtroPlacaApellidoNorm) || apellido.includes(filtroPlacaApellidoNorm) || nombre.includes(filtroPlacaApellidoNorm)
+    })
+  })()
   const serviciosCount = serviciosListFiltrados.length
 
   const leyendaDatos =
@@ -529,21 +552,28 @@ export function AdminDashboard() {
   const exportarExcel = () => {
     const titulo = 'Reporte de ingresos - Estacionamiento'
     const filtrosLinea = `Datos: ${leyendaDatos}. ${textoPeriodo}`
-    const headers = ['Fecha salida', 'Placa', 'Tipo', 'Nombre', 'Oficina/Depto', 'Teléfono (WhatsApp)', 'Entrada', 'Salida', 'Total (S/)', 'Ref. Yape o Transferencia']
+    const headers = ['Fecha de creación', 'Placa', 'Tipo', 'Período', 'Nombre', 'Oficina/Depto', 'Teléfono (WhatsApp)', 'Entrada', 'Salida', 'Total (S/)', 'Ref. Yape o Transferencia']
     const rows = serviciosParaReportes.map((s) => {
       const nombre = (s.vehiculo?.tipo === 'residente' || s.vehiculo?.tipo === 'abonado') && (s.vehiculo.nombre_propietario || s.vehiculo.apellido_propietario)
         ? [s.vehiculo.nombre_propietario, s.vehiculo.apellido_propietario].filter(Boolean).join(' ')
         : ''
       const refPago = (s.ref_pago_yape ?? s.vehiculo?.ref_pago_abono ?? '') as string
+      const esAbonado = s.vehiculo?.tipo === 'abonado'
+      const periodoStr = esAbonado && s.vehiculo?.ultimo_numero_meses_abono ? `${s.vehiculo.ultimo_numero_meses_abono} ${s.vehiculo.ultimo_numero_meses_abono === 1 ? 'mes' : 'meses'}` : ''
+      const fechaCreacion = s.entrada_real ? new Date(s.entrada_real).toLocaleDateString('es-PE') : ''
+      const salidaStr = esAbonado && s.vehiculo?.vigencia_abono_hasta
+        ? new Date(s.vehiculo.vigencia_abono_hasta + 'T23:59:59').toLocaleString('es-PE')
+        : s.salida ? new Date(s.salida).toLocaleString('es-PE') : ''
       return [
-        s.salida ? new Date(s.salida).toLocaleDateString('es-PE') : '',
+        fechaCreacion,
         s.vehiculo?.placa || 'Sin placa',
         s.vehiculo?.tipo === 'residente' ? 'Residente' : s.vehiculo?.tipo === 'abonado' ? 'Abonado' : 'Visitante',
+        periodoStr,
         nombre,
         s.vehiculo?.numero_oficina_dep ?? '',
         s.vehiculo?.telefono_contacto ?? '',
         s.entrada_real ? new Date(s.entrada_real).toLocaleString('es-PE') : '',
-        s.salida ? new Date(s.salida).toLocaleString('es-PE') : '',
+        salidaStr,
         String(montoServicioParaMostrar(s)),
         refPago,
       ]
@@ -588,7 +618,7 @@ export function AdminDashboard() {
           <p class="fecha">Generado: ${new Date().toLocaleString('es-PE')}</p>
           <table>
             <thead><tr>
-              <th>Fecha salida</th><th>Placa</th><th>Tipo</th><th>Nombre</th><th>Oficina/Depto</th><th>Teléfono (WhatsApp)</th>
+              <th>Fecha de creación</th><th>Placa</th><th>Tipo</th><th>Período</th><th>Nombre</th><th>Oficina/Depto</th><th>Teléfono (WhatsApp)</th>
               <th>Entrada</th><th>Salida</th><th>Total (S/)</th><th>Ref. Yape o Transferencia</th>
             </tr></thead>
             <tbody>
@@ -598,16 +628,21 @@ export function AdminDashboard() {
                   : ''
                 const refPago = s.ref_pago_yape ?? s.vehiculo?.ref_pago_abono ?? ''
                 const esc = (v: string) => (v ?? '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+                const esAbonado = s.vehiculo?.tipo === 'abonado'
+                const periodoStr = esAbonado && s.vehiculo?.ultimo_numero_meses_abono ? s.vehiculo.ultimo_numero_meses_abono + (s.vehiculo.ultimo_numero_meses_abono === 1 ? ' mes' : ' meses') : ''
+                const fechaCreacion = s.entrada_real ? new Date(s.entrada_real).toLocaleDateString('es-PE') : ''
+                const salidaStr = esAbonado && s.vehiculo?.vigencia_abono_hasta ? new Date(s.vehiculo.vigencia_abono_hasta + 'T23:59:59').toLocaleString('es-PE') : (s.salida ? new Date(s.salida).toLocaleString('es-PE') : '')
                 return `
                 <tr>
-                  <td>${s.salida ? new Date(s.salida).toLocaleDateString('es-PE') : ''}</td>
+                  <td>${fechaCreacion}</td>
                   <td>${esc(s.vehiculo?.placa || 'Sin placa')}</td>
                   <td>${s.vehiculo?.tipo === 'residente' ? 'Residente' : s.vehiculo?.tipo === 'abonado' ? 'Abonado' : 'Visitante'}</td>
+                  <td>${esc(periodoStr)}</td>
                   <td>${esc(nombre)}</td>
                   <td>${esc(s.vehiculo?.numero_oficina_dep ?? '')}</td>
                   <td>${esc(s.vehiculo?.telefono_contacto ?? '')}</td>
                   <td>${s.entrada_real ? new Date(s.entrada_real).toLocaleString('es-PE') : ''}</td>
-                  <td>${s.salida ? new Date(s.salida).toLocaleString('es-PE') : ''}</td>
+                  <td>${salidaStr}</td>
                   <td>${montoServicioParaMostrar(s)}</td>
                   <td>${esc(refPago)}</td>
                 </tr>
@@ -816,7 +851,7 @@ export function AdminDashboard() {
         <Card className="border-border">
           <CardHeader>
             <CardTitle className="text-foreground">Servicios</CardTitle>
-            <div className="pt-2 flex flex-row flex-wrap items-end gap-3">
+            <div className="pt-2 flex flex-row flex-wrap items-center gap-3">
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Mes</Label>
                 <Select
@@ -841,6 +876,36 @@ export function AdminDashboard() {
                 </Select>
               </div>
               <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Tipo</Label>
+                <Select value={filtroTipoServicios || 'todos'} onValueChange={(v) => { setFiltroTipoServicios(v === 'todos' ? '' : v as 'visitante' | 'residente' | 'abonado'); if (v !== 'abonado') setFiltroPeriodoServicios('') }}>
+                  <SelectTrigger className="w-[130px]">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos</SelectItem>
+                    <SelectItem value="visitante">Visitante</SelectItem>
+                    <SelectItem value="residente">Residente</SelectItem>
+                    <SelectItem value="abonado">Abonado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {filtroTipoServicios === 'abonado' && (
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Período</Label>
+                  <Select value={filtroPeriodoServicios || 'todos'} onValueChange={(v) => setFiltroPeriodoServicios(v === 'todos' ? '' : v)}>
+                    <SelectTrigger className="w-[120px]">
+                      <SelectValue placeholder="Todos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todos</SelectItem>
+                      {[1, 2, 3, 4, 5, 6].map((n) => (
+                        <SelectItem key={n} value={String(n)}>{n} {n === 1 ? 'mes' : 'meses'}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Filtrar por placa o apellido</Label>
                 <Input
                   type="text"
@@ -850,7 +915,7 @@ export function AdminDashboard() {
                   className="max-w-xs"
                 />
               </div>
-              <div className="flex items-center gap-4 text-xs text-muted-foreground shrink-0">
+              <div className="flex items-center gap-4 text-xs text-muted-foreground shrink-0 self-center">
                 <span className="flex items-center gap-1.5">
                   <span className="h-2.5 w-2.5 rounded-full bg-amber-200" aria-hidden />
                   Visitantes
@@ -1256,7 +1321,7 @@ export function AdminDashboard() {
                   </div>
                   <div className="space-y-2">
                     <Label>Tipo de usuario</Label>
-                    <Select value={filtroTipo || 'todos'} onValueChange={(v) => setFiltroTipo(v === 'todos' ? '' : (v as 'visitante' | 'residente' | 'abonado'))}>
+                    <Select value={filtroTipo || 'todos'} onValueChange={(v) => { setFiltroTipo(v === 'todos' ? '' : (v as 'visitante' | 'residente' | 'abonado')); if (v !== 'abonado') setFiltroPeriodoReportes('') }}>
                       <SelectTrigger className="w-[160px]"><SelectValue placeholder="Todos" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="todos">Todos</SelectItem>
@@ -1266,6 +1331,20 @@ export function AdminDashboard() {
                       </SelectContent>
                     </Select>
                   </div>
+                  {filtroTipo === 'abonado' && (
+                    <div className="space-y-2">
+                      <Label>Período abonado</Label>
+                      <Select value={filtroPeriodoReportes || 'todos'} onValueChange={(v) => setFiltroPeriodoReportes(v === 'todos' ? '' : v)}>
+                        <SelectTrigger className="w-[140px]"><SelectValue placeholder="Todos" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="todos">Todos</SelectItem>
+                          {[1, 2, 3, 4, 5, 6].map((n) => (
+                            <SelectItem key={n} value={String(n)}>{n} {n === 1 ? 'mes' : 'meses'}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                   <Button variant="secondary" onClick={loadReportesData} disabled={loadingReportes}>Aplicar filtros</Button>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -1324,7 +1403,7 @@ export function AdminDashboard() {
                         {filtroFechaDesde || filtroFechaHasta ? `${filtroFechaDesde || '...'} a ${filtroFechaHasta || '...'}` : 'Sin filtro de fechas'}
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">
-                        {filtroTipo ? (filtroTipo === 'visitante' ? 'Solo visitantes' : filtroTipo === 'residente' ? 'Solo residentes' : 'Solo abonados') : 'Todos los tipos'}
+                        {filtroTipo ? (filtroTipo === 'visitante' ? 'Solo visitantes' : filtroTipo === 'residente' ? 'Solo residentes' : filtroPeriodoReportes ? `Abonados ${filtroPeriodoReportes} ${Number(filtroPeriodoReportes) === 1 ? 'mes' : 'meses'}` : 'Solo abonados') : 'Todos los tipos'}
                       </p>
                     </CardContent>
                   </Card>

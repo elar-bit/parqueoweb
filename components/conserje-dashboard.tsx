@@ -39,6 +39,8 @@ export function ConserjeDashboard() {
   const [serviciosHoy, setServiciosHoy] = useState<ServicioConVehiculo[]>([])
   const [servicioDetalle, setServicioDetalle] = useState<ServicioConVehiculo | null>(null)
   const [filtroPlacaApellido, setFiltroPlacaApellido] = useState('')
+  const [filtroTipoServicios, setFiltroTipoServicios] = useState<'visitante' | 'residente' | 'abonado' | ''>('')
+  const [filtroPeriodoServicios, setFiltroPeriodoServicios] = useState<string>('')
   const [renovarAbonoDialog, setRenovarAbonoDialog] = useState<Vehiculo | null>(null)
   const [renovarNumeroMeses, setRenovarNumeroMeses] = useState<number>(1)
   const [renovarRefPago, setRenovarRefPago] = useState('')
@@ -165,16 +167,23 @@ export function ConserjeDashboard() {
   }
 
   const filtroNorm = filtroPlacaApellido.trim().toLowerCase()
-  // Filtro solo aplicado a la sección de servicios pagados (histórico), no a vehículos activos.
-  const serviciosHoyFiltrados =
-    !filtroNorm
-      ? serviciosHoy
-      : serviciosHoy.filter((s) => {
-          const placa = (s.vehiculo?.placa ?? '').toLowerCase()
-          const apellido = (s.vehiculo?.apellido_propietario ?? '').toLowerCase()
-          const nombre = (s.vehiculo?.nombre_propietario ?? '').toLowerCase()
-          return placa.includes(filtroNorm) || apellido.includes(filtroNorm) || nombre.includes(filtroNorm)
-        })
+  const serviciosHoyFiltrados = (() => {
+    let list = serviciosHoy
+    if (filtroTipoServicios) {
+      list = list.filter((s) => s.vehiculo?.tipo === filtroTipoServicios)
+      if (filtroTipoServicios === 'abonado' && filtroPeriodoServicios) {
+        const n = Number(filtroPeriodoServicios)
+        list = list.filter((s) => (s.vehiculo?.ultimo_numero_meses_abono ?? 0) === n)
+      }
+    }
+    if (!filtroNorm) return list
+    return list.filter((s) => {
+      const placa = (s.vehiculo?.placa ?? '').toLowerCase()
+      const apellido = (s.vehiculo?.apellido_propietario ?? '').toLowerCase()
+      const nombre = (s.vehiculo?.nombre_propietario ?? '').toLowerCase()
+      return placa.includes(filtroNorm) || apellido.includes(filtroNorm) || nombre.includes(filtroNorm)
+    })
+  })()
 
   return (
     <div className="min-h-screen bg-background">
@@ -409,7 +418,7 @@ export function ConserjeDashboard() {
               Servicios del mes ({serviciosHoyFiltrados.length}{serviciosHoy.length !== serviciosHoyFiltrados.length ? ` de ${serviciosHoy.length}` : ''})
             </h2>
             <div className="flex flex-row items-center gap-3 flex-wrap">
-              <div className="flex items-center gap-4 text-xs text-muted-foreground shrink-0">
+              <div className="flex items-center gap-4 text-xs text-muted-foreground shrink-0 mr-2 sm:mr-4 order-first w-full sm:w-auto sm:order-none justify-center sm:justify-start">
                 <span className="flex items-center gap-1.5">
                   <span className="h-2.5 w-2.5 rounded-full bg-amber-200" aria-hidden />
                   Visitantes
@@ -446,6 +455,36 @@ export function ConserjeDashboard() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="flex items-center gap-2">
+                <Label className="text-xs text-muted-foreground whitespace-nowrap">Tipo</Label>
+                <Select value={filtroTipoServicios || 'todos'} onValueChange={(v) => { setFiltroTipoServicios(v === 'todos' ? '' : v as 'visitante' | 'residente' | 'abonado'); if (v !== 'abonado') setFiltroPeriodoServicios('') }}>
+                  <SelectTrigger className="w-[120px]">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos</SelectItem>
+                    <SelectItem value="visitante">Visitante</SelectItem>
+                    <SelectItem value="residente">Residente</SelectItem>
+                    <SelectItem value="abonado">Abonado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {filtroTipoServicios === 'abonado' && (
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs text-muted-foreground whitespace-nowrap">Período</Label>
+                  <Select value={filtroPeriodoServicios || 'todos'} onValueChange={(v) => setFiltroPeriodoServicios(v === 'todos' ? '' : v)}>
+                    <SelectTrigger className="w-[110px]">
+                      <SelectValue placeholder="Todos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todos</SelectItem>
+                      {[1, 2, 3, 4, 5, 6].map((n) => (
+                        <SelectItem key={n} value={String(n)}>{n} {n === 1 ? 'mes' : 'meses'}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="flex items-center gap-2">
                 <Label className="text-xs text-muted-foreground whitespace-nowrap">Filtrar</Label>
                 <Input
