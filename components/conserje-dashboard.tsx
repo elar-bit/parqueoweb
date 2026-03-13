@@ -7,9 +7,18 @@ import { ValidationModal } from '@/components/validation-modal'
 import { getServiciosActivos, getConfiguracion, logoutAdmin, getAbonadosVencidos, getAbonadosPorVencer, renovarAbono, getServiciosPagadosHoy } from '@/app/actions'
 import { abonoVigente, formatCurrency } from '@/lib/billing'
 import type { ServicioConVehiculo, Configuracion, Vehiculo } from '@/lib/types'
-import { Car, RefreshCw, LogOut, AlertTriangle, Info } from 'lucide-react'
+import { Car, RefreshCw, LogOut, AlertTriangle, Info, CalendarCheck, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   Dialog,
   DialogContent,
@@ -29,6 +38,12 @@ export function ConserjeDashboard() {
   const [abonadosPorVencer, setAbonadosPorVencer] = useState<Vehiculo[]>([])
   const [serviciosHoy, setServiciosHoy] = useState<ServicioConVehiculo[]>([])
   const [servicioDetalle, setServicioDetalle] = useState<ServicioConVehiculo | null>(null)
+  const [filtroPlacaApellido, setFiltroPlacaApellido] = useState('')
+  const [renovarAbonoDialog, setRenovarAbonoDialog] = useState<Vehiculo | null>(null)
+  const [renovarNumeroMeses, setRenovarNumeroMeses] = useState<number>(1)
+  const [renovarRefPago, setRenovarRefPago] = useState('')
+  const [renovarCapturaFile, setRenovarCapturaFile] = useState<File | null>(null)
+  const [renovandoAbonoId, setRenovandoAbonoId] = useState<string | null>(null)
 
   const normalizarTelefonoWhatsApp = (valor: string): string => {
     const digits = valor.replace(/\D/g, '')
@@ -118,6 +133,26 @@ export function ConserjeDashboard() {
     return lineas.join('\n')
   }
 
+  const filtroNorm = filtroPlacaApellido.trim().toLowerCase()
+  const serviciosFiltrados =
+    !filtroNorm
+      ? servicios
+      : servicios.filter((s) => {
+          const placa = (s.vehiculo?.placa ?? '').toLowerCase()
+          const apellido = (s.vehiculo?.apellido_propietario ?? '').toLowerCase()
+          const nombre = (s.vehiculo?.nombre_propietario ?? '').toLowerCase()
+          return placa.includes(filtroNorm) || apellido.includes(filtroNorm) || nombre.includes(filtroNorm)
+        })
+  const serviciosHoyFiltrados =
+    !filtroNorm
+      ? serviciosHoy
+      : serviciosHoy.filter((s) => {
+          const placa = (s.vehiculo?.placa ?? '').toLowerCase()
+          const apellido = (s.vehiculo?.apellido_propietario ?? '').toLowerCase()
+          const nombre = (s.vehiculo?.nombre_propietario ?? '').toLowerCase()
+          return placa.includes(filtroNorm) || apellido.includes(filtroNorm) || nombre.includes(filtroNorm)
+        })
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card">
@@ -170,7 +205,7 @@ export function ConserjeDashboard() {
       </header>
 
       <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-6">
-        <QuickRegister onRegistered={loadData} />
+        <QuickRegister onRegistered={loadData} configuracion={configuracion} />
 
         {(abonadosVencidos.length > 0 || abonadosPorVencer.length > 0) && (
           <div
@@ -225,18 +260,18 @@ export function ConserjeDashboard() {
                     </Button>
                     <Button
                       type="button"
-                      variant="outline"
+                      variant="default"
                       size="sm"
-                      onClick={async () => {
-                        try {
-                          await renovarAbono(v.id)
-                          loadData()
-                        } catch (e) {
-                          console.error(e)
-                        }
+                      disabled={renovandoAbonoId === v.id}
+                      onClick={() => {
+                        setRenovarAbonoDialog(v)
+                        setRenovarNumeroMeses(1)
+                        setRenovarRefPago('')
+                        setRenovarCapturaFile(null)
                       }}
                     >
-                      Registrar pago
+                      {renovandoAbonoId === v.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarCheck className="h-4 w-4 mr-1" />}
+                      {renovandoAbonoId === v.id ? 'Guardando...' : 'Registrar pago'}
                     </Button>
                   </div>
                 </li>
@@ -284,18 +319,18 @@ export function ConserjeDashboard() {
                     </Button>
                     <Button
                       type="button"
-                      variant="outline"
+                      variant="default"
                       size="sm"
-                      onClick={async () => {
-                        try {
-                          await renovarAbono(v.id)
-                          loadData()
-                        } catch (e) {
-                          console.error(e)
-                        }
+                      disabled={renovandoAbonoId === v.id}
+                      onClick={() => {
+                        setRenovarAbonoDialog(v)
+                        setRenovarNumeroMeses(1)
+                        setRenovarRefPago('')
+                        setRenovarCapturaFile(null)
                       }}
                     >
-                      Registrar pago
+                      {renovandoAbonoId === v.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarCheck className="h-4 w-4 mr-1" />}
+                      {renovandoAbonoId === v.id ? 'Guardando...' : 'Registrar pago'}
                     </Button>
                   </div>
                 </li>
@@ -312,10 +347,17 @@ export function ConserjeDashboard() {
         )}
 
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <h2 className="text-lg font-semibold text-foreground">
-              Vehiculos Activos ({servicios.length})
+              Vehiculos Activos ({serviciosFiltrados.length}{servicios.length !== serviciosFiltrados.length ? ` de ${servicios.length}` : ''})
             </h2>
+            <Input
+              type="text"
+              placeholder="Filtrar por placa o apellido..."
+              value={filtroPlacaApellido}
+              onChange={(e) => setFiltroPlacaApellido(e.target.value)}
+              className="max-w-xs"
+            />
           </div>
 
           {loading && servicios.length === 0 ? (
@@ -330,9 +372,11 @@ export function ConserjeDashboard() {
                 Use los botones de arriba para registrar un nuevo vehiculo
               </p>
             </div>
+          ) : serviciosFiltrados.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8">Ningún vehículo coincide con la búsqueda</p>
           ) : (
             <div className="space-y-3">
-              {servicios.map((servicio) => (
+              {serviciosFiltrados.map((servicio) => (
                 <VehicleCard
                   key={servicio.id}
                   servicio={servicio}
@@ -348,16 +392,18 @@ export function ConserjeDashboard() {
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-foreground">
-              Servicios pagados hoy ({serviciosHoy.length})
+              Servicios pagados hoy ({serviciosHoyFiltrados.length}{serviciosHoy.length !== serviciosHoyFiltrados.length ? ` de ${serviciosHoy.length}` : ''})
             </h2>
           </div>
           {serviciosHoy.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               No hay servicios pagados el día de hoy.
             </p>
+          ) : serviciosHoyFiltrados.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Ningún registro coincide con la búsqueda</p>
           ) : (
             <div className="space-y-3 max-h-[360px] overflow-y-auto overflow-x-hidden">
-              {serviciosHoy.map((servicio) => {
+              {serviciosHoyFiltrados.map((servicio) => {
                 const nombreResidente =
                   servicio.vehiculo?.tipo === 'residente' &&
                   (servicio.vehiculo.nombre_propietario || servicio.vehiculo.apellido_propietario)
@@ -455,7 +501,7 @@ export function ConserjeDashboard() {
                   <>
                     <span className="text-muted-foreground">Nombre</span>
                     <span>
-                      {[servicioDetalle.vehiculo.nombre_propietario, servicioDetalle.vehiculo.apellido_propietorio]
+                      {[servicioDetalle.vehiculo.nombre_propietario, servicioDetalle.vehiculo.apellido_propietario]
                         .filter(Boolean)
                         .join(' ')}
                     </span>
@@ -552,6 +598,101 @@ export function ConserjeDashboard() {
               </DialogFooter>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo registrar pago abonado (meses 1-6) */}
+      <Dialog open={!!renovarAbonoDialog} onOpenChange={(open) => !open && (setRenovarAbonoDialog(null), setRenovarCapturaFile(null))}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Registrar pago de mensualidad</DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              {renovarAbonoDialog && `${renovarAbonoDialog.placa || 'Sin placa'}. Elija cantidad de meses (precio fijado por admin).`}
+            </p>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="space-y-2">
+              <Label>Cantidad de meses (1 a 6)</Label>
+              <Select
+                value={String(renovarNumeroMeses)}
+                onValueChange={(val) => setRenovarNumeroMeses(Number(val))}
+                disabled={!!renovandoAbonoId}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[1, 2, 3, 4, 5, 6].map((n) => (
+                    <SelectItem key={n} value={String(n)}>
+                      {n} {n === 1 ? 'mes' : 'meses'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="conserje-renovar-ref">Nº operación Yape / Transferencia (opcional)</Label>
+              <Input
+                id="conserje-renovar-ref"
+                value={renovarRefPago}
+                onChange={(e) => setRenovarRefPago(e.target.value)}
+                placeholder="Ej. 123456789"
+                disabled={!!renovandoAbonoId}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="conserje-renovar-captura">Captura del pago (opcional)</Label>
+              <Input
+                id="conserje-renovar-captura"
+                type="file"
+                accept="image/*"
+                onChange={(e) => setRenovarCapturaFile(e.target.files?.[0] ?? null)}
+                className="cursor-pointer"
+                disabled={!!renovandoAbonoId}
+              />
+              {renovarCapturaFile && <p className="text-xs text-muted-foreground">{renovarCapturaFile.name}</p>}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenovarAbonoDialog(null)} disabled={!!renovandoAbonoId}>
+              Cancelar
+            </Button>
+            <Button
+              disabled={!!renovandoAbonoId}
+              onClick={async () => {
+                if (!renovarAbonoDialog) return
+                setRenovandoAbonoId(renovarAbonoDialog.id)
+                try {
+                  let capturaDataUrl: string | null = null
+                  if (renovarCapturaFile) {
+                    capturaDataUrl = await new Promise<string>((resolve, reject) => {
+                      const r = new FileReader()
+                      r.onload = () => resolve(r.result as string)
+                      r.onerror = () => reject(new Error('Error al leer la imagen'))
+                      r.readAsDataURL(renovarCapturaFile!)
+                    })
+                  }
+                  await renovarAbono(renovarAbonoDialog.id, {
+                    numeroMeses: renovarNumeroMeses,
+                    refPagoAbono: renovarRefPago.trim() || null,
+                    capturaPagoAbono: capturaDataUrl,
+                  })
+                  setRenovarAbonoDialog(null)
+                  setRenovarRefPago('')
+                  setRenovarCapturaFile(null)
+                  setRenovarNumeroMeses(1)
+                  loadData()
+                } catch (e) {
+                  console.error(e)
+                } finally {
+                  setRenovandoAbonoId(null)
+                }
+              }}
+            >
+              {renovandoAbonoId === renovarAbonoDialog?.id ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Confirmar pago
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

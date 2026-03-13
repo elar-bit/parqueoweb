@@ -444,6 +444,8 @@ export type DatosResidente = {
 
 export type DatosAbonado = DatosResidente & {
   yaPagoMensualidad?: boolean
+  /** Cantidad de meses (1 a 6) para vigencia del abono. */
+  numeroMeses?: number
   /** Nº operación Yape o transferencia. */
   refPagoAbono?: string | null
   /** Captura del pago en base64 (data URL, ej. data:image/jpeg;base64,...). */
@@ -498,8 +500,9 @@ export async function registrarEntrada(
         if (d.numero_oficina_dep != null) insertPayload.numero_oficina_dep = d.numero_oficina_dep
         if (d.telefono_contacto != null) insertPayload.telefono_contacto = d.telefono_contacto
       }
-      if (datosAbonado?.yaPagoMensualidad) {
-        const hasta = addMonths(new Date(), 1)
+      if (datosAbonado?.yaPagoMensualidad && datosAbonado?.numeroMeses != null) {
+        const meses = Math.min(6, Math.max(1, Math.floor(datosAbonado.numeroMeses)))
+        const hasta = addMonths(new Date(), meses)
         insertPayload.vigencia_abono_hasta = hasta.toISOString().split('T')[0]
       }
       if (datosAbonado?.refPagoAbono != null && String(datosAbonado.refPagoAbono).trim()) {
@@ -570,10 +573,14 @@ export async function actualizarVehiculo(
   revalidatePath('/admin')
 }
 
-/** Registra pago de mensualidad: extiende vigencia 1 mes; opcional ref y captura. */
+/** Registra pago de mensualidad: extiende vigencia N meses desde fin del periodo anterior (o desde hoy si ya venció). */
 export async function renovarAbono(
   vehiculoId: string,
-  opts?: { refPagoAbono?: string | null; capturaPagoAbono?: string | null }
+  opts?: {
+    numeroMeses?: number
+    refPagoAbono?: string | null
+    capturaPagoAbono?: string | null
+  }
 ): Promise<void> {
   const supabase = await createClient()
   const { data: v, error: fetchErr } = await supabase
@@ -583,10 +590,16 @@ export async function renovarAbono(
     .eq('tipo', 'abonado')
     .single()
   if (fetchErr || !v) throw new Error('Vehículo abonado no encontrado')
-  const base = (v.vigencia_abono_hasta && new Date(v.vigencia_abono_hasta) > new Date())
-    ? new Date(v.vigencia_abono_hasta)
-    : new Date()
-  const nuevaVigencia = addMonths(base, 1).toISOString().split('T')[0]
+  const meses = opts?.numeroMeses != null ? Math.min(6, Math.max(1, Math.floor(opts.numeroMeses))) : 1
+  const hoy = new Date()
+  hoy.setHours(0, 0, 0, 0)
+  const vigenciaDate = v.vigencia_abono_hasta ? new Date(v.vigencia_abono_hasta) : null
+  vigenciaDate?.setHours(0, 0, 0, 0)
+  const base =
+    vigenciaDate && vigenciaDate.getTime() >= hoy.getTime()
+      ? vigenciaDate
+      : hoy
+  const nuevaVigencia = addMonths(base, meses).toISOString().split('T')[0]
   const updatePayload: Record<string, unknown> = { vigencia_abono_hasta: nuevaVigencia }
   if (opts?.refPagoAbono != null && String(opts.refPagoAbono).trim()) {
     updatePayload.ref_pago_abono = String(opts.refPagoAbono).trim()
@@ -816,18 +829,44 @@ export async function getIngresosFiltradosConTipo(
 }
 
 export async function updateConfiguracion(
-  tipoUsuario: 'visitante' | 'residente',
+  tipoUsuario: 'visitante' | 'residente' | 'abonado',
   precioHora: number
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     const supabase = await createClient()
-    const { error } = await supabase
-      .from('configuracion')
-      .update({ precio_hora: precioHora })
-      .eq('tipo_usuario', tipoUsuario)
-    if (error) {
-      console.error('updateConfiguracion error:', error)
-      return { ok: false, error: error.message }
+    if (tipoUsuario === 'abonado') {
+      const { data: existing } = await supabase
+        .from('configuracion')
+        .select('id')
+        .eq('tipo_usuario', 'abonado')
+        .maybeSingle()
+      if (existing) {
+        const { error } = await supabase
+          .from('configuracion')
+          .update({ precio_hora: precioHora })
+          .eq('tipo_usuario', 'abonado')
+        if (error) {
+          console.error('updateConfiguracion error:', error)
+          return { ok: false, error: error.message }
+        }
+      } else {
+        const { error } = await supabase
+          .from('configuracion')
+          .insert({ tipo_usuario: 'abonado', precio_hora: precioHora })
+        if (error) {
+          console.error('updateConfiguracion insert abonado error:', error)
+          return { ok: false, error: error.message }
+        }
+      }
+    } else {
+      const { error } = await supabase
+        .from('configuracion')
+        .update({ precio_hora: precioHora })
+        .eq('tipo_usuario', tipoUsuario)
+      if (error) {
+        console.error('updateConfiguracion error:', error)
+        return { ok: false, error: error.message }
+      }
     }
     revalidatePath('/admin')
     revalidatePath('/conserje')

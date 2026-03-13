@@ -20,10 +20,20 @@ import {
 } from '@/components/ui/command'
 import { registrarEntrada, getPlacasResidentes, getPlacasAbonados, tieneEntradaActiva } from '@/app/actions'
 import type { ResidenteOption, AbonadoOption } from '@/app/actions'
+import type { Configuracion } from '@/lib/types'
+import { formatCurrency } from '@/lib/billing'
 import { Car, User, Loader2, Check, ChevronsUpDown, CalendarCheck } from 'lucide-react'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 interface QuickRegisterProps {
   onRegistered: () => void
+  configuracion?: Configuracion[]
 }
 
 type TipoEntrada = 'visitante' | 'residente' | 'abonado' | null
@@ -44,7 +54,7 @@ function matchResidente(r: ResidenteOption, search: string): boolean {
   return placa.includes(q) || nombre.includes(q) || apellido.includes(q)
 }
 
-export function QuickRegister({ onRegistered }: QuickRegisterProps) {
+export function QuickRegister({ onRegistered, configuracion = [] }: QuickRegisterProps) {
   const [paso, setPaso] = useState<'tipo' | 'placa'>('tipo')
   const [tipo, setTipo] = useState<TipoEntrada>(null)
   const [placa, setPlaca] = useState('')
@@ -60,9 +70,12 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
   const [numeroOficinaDep, setNumeroOficinaDep] = useState('')
   const [telefonoResidente, setTelefonoResidente] = useState('')
   const [yaPagoMensualidad, setYaPagoMensualidad] = useState(false)
+  const [numeroMesesAbono, setNumeroMesesAbono] = useState<number>(1)
   const [refPagoAbono, setRefPagoAbono] = useState('')
   const [capturaPagoFile, setCapturaPagoFile] = useState<File | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  const precioMensualAbonado = configuracion.find((c) => c.tipo_usuario === 'abonado')?.precio_hora ?? 0
 
   const cargarResidentes = async () => {
     const list = await getPlacasResidentes()
@@ -96,6 +109,7 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
     setNumeroOficinaDep('')
     setTelefonoResidente('')
     setYaPagoMensualidad(false)
+    setNumeroMesesAbono(1)
     setRefPagoAbono('')
     setCapturaPagoFile(null)
     setComboboxSearch('')
@@ -163,6 +177,7 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
           numero_oficina_dep: numeroOficinaDep.trim() || null,
           telefono_contacto: telefonoResidente.trim() || null,
           yaPagoMensualidad,
+          numeroMeses: yaPagoMensualidad ? numeroMesesAbono : undefined,
           refPagoAbono: refPagoAbono.trim() || null,
           capturaPagoAbono: capturaDataUrl,
         })
@@ -179,6 +194,7 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
       setNumeroOficinaDep('')
       setTelefonoResidente('')
       setYaPagoMensualidad(false)
+      setNumeroMesesAbono(1)
       setRefPagoAbono('')
       setCapturaPagoFile(null)
       setComboboxSearch('')
@@ -202,6 +218,7 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
     setNumeroOficinaDep('')
     setTelefonoResidente('')
     setYaPagoMensualidad(false)
+    setNumeroMesesAbono(1)
     setRefPagoAbono('')
     setCapturaPagoFile(null)
     setComboboxSearch('')
@@ -462,6 +479,11 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
                     </div>
                     {tipo === 'abonado' && (
                       <>
+                        <div className="space-y-2 sm:col-span-2">
+                          <p className="text-sm text-muted-foreground">
+                            Precio mensual (fijado por admin): <span className="font-semibold text-foreground">{formatCurrency(precioMensualAbonado)}</span> — solo lectura
+                          </p>
+                        </div>
                         <div className="space-y-2 sm:col-span-2 flex items-center gap-2">
                           <input
                             type="checkbox"
@@ -471,9 +493,26 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
                             className="rounded border-border"
                           />
                           <Label htmlFor="ya-pago-mensualidad" className="font-normal cursor-pointer">
-                            Ya pagó la mensualidad (vigencia desde hoy + 1 mes)
+                            Ya pagó la mensualidad (seleccione cantidad de meses abajo)
                           </Label>
                         </div>
+                        {yaPagoMensualidad && (
+                          <div className="space-y-2 sm:col-span-2">
+                            <Label>Cantidad de meses (máx. 6)</Label>
+                            <Select value={String(numeroMesesAbono)} onValueChange={(v) => setNumeroMesesAbono(Number(v))}>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {[1, 2, 3, 4, 5, 6].map((n) => (
+                                  <SelectItem key={n} value={String(n)}>
+                                    {n} {n === 1 ? 'mes' : 'meses'} — {formatCurrency(precioMensualAbonado * n)} total
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
                         <div className="space-y-2 sm:col-span-2">
                           <Label htmlFor="ref-pago-abono">Nº operación Yape / Transferencia (opcional)</Label>
                           <Input

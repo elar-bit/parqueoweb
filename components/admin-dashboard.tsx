@@ -81,8 +81,11 @@ export function AdminDashboard() {
 
   const [tarifaVisitante, setTarifaVisitante] = useState('')
   const [tarifaResidente, setTarifaResidente] = useState('')
+  const [tarifaAbonado, setTarifaAbonado] = useState('')
   const [savingTarifas, setSavingTarifas] = useState(false)
   const [tarifaMsg, setTarifaMsg] = useState('')
+  const [filtroPlacaApellido, setFiltroPlacaApellido] = useState('')
+  const [renovarNumeroMeses, setRenovarNumeroMeses] = useState<number>(1)
 
   const [usuarios, setUsuarios] = useState<UsuarioRow[]>([])
   const [nombreUser, setNombreUser] = useState('')
@@ -263,8 +266,10 @@ export function AdminDashboard() {
       setAbonadosPorVencer(porVencer)
       const visitante = config.find((c) => c.tipo_usuario === 'visitante')
       const residente = config.find((c) => c.tipo_usuario === 'residente')
+      const abonado = config.find((c) => c.tipo_usuario === 'abonado')
       setTarifaVisitante(visitante ? String(visitante.precio_hora) : '')
       setTarifaResidente(residente ? String(residente.precio_hora) : '')
+      setTarifaAbonado(abonado ? String(abonado.precio_hora) : '')
     } catch (error) {
       console.error('Error loading admin data:', error)
     } finally {
@@ -277,7 +282,21 @@ export function AdminDashboard() {
   }, [loadData])
 
   const totalFiltrado = chartData.reduce((sum, d) => sum + d.total, 0)
-  const serviciosCount = serviciosList.length
+  const filtroPlacaApellidoNorm = filtroPlacaApellido.trim().toLowerCase()
+  const serviciosListFiltrados =
+    !filtroPlacaApellidoNorm
+      ? serviciosList
+      : serviciosList.filter((s) => {
+          const placa = (s.vehiculo?.placa ?? '').toLowerCase()
+          const apellido = (s.vehiculo?.apellido_propietario ?? '').toLowerCase()
+          const nombre = (s.vehiculo?.nombre_propietario ?? '').toLowerCase()
+          return (
+            placa.includes(filtroPlacaApellidoNorm) ||
+            apellido.includes(filtroPlacaApellidoNorm) ||
+            nombre.includes(filtroPlacaApellidoNorm)
+          )
+        })
+  const serviciosCount = serviciosListFiltrados.length
 
   const leyendaDatos =
     filtroTipo === 'visitante'
@@ -295,8 +314,13 @@ export function AdminDashboard() {
   const handleGuardarTarifas = async () => {
     const v = parseFloat(tarifaVisitante)
     const r = parseFloat(tarifaResidente)
+    const a = parseFloat(tarifaAbonado)
     if (isNaN(v) || isNaN(r) || v < 0 || r < 0) {
-      setTarifaMsg('Ingrese valores numéricos válidos.')
+      setTarifaMsg('Ingrese valores numéricos válidos para visitante y residente.')
+      return
+    }
+    if (tarifaAbonado.trim() !== '' && (isNaN(a) || a < 0)) {
+      setTarifaMsg('El precio mensual del abonado debe ser un número válido.')
       return
     }
     setSavingTarifas(true)
@@ -306,11 +330,18 @@ export function AdminDashboard() {
         updateConfiguracion('visitante', v),
         updateConfiguracion('residente', r),
       ])
-      if (resV.ok && resR.ok) {
-        setTarifaMsg('Tarifas actualizadas correctamente.')
-      } else {
+      if (!resV.ok || !resR.ok) {
         setTarifaMsg(resV.error || resR.error || 'Error al guardar')
+        return
       }
+      if (tarifaAbonado.trim() !== '') {
+        const resA = await updateConfiguracion('abonado', a)
+        if (!resA.ok) {
+          setTarifaMsg(resA.error || 'Error al guardar precio abonado')
+          return
+        }
+      }
+      setTarifaMsg('Tarifas actualizadas correctamente.')
     } catch {
       setTarifaMsg('Error al guardar')
     } finally {
@@ -715,9 +746,9 @@ export function AdminDashboard() {
           <CardHeader>
             <CardTitle className="text-foreground flex items-center gap-2">
               <Settings className="h-5 w-5" />
-              Tarifas por hora
+              Tarifas
             </CardTitle>
-            <p className="text-sm text-muted-foreground">Modifique el precio por hora para visitantes y residentes.</p>
+            <p className="text-sm text-muted-foreground">Precio por hora (visitante/residente) y precio mensual para abonados.</p>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-wrap gap-6">
@@ -740,6 +771,18 @@ export function AdminDashboard() {
                   step={0.5}
                   value={tarifaResidente}
                   onChange={(e) => setTarifaResidente(e.target.value)}
+                  className="w-32"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Abonado (S/ por mes)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step={0.5}
+                  value={tarifaAbonado}
+                  onChange={(e) => setTarifaAbonado(e.target.value)}
+                  placeholder="Ej. 100"
                   className="w-32"
                 />
               </div>
@@ -811,6 +854,20 @@ export function AdminDashboard() {
                       >
                         Enviar recordatorio
                       </Button>
+                      <Button
+                        size="sm"
+                        variant="default"
+                        disabled={renovandoAbonoId === v.id}
+                        onClick={() => {
+                          setRenovarAbonoDialog(v)
+                          setRenovarRefPago('')
+                          setRenovarCapturaFile(null)
+                          setRenovarNumeroMeses(1)
+                        }}
+                      >
+                        {renovandoAbonoId === v.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarCheck className="h-4 w-4 mr-1" />}
+                        {renovandoAbonoId === v.id ? 'Guardando...' : 'Registrar pago'}
+                      </Button>
                     </div>
                   </li>
                 ))}
@@ -832,19 +889,47 @@ export function AdminDashboard() {
                         </Button>
                       )}
                     </div>
-                    <Button
-                      size="sm"
-                      variant="default"
-                      disabled={renovandoAbonoId === v.id}
-                      onClick={() => {
-                        setRenovarAbonoDialog(v)
-                        setRenovarRefPago('')
-                        setRenovarCapturaFile(null)
-                      }}
-                    >
-                      {renovandoAbonoId === v.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarCheck className="h-4 w-4 mr-1" />}
-                      {renovandoAbonoId === v.id ? 'Guardando...' : 'Registrar pago'}
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          if (!v.telefono_contacto) return
+                          const telefono = normalizarTelefonoWhatsApp(v.telefono_contacto)
+                          const nombre = [v.nombre_propietario, v.apellido_propietario].filter(Boolean).join(' ')
+                          const saludo = nombre ? `Hola, ${nombre}` : 'Hola'
+                          const texto = [
+                            `${saludo}, tu abono de estacionamiento se encuentra vencido.`,
+                            '',
+                            v.vigencia_abono_hasta ? `Venció el: ${v.vigencia_abono_hasta}` : '',
+                            '',
+                            'Por favor acércate a renovar tu mensualidad para seguir usando el estacionamiento.',
+                          ].join('\n')
+                          const url = telefono
+                            ? `https://wa.me/${telefono}?text=${encodeURIComponent(texto)}`
+                            : `https://wa.me/?text=${encodeURIComponent(texto)}`
+                          window.open(url, '_blank')
+                        }}
+                        disabled={!v.telefono_contacto}
+                      >
+                        Enviar recordatorio
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="default"
+                        disabled={renovandoAbonoId === v.id}
+                        onClick={() => {
+                          setRenovarAbonoDialog(v)
+                          setRenovarRefPago('')
+                          setRenovarCapturaFile(null)
+                          setRenovarNumeroMeses(1)
+                        }}
+                      >
+                        {renovandoAbonoId === v.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarCheck className="h-4 w-4 mr-1" />}
+                        {renovandoAbonoId === v.id ? 'Guardando...' : 'Registrar pago'}
+                      </Button>
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -1070,13 +1155,24 @@ export function AdminDashboard() {
         <Card className="border-border">
           <CardHeader>
             <CardTitle className="text-foreground">Servicios {filtroFechaDesde || filtroFechaHasta || filtroTipo ? '(filtrados)' : ''}</CardTitle>
+            <div className="pt-2">
+              <Input
+                type="text"
+                placeholder="Filtrar por placa o apellido..."
+                value={filtroPlacaApellido}
+                onChange={(e) => setFiltroPlacaApellido(e.target.value)}
+                className="max-w-xs"
+              />
+            </div>
           </CardHeader>
           <CardContent>
             {serviciosList.length === 0 ? (
               <p className="text-muted-foreground text-center py-8">No hay servicios con los filtros aplicados</p>
+            ) : serviciosListFiltrados.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">Ningún registro coincide con la búsqueda</p>
             ) : (
               <div className="space-y-3 max-h-[400px] overflow-y-auto overflow-x-hidden">
-                {serviciosList.map((servicio) => {
+                {serviciosListFiltrados.map((servicio) => {
                   const nombreResidente = servicio.vehiculo?.tipo === 'residente' &&
                     (servicio.vehiculo.nombre_propietario || servicio.vehiculo.apellido_propietario)
                     ? [servicio.vehiculo.nombre_propietario, servicio.vehiculo.apellido_propietario].filter(Boolean).join(' ')
@@ -1309,16 +1405,35 @@ export function AdminDashboard() {
           </DialogContent>
         </Dialog>
 
-        {/* Diálogo: registrar pago abono (ref + captura opcional) */}
+        {/* Diálogo: registrar pago abono (meses + ref + captura opcional) */}
         <Dialog open={!!renovarAbonoDialog} onOpenChange={(open) => !open && (setRenovarAbonoDialog(null), setRenovarCapturaFile(null))}>
           <DialogContent className="max-w-sm">
             <DialogHeader>
               <DialogTitle>Registrar pago de mensualidad</DialogTitle>
               <p className="text-sm text-muted-foreground">
-                {renovarAbonoDialog && `${renovarAbonoDialog.placa || 'Sin placa'} — opcional: ref. y captura.`}
+                {renovarAbonoDialog && `${renovarAbonoDialog.placa || 'Sin placa'}. El nuevo periodo se calcula desde el fin del anterior (o desde hoy si ya venció).`}
               </p>
             </DialogHeader>
             <div className="grid gap-4 py-2">
+              <div className="space-y-2">
+                <Label>Cantidad de meses (1 a 6)</Label>
+                <Select
+                  value={String(renovarNumeroMeses)}
+                  onValueChange={(val) => setRenovarNumeroMeses(Number(val))}
+                  disabled={!!renovandoAbonoId}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[1, 2, 3, 4, 5, 6].map((n) => (
+                      <SelectItem key={n} value={String(n)}>
+                        {n} {n === 1 ? 'mes' : 'meses'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="renovar-ref">Nº operación Yape / Transferencia (opcional)</Label>
                 <Input
@@ -1362,12 +1477,14 @@ export function AdminDashboard() {
                       })
                     }
                     await renovarAbono(renovarAbonoDialog.id, {
+                      numeroMeses: renovarNumeroMeses,
                       refPagoAbono: renovarRefPago.trim() || null,
                       capturaPagoAbono: capturaDataUrl,
                     })
                     setRenovarAbonoDialog(null)
                     setRenovarRefPago('')
                     setRenovarCapturaFile(null)
+                    setRenovarNumeroMeses(1)
                     loadData()
                   } catch (e) {
                     console.error(e)

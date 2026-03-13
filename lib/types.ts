@@ -27,7 +27,8 @@ export interface Servicio {
 
 export interface Configuracion {
   id: string
-  tipo_usuario: 'visitante' | 'residente'
+  tipo_usuario: 'visitante' | 'residente' | 'abonado'
+  /** Para visitante/residente: precio por hora. Para abonado: precio por mes. */
   precio_hora: number
 }
 
