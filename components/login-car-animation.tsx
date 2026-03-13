@@ -1,17 +1,12 @@
 'use client'
 
 /**
- * Escena de ciudad: pistas, carritos que recorren la vía
- * y se estacionan en una zona de parqueo, con un águila en el cielo.
+ * Escena de ciudad: pistas, carritos recorriendo la vía
+ * y un águila surcando el cielo de fondo.
  */
 export function LoginCarAnimation() {
-  // Caminos principales (curvas suaves)
   const path1 = 'M -40 85 Q 90 45 180 85 T 360 85 T 540 85'
   const path2 = 'M 540 195 Q 380 235 260 195 T -40 195'
-
-  // Paths que terminan en zona de parqueo (alargados hacia una “bahía”)
-  const parkPath1 = 'M -40 85 Q 90 45 180 85 T 320 85 T 360 95 T 380 110'
-  const parkPath2 = 'M 540 195 Q 420 225 300 195 T 220 190 T 200 180'
 
   return (
     <div
@@ -23,9 +18,6 @@ export function LoginCarAnimation() {
           {/* Ejes de pistas */}
           <path id="road-1" d={path1} fill="none" stroke="currentColor" strokeWidth="1" />
           <path id="road-2" d={path2} fill="none" stroke="currentColor" strokeWidth="1" />
-          {/* Recorridos hasta la zona de parqueo */}
-          <path id="park-1" d={parkPath1} fill="none" stroke="currentColor" strokeWidth="1" />
-          <path id="park-2" d={parkPath2} fill="none" stroke="currentColor" strokeWidth="1" />
           {/* Carrito */}
           <g id="car-sprite">
             <rect x="-10" y="-6" width="20" height="12" rx="3" fill="currentColor" opacity="0.95" />
@@ -78,71 +70,45 @@ export function LoginCarAnimation() {
           <use href="#road-2" stroke="currentColor" strokeWidth="2" strokeDasharray="8 6" opacity="0.35" />
         </g>
 
-        {/* Zona de parqueo en la pista superior (cajones marcados) */}
-        <g className="text-primary">
-          <rect x="360" y="98" width="44" height="18" fill="currentColor" opacity="0.05" />
-          <rect x="362" y="100" width="18" height="14" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.4" />
-          <rect x="382" y="100" width="18" height="14" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.25" />
-        </g>
-
-        {/* Zona de parqueo en la pista inferior */}
-        <g className="text-primary">
-          <rect x="188" y="174" width="40" height="20" fill="currentColor" opacity="0.05" />
-          <rect x="190" y="176" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.35" />
-          <rect x="208" y="176" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.2" />
-        </g>
-
-        {/* Carritos camino 1: hacen el recorrido y se “estacionan” en la zona de parqueo */}
+        {/* Carritos recorriendo la pista superior */}
         <g fill="hsl(var(--primary))" className="text-primary">
           <use href="#car-sprite" />
           <animateMotion
-            path={parkPath1}
+            path={path1}
             dur="14s"
             repeatCount="indefinite"
             rotate="auto"
-            keyTimes="0;0.6;0.85;1"
-            keyPoints="0;0.65;0.95;0.95"
-            calcMode="linear"
           />
         </g>
         <g fill="hsl(var(--primary))" className="text-primary opacity-75">
           <use href="#car-sprite" />
           <animateMotion
-            path={parkPath1}
+            path={path1}
             dur="16s"
             begin="3s"
             repeatCount="indefinite"
             rotate="auto"
-            keyTimes="0;0.6;0.85;1"
-            keyPoints="0;0.65;0.95;0.95"
-            calcMode="linear"
           />
         </g>
 
-        {/* Carritos camino 2: también terminan en su zona de parqueo */}
+        {/* Carritos recorriendo la pista inferior */}
         <g fill="hsl(var(--primary))" className="text-primary opacity-85">
           <use href="#car-sprite" />
           <animateMotion
-            path={parkPath2}
+            path={path2}
             dur="15s"
             repeatCount="indefinite"
             rotate="auto"
-            keyTimes="0;0.6;0.9;1"
-            keyPoints="0;0.65;0.95;0.95"
-            calcMode="linear"
           />
         </g>
         <g fill="hsl(var(--primary))" className="text-primary opacity-65">
           <use href="#car-sprite" />
           <animateMotion
-            path={parkPath2}
+            path={path2}
             dur="17s"
             begin="4s"
             repeatCount="indefinite"
             rotate="auto"
-            keyTimes="0;0.6;0.9;1"
-            keyPoints="0;0.65;0.95;0.95"
-            calcMode="linear"
           />
         </g>
 
