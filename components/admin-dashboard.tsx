@@ -840,6 +840,16 @@ export function AdminDashboard() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Filtrar por placa o apellido</Label>
+                <Input
+                  type="text"
+                  placeholder="Placa o apellido..."
+                  value={filtroPlacaApellido}
+                  onChange={(e) => setFiltroPlacaApellido(e.target.value)}
+                  className="max-w-xs"
+                />
+              </div>
               <div className="flex items-center gap-4 text-xs text-muted-foreground shrink-0">
                 <span className="flex items-center gap-1.5">
                   <span className="h-2.5 w-2.5 rounded-full bg-amber-200" aria-hidden />
@@ -853,16 +863,6 @@ export function AdminDashboard() {
                   <span className="h-2.5 w-2.5 rounded-full bg-sky-200" aria-hidden />
                   Abonados
                 </span>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Filtrar por placa o apellido</Label>
-                <Input
-                  type="text"
-                  placeholder="Placa o apellido..."
-                  value={filtroPlacaApellido}
-                  onChange={(e) => setFiltroPlacaApellido(e.target.value)}
-                  className="max-w-xs"
-                />
               </div>
             </div>
           </CardHeader>

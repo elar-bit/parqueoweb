@@ -409,6 +409,20 @@ export function ConserjeDashboard() {
               Servicios del mes ({serviciosHoyFiltrados.length}{serviciosHoy.length !== serviciosHoyFiltrados.length ? ` de ${serviciosHoy.length}` : ''})
             </h2>
             <div className="flex flex-row items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-4 text-xs text-muted-foreground shrink-0">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-amber-200" aria-hidden />
+                  Visitantes
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-200" aria-hidden />
+                  Residentes
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-sky-200" aria-hidden />
+                  Abonados
+                </span>
+              </div>
               <div className="flex items-center gap-2">
                 <Label className="text-xs text-muted-foreground whitespace-nowrap">Mes</Label>
                 <Select
@@ -431,20 +445,6 @@ export function ConserjeDashboard() {
                     )}
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="flex items-center gap-4 text-xs text-muted-foreground shrink-0">
-                <span className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full bg-amber-200" aria-hidden />
-                  Visitantes
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-200" aria-hidden />
-                  Residentes
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full bg-sky-200" aria-hidden />
-                  Abonados
-                </span>
               </div>
               <div className="flex items-center gap-2">
                 <Label className="text-xs text-muted-foreground whitespace-nowrap">Filtrar</Label>
