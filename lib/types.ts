@@ -15,6 +15,8 @@ export interface Vehiculo {
   ultimo_numero_meses_abono?: number | null
   /** True si el abonado canceló la suscripción; no aparece en alertas pero el registro se conserva. */
   abono_cancelado?: boolean | null
+  /** Motivo de cancelación (ej. no desea más, desea pagar por horas). */
+  motivo_cancelacion_abono?: string | null
   created_at: string
 }
 

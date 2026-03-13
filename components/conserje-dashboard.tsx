@@ -52,6 +52,8 @@ export function ConserjeDashboard() {
   const [filtroTipoServicios, setFiltroTipoServicios] = useState<'visitante' | 'residente' | 'abonado' | ''>('')
   const [filtroPeriodoServicios, setFiltroPeriodoServicios] = useState<string>('')
   const [cancelandoAbono, setCancelandoAbono] = useState<Vehiculo | null>(null)
+  const [motivoCancelacion, setMotivoCancelacion] = useState<string>('')
+  const [motivoCancelacionOtro, setMotivoCancelacionOtro] = useState<string>('')
   const [renovarAbonoDialog, setRenovarAbonoDialog] = useState<Vehiculo | null>(null)
   const [renovarNumeroMeses, setRenovarNumeroMeses] = useState<number>(1)
   const [renovarRefPago, setRenovarRefPago] = useState('')
@@ -404,31 +406,61 @@ export function ConserjeDashboard() {
           </div>
         )}
 
-        <AlertDialog open={!!cancelandoAbono} onOpenChange={(open) => !open && setCancelandoAbono(null)}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>¿Cancelar suscripción?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Este abonado ya no renovará. Se quitará de la lista de alertas pero el registro se conserva para consultas. Si desea volver, puede ingresarlo de nuevo y sus datos seguirán disponibles.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>No</AlertDialogCancel>
-              <AlertDialogAction
+        <Dialog open={!!cancelandoAbono} onOpenChange={(open) => { if (!open) { setCancelandoAbono(null); setMotivoCancelacion(''); setMotivoCancelacionOtro('') } }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>¿Cancelar suscripción?</DialogTitle>
+              <p className="text-sm text-muted-foreground">
+                Este abonado ya no renovará. Se quitará de la lista de alertas pero el registro se conserva. Indique el motivo de cancelación (obligatorio).
+              </p>
+            </DialogHeader>
+            <div className="grid gap-4 py-2">
+              <div className="space-y-2">
+                <Label>Motivo de cancelación</Label>
+                <Select value={motivoCancelacion} onValueChange={(v) => { setMotivoCancelacion(v); if (v !== 'otro') setMotivoCancelacionOtro('') }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccione un motivo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="no_respondio">El cliente no respondió</SelectItem>
+                    <SelectItem value="no_desea">No desea más la suscripción</SelectItem>
+                    <SelectItem value="pagar_horas">Desea pagar por horas</SelectItem>
+                    <SelectItem value="otro">Otro</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {motivoCancelacion === 'otro' && (
+                <div className="space-y-2">
+                  <Label>Especifique el motivo</Label>
+                  <Input
+                    placeholder="Motivo..."
+                    value={motivoCancelacionOtro}
+                    onChange={(e) => setMotivoCancelacionOtro(e.target.value)}
+                  />
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => { setCancelandoAbono(null); setMotivoCancelacion(''); setMotivoCancelacionOtro('') }}>No, volver</Button>
+              <Button
+                variant="destructive"
+                disabled={!motivoCancelacion || (motivoCancelacion === 'otro' && !motivoCancelacionOtro.trim())}
                 onClick={async () => {
-                  if (cancelandoAbono) {
-                    await cancelarAbono(cancelandoAbono.id)
-                    setCancelandoAbono(null)
-                    loadData()
-                  }
+                  if (!cancelandoAbono) return
+                  const motivoTexto = motivoCancelacion === 'otro' ? motivoCancelacionOtro.trim() : (motivoCancelacion === 'no_respondio' ? 'El cliente no respondió' : motivoCancelacion === 'no_desea' ? 'No desea más la suscripción' : motivoCancelacion === 'pagar_horas' ? 'Desea pagar por horas' : motivoCancelacion)
+                  if (!motivoTexto) return
+                  await cancelarAbono(cancelandoAbono.id, motivoTexto)
+                  setCancelandoAbono(null)
+                  setMotivoCancelacion('')
+                  setMotivoCancelacionOtro('')
+                  loadData()
                 }}
-                className="bg-destructive text-white hover:bg-destructive/90 hover:text-white"
               >
                 Sí, cancelar suscripción
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {servicios.some((s) => s.vehiculo?.tipo === 'abonado' && !abonoVigente(s.vehiculo.vigencia_abono_hasta)) && (
           <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 text-sm px-4 py-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
@@ -617,7 +649,7 @@ export function ConserjeDashboard() {
                             ? 'Residente'
                             : tipo === 'abonado'
                               ? servicio.vehiculo?.abono_cancelado
-                                ? 'Abonado - Cancelado'
+                                ? `Abonado - Cancelado${servicio.vehiculo?.motivo_cancelacion_abono ? ` (${servicio.vehiculo.motivo_cancelacion_abono})` : ''}`
                                 : `Abonado${servicio.vehiculo?.ultimo_numero_meses_abono ? ` (${servicio.vehiculo.ultimo_numero_meses_abono} ${servicio.vehiculo.ultimo_numero_meses_abono === 1 ? 'mes' : 'meses'})` : ''} - Tiempo restante: ${tiempoRestanteAbono(servicio.vehiculo?.vigencia_abono_hasta)}`
                               : 'Visitante'}
                         </p>
@@ -674,9 +706,15 @@ export function ConserjeDashboard() {
                   {servicioDetalle.vehiculo?.tipo === 'residente'
                     ? 'Residente'
                     : servicioDetalle.vehiculo?.tipo === 'abonado'
-                      ? (servicioDetalle.vehiculo?.abono_cancelado ? 'Abonado - Cancelado' : 'Abonado')
+                      ? (servicioDetalle.vehiculo?.abono_cancelado ? `Abonado - Cancelado${servicioDetalle.vehiculo?.motivo_cancelacion_abono ? ` (${servicioDetalle.vehiculo.motivo_cancelacion_abono})` : ''}` : 'Abonado')
                       : 'Visitante'}
                 </span>
+                {servicioDetalle.vehiculo?.tipo === 'abonado' && servicioDetalle.vehiculo?.abono_cancelado && servicioDetalle.vehiculo?.motivo_cancelacion_abono && (
+                  <>
+                    <span className="text-muted-foreground">Motivo cancelación</span>
+                    <span>{servicioDetalle.vehiculo.motivo_cancelacion_abono}</span>
+                  </>
+                )}
                 {(servicioDetalle.vehiculo?.nombre_propietario || servicioDetalle.vehiculo?.apellido_propietario) && (
                   <>
                     <span className="text-muted-foreground">Nombre</span>

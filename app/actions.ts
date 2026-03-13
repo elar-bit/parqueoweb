@@ -494,9 +494,10 @@ export async function registrarEntrada(
           ultimo_numero_meses_abono: meses,
           monto_ultimo_pago_abono: montoAbono,
           abono_cancelado: false,
+          motivo_cancelacion_abono: null,
         })
         .eq('id', vehiculo.id)
-      vehiculo = { ...vehiculo, vigencia_abono_hasta: hasta.toISOString().split('T')[0], ultimo_numero_meses_abono: meses, monto_ultimo_pago_abono: montoAbono, abono_cancelado: false } as Vehiculo
+      vehiculo = { ...vehiculo, vigencia_abono_hasta: hasta.toISOString().split('T')[0], ultimo_numero_meses_abono: meses, monto_ultimo_pago_abono: montoAbono, abono_cancelado: false, motivo_cancelacion_abono: null } as Vehiculo
     }
   } else {
     const insertPayload: Record<string, unknown> = {
@@ -631,6 +632,7 @@ export async function renovarAbono(
     monto_ultimo_pago_abono: montoAbono,
     ultimo_numero_meses_abono: meses,
     abono_cancelado: false,
+    motivo_cancelacion_abono: null,
   }
   if (opts?.refPagoAbono != null && String(opts.refPagoAbono).trim()) {
     updatePayload.ref_pago_abono = String(opts.refPagoAbono).trim()
@@ -647,12 +649,12 @@ export async function renovarAbono(
   revalidatePath('/admin')
 }
 
-/** Cancela la suscripción del abonado: deja de mostrarse en alertas pero se conserva el registro. Si vuelve, puede reingresar y sus datos siguen precargados. */
-export async function cancelarAbono(vehiculoId: string): Promise<void> {
+/** Cancela la suscripción del abonado: deja de mostrarse en alertas pero se conserva el registro. motivo se muestra en tarjeta y reportes. */
+export async function cancelarAbono(vehiculoId: string, motivo: string): Promise<void> {
   const supabase = await createClient()
   const { error } = await supabase
     .from('vehiculos')
-    .update({ abono_cancelado: true })
+    .update({ abono_cancelado: true, motivo_cancelacion_abono: motivo?.trim() || null })
     .eq('id', vehiculoId)
     .eq('tipo', 'abonado')
   if (error) throw error
