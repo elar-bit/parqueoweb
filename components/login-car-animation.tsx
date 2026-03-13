@@ -43,20 +43,20 @@ export function LoginCarAnimation() {
         <rect x="380" y="0" width="130" height="55" fill="currentColor" opacity="0.06" />
         <rect x="180" y="0" width="80" height="90" fill="currentColor" opacity="0.05" />
 
-        {/* Árboles en la ciudad */}
-        <g transform="translate(55, 35)" className="text-primary">
+        {/* Árboles en la ciudad (verde) */}
+        <g transform="translate(55, 35)" className="text-green-600">
           <use href="#tree" />
         </g>
-        <g transform="translate(220, 28)" className="text-primary">
+        <g transform="translate(220, 28)" className="text-green-600">
           <use href="#tree" />
         </g>
-        <g transform="translate(420, 40)" className="text-primary">
+        <g transform="translate(420, 40)" className="text-green-600">
           <use href="#tree" />
         </g>
-        <g transform="translate(130, 230)" className="text-primary">
+        <g transform="translate(130, 230)" className="text-green-600">
           <use href="#tree" />
         </g>
-        <g transform="translate(340, 218)" className="text-primary">
+        <g transform="translate(340, 218)" className="text-green-600">
           <use href="#tree" />
         </g>
 
