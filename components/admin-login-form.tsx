@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
 import { loginUsuario } from '@/app/actions'
 import { Lock, Loader2, Home } from 'lucide-react'
+import { LoginCarAnimation } from '@/components/login-car-animation'
 
 export function AdminLoginForm() {
   const [usuario, setUsuario] = useState('')
@@ -34,8 +35,9 @@ export function AdminLoginForm() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4 sm:p-6">
-      <Card className="w-full max-w-sm border-border">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 sm:p-6 relative">
+      <LoginCarAnimation />
+      <Card className="w-full max-w-sm border-border relative z-10">
         <CardHeader>
           <div className="flex justify-center mb-2">
             <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
