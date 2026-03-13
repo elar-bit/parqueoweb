@@ -105,12 +105,16 @@ export async function loginUsuario(
 
   const { data: user, error } = await supabase
     .from('usuarios')
-    .select('id, usuario, password_hash, rol')
+    .select('id, usuario, password_hash, rol, suspendido')
     .eq('usuario', usuarioNorm)
     .single()
 
   if (error || !user) {
     return { ok: false, error: 'Usuario o contraseña incorrectos' }
+  }
+
+  if ((user as { suspendido?: boolean }).suspendido) {
+    return { ok: false, error: 'Usuario suspendido. Contacte al administrador.' }
   }
 
   const validPassword = await compare(passwordNorm, user.password_hash)
@@ -145,6 +149,7 @@ export type UsuarioRow = {
   apellido: string
   usuario: string
   rol: 'admin' | 'conserje'
+  suspendido?: boolean
   created_at: string
 }
 
@@ -155,7 +160,7 @@ export async function getUsuarios(): Promise<UsuarioRow[]> {
     const supabase = await createClient()
     const { data, error } = await supabase
       .from('usuarios')
-      .select('id, nombre, apellido, usuario, rol, created_at')
+      .select('id, nombre, apellido, usuario, rol, suspendido, created_at')
       .order('usuario')
     if (error) {
       console.error('getUsuarios error:', error)
@@ -263,6 +268,42 @@ export async function eliminarUsuario(id: string): Promise<{ ok: boolean; error?
     return { ok: true }
   } catch (e) {
     console.error('eliminarUsuario exception:', e)
+    return { ok: false, error: String(e) }
+  }
+}
+
+export async function suspenderUsuario(id: string): Promise<{ ok: boolean; error?: string }> {
+  const authed = await getAdminAuth()
+  if (!authed) return { ok: false, error: 'No autorizado' }
+  try {
+    const supabase = await createClient()
+    const { error } = await supabase.from('usuarios').update({ suspendido: true }).eq('id', id)
+    if (error) {
+      console.error('suspenderUsuario error:', error)
+      return { ok: false, error: error.message }
+    }
+    revalidatePath('/admin')
+    return { ok: true }
+  } catch (e) {
+    console.error('suspenderUsuario exception:', e)
+    return { ok: false, error: String(e) }
+  }
+}
+
+export async function reactivarUsuario(id: string): Promise<{ ok: boolean; error?: string }> {
+  const authed = await getAdminAuth()
+  if (!authed) return { ok: false, error: 'No autorizado' }
+  try {
+    const supabase = await createClient()
+    const { error } = await supabase.from('usuarios').update({ suspendido: false }).eq('id', id)
+    if (error) {
+      console.error('reactivarUsuario error:', error)
+      return { ok: false, error: error.message }
+    }
+    revalidatePath('/admin')
+    return { ok: true }
+  } catch (e) {
+    console.error('reactivarUsuario exception:', e)
     return { ok: false, error: String(e) }
   }
 }

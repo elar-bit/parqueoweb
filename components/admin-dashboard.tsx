@@ -25,6 +25,8 @@ import {
   crearUsuario,
   actualizarUsuario,
   eliminarUsuario,
+  suspenderUsuario,
+  reactivarUsuario,
   resetearPasswordUsuario,
   eliminarServicio,
   actualizarVehiculo,
@@ -37,7 +39,7 @@ import {
 } from '@/app/actions'
 import type { ServicioConVehiculo, Configuracion, Vehiculo } from '@/lib/types'
 import { formatCurrency, formatMesAno, montoServicioParaMostrar, tiempoRestanteAbono } from '@/lib/billing'
-import { Car, DollarSign, RefreshCw, BarChart3, LogOut, Settings, Loader2, Users, UserPlus, Pencil, Trash2, Key, FileSpreadsheet, FileText, Info, CalendarCheck, AlertTriangle, Star, XCircle } from 'lucide-react'
+import { Car, DollarSign, RefreshCw, BarChart3, LogOut, Settings, Loader2, Users, UserPlus, Pencil, Trash2, Key, FileSpreadsheet, FileText, Info, CalendarCheck, AlertTriangle, Star, XCircle, UserX, UserCheck } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { IncomeChart } from '@/components/income-chart'
@@ -61,7 +63,9 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 
-export function AdminDashboard() {
+type AdminDashboardProps = { currentUserId?: string | null }
+
+export function AdminDashboard({ currentUserId }: AdminDashboardProps = {}) {
   const [activeCount, setActiveCount] = useState(0)
   const [chartData, setChartData] = useState<{ fecha: string; total: number }[]>([])
   const [chartDataConTipo, setChartDataConTipo] = useState<{ fecha: string; visitantes: number; residentes: number }[]>([])
@@ -123,6 +127,7 @@ export function AdminDashboard() {
   const [savingReset, setSavingReset] = useState(false)
 
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null)
+  const [suspendingUser, setSuspendingUser] = useState<UsuarioRow | null>(null)
   const [deletingServicioId, setDeletingServicioId] = useState<string | null>(null)
   const [servicioDetalle, setServicioDetalle] = useState<ServicioConVehiculo | null>(null)
   const [whatsappOpen, setWhatsappOpen] = useState(false)
@@ -1222,6 +1227,9 @@ export function AdminDashboard() {
                             <span className={u.rol === 'admin' ? 'text-primary font-medium' : 'text-muted-foreground'}>
                               {u.rol === 'admin' ? 'Administrador' : 'Conserje'}
                             </span>
+                            {u.suspendido && (
+                              <Badge variant="secondary" className="ml-2 text-xs bg-amber-500/20 text-amber-700 dark:text-amber-400">Suspendido</Badge>
+                            )}
                           </td>
                           <td className="p-3 text-right">
                             <div className="flex justify-end gap-1">
@@ -1231,6 +1239,15 @@ export function AdminDashboard() {
                               <Button variant="ghost" size="sm" onClick={() => openResetPassword(u)} title="Resetear contraseña">
                                 <Key className="h-4 w-4" />
                               </Button>
+                              {u.suspendido ? (
+                                <Button variant="ghost" size="sm" onClick={async () => { const r = await reactivarUsuario(u.id); if (r.ok) { const users = await getUsuarios(); setUsuarios(users) } else { setUsuarioMsg(r.error || 'Error') } }} title="Reactivar usuario">
+                                  <UserCheck className="h-4 w-4 text-green-600" />
+                                </Button>
+                              ) : currentUserId !== u.id ? (
+                                <Button variant="ghost" size="sm" onClick={() => setSuspendingUser(u)} title="Suspender usuario" className="text-amber-600 hover:text-amber-600">
+                                  <UserX className="h-4 w-4" />
+                                </Button>
+                              ) : null}
                               <Button variant="ghost" size="sm" onClick={() => setDeletingUserId(u.id)} title="Eliminar" className="text-destructive hover:text-destructive">
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -1314,12 +1331,46 @@ export function AdminDashboard() {
                   <AlertDialogContent>
                     <AlertDialogHeader>
                       <AlertDialogTitle>¿Eliminar usuario?</AlertDialogTitle>
-                      <AlertDialogDescription>Esta acción no se puede deshacer. El usuario no podrá volver a iniciar sesión.</AlertDialogDescription>
+                      <AlertDialogDescription>
+                        Esta acción es irreversible. El usuario perderá el acceso al sistema de forma permanente y será eliminado de la base de datos. No podrá volver a iniciar sesión. ¿Está seguro de que desea continuar?
+                      </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancelar</AlertDialogCancel>
                       <AlertDialogAction onClick={() => deletingUserId && handleEliminarUsuario(deletingUserId)} className="bg-destructive text-white hover:bg-destructive/90 hover:text-white">
-                        Eliminar
+                        Sí, eliminar
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+
+                {/* Confirmar suspender usuario */}
+                <AlertDialog open={!!suspendingUser} onOpenChange={(open) => !open && setSuspendingUser(null)}>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>¿Suspender usuario?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        El usuario no podrá iniciar sesión hasta que un administrador lo reactive desde esta misma vista. El registro se conserva. ¿Continuar?
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={async () => {
+                          if (suspendingUser) {
+                            const r = await suspenderUsuario(suspendingUser.id)
+                            setSuspendingUser(null)
+                            if (r.ok) {
+                              const users = await getUsuarios()
+                              setUsuarios(users)
+                            } else {
+                              setUsuarioMsg(r.error || 'Error al suspender')
+                            }
+                          }
+                        }}
+                        className="bg-amber-600 text-white hover:bg-amber-700 hover:text-white"
+                      >
+                        Sí, suspender
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
