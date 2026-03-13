@@ -49,6 +49,19 @@ export function getElapsedTime(entradaReal: Date): {
   return { totalMinutes, billableMinutes }
 }
 
+/**
+ * Multiplicadores para abonado por cantidad de meses (base 100: 1→100, 2→190, 3→280, 4→370, 5→460, 6→550).
+ * Total = Math.round(precioMensual * multiplicador).
+ */
+const ABONADO_MULTIPLIERS: number[] = [1, 1.9, 2.8, 3.7, 4.6, 5.5]
+
+/** Total a pagar por abonado según meses (1-6) con descuento aplicado a partir del precio mensual fijado por admin. */
+export function calcularTotalAbonado(precioMensual: number, numeroMeses: number): number {
+  const n = Math.min(6, Math.max(1, Math.floor(numeroMeses)))
+  const mult = ABONADO_MULTIPLIERS[n - 1] ?? ABONADO_MULTIPLIERS[0]
+  return Math.round(precioMensual * mult)
+}
+
 /** True si el abonado tiene mensualidad vigente (incluye hoy). */
 export function abonoVigente(vigencia_abono_hasta: string | null | undefined): boolean {
   if (!vigencia_abono_hasta) return false

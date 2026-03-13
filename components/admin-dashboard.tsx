@@ -89,6 +89,10 @@ export function AdminDashboard() {
   const [filtroPlacaApellido, setFiltroPlacaApellido] = useState('')
   const [renovarNumeroMeses, setRenovarNumeroMeses] = useState<number>(1)
   const [reportesExpandido, setReportesExpandido] = useState(false)
+  const [filtroMesServicios, setFiltroMesServicios] = useState(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  })
   const [loadingReportes, setLoadingReportes] = useState(false)
   const [serviciosParaReportes, setServiciosParaReportes] = useState<ServicioConVehiculo[]>([])
 
@@ -248,12 +252,21 @@ export function AdminDashboard() {
     tipo: filtroTipo === '' ? null : (filtroTipo as 'visitante' | 'residente' | 'abonado'),
   }
 
+  const rangoMesServicios = (() => {
+    const [y, m] = filtroMesServicios.split('-').map(Number)
+    const ultimoDia = new Date(y, m, 0).getDate()
+    return {
+      fechaDesde: `${filtroMesServicios}-01`,
+      fechaHasta: `${y}-${String(m).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}`,
+    }
+  })()
+
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
       const [activos, servicios, config, users, vencidos, porVencer] = await Promise.all([
         getServiciosActivos(),
-        getServiciosPagadosFiltrados({}),
+        getServiciosPagadosFiltrados({ fechaDesde: rangoMesServicios.fechaDesde, fechaHasta: rangoMesServicios.fechaHasta }),
         getConfiguracion(),
         getUsuarios(),
         getAbonadosVencidos(),
@@ -276,7 +289,7 @@ export function AdminDashboard() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [rangoMesServicios.fechaDesde, rangoMesServicios.fechaHasta])
 
   const loadReportesData = useCallback(async () => {
     setLoadingReportes(true)
@@ -768,14 +781,26 @@ export function AdminDashboard() {
         <Card className="border-border">
           <CardHeader>
             <CardTitle className="text-foreground">Servicios</CardTitle>
-            <div className="pt-2">
-              <Input
-                type="text"
-                placeholder="Filtrar por placa o apellido..."
-                value={filtroPlacaApellido}
-                onChange={(e) => setFiltroPlacaApellido(e.target.value)}
-                className="max-w-xs"
-              />
+            <div className="pt-2 flex flex-wrap items-center gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Mes</Label>
+                <Input
+                  type="month"
+                  value={filtroMesServicios}
+                  onChange={(e) => setFiltroMesServicios(e.target.value)}
+                  className="max-w-[160px]"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Filtrar por placa o apellido</Label>
+                <Input
+                  type="text"
+                  placeholder="Placa o apellido..."
+                  value={filtroPlacaApellido}
+                  onChange={(e) => setFiltroPlacaApellido(e.target.value)}
+                  className="max-w-xs"
+                />
+              </div>
             </div>
           </CardHeader>
           <CardContent>

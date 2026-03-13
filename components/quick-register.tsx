@@ -21,7 +21,7 @@ import {
 import { registrarEntrada, getPlacasResidentes, getPlacasAbonados, tieneEntradaActiva } from '@/app/actions'
 import type { ResidenteOption, AbonadoOption } from '@/app/actions'
 import type { Configuracion } from '@/lib/types'
-import { formatCurrency } from '@/lib/billing'
+import { formatCurrency, calcularTotalAbonado } from '@/lib/billing'
 import { Car, User, Loader2, Check, ChevronsUpDown, CalendarCheck } from 'lucide-react'
 import {
   Select,
@@ -479,11 +479,6 @@ export function QuickRegister({ onRegistered, configuracion = [] }: QuickRegiste
                     </div>
                     {tipo === 'abonado' && (
                       <>
-                        <div className="space-y-2 sm:col-span-2">
-                          <p className="text-sm text-muted-foreground">
-                            Precio mensual (fijado por admin): <span className="font-semibold text-foreground">{formatCurrency(precioMensualAbonado)}</span> — solo lectura
-                          </p>
-                        </div>
                         <div className="space-y-2 sm:col-span-2 flex items-center gap-2">
                           <input
                             type="checkbox"
@@ -493,22 +488,25 @@ export function QuickRegister({ onRegistered, configuracion = [] }: QuickRegiste
                             className="rounded border-border"
                           />
                           <Label htmlFor="ya-pago-mensualidad" className="font-normal cursor-pointer">
-                            Ya pagó la mensualidad (seleccione cantidad de meses abajo)
+                            Ya pagó la mensualidad (seleccione opción abajo)
                           </Label>
                         </div>
                         {yaPagoMensualidad && (
                           <div className="space-y-2 sm:col-span-2">
-                            <Label>Cantidad de meses (máx. 6)</Label>
+                            <Label>Precio mensual</Label>
                             <Select value={String(numeroMesesAbono)} onValueChange={(v) => setNumeroMesesAbono(Number(v))}>
                               <SelectTrigger>
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                {[1, 2, 3, 4, 5, 6].map((n) => (
-                                  <SelectItem key={n} value={String(n)}>
-                                    {n} {n === 1 ? 'mes' : 'meses'} — {formatCurrency(precioMensualAbonado * n)} total
-                                  </SelectItem>
-                                ))}
+                                {[1, 2, 3, 4, 5, 6].map((n) => {
+                                  const total = calcularTotalAbonado(precioMensualAbonado, n)
+                                  return (
+                                    <SelectItem key={n} value={String(n)}>
+                                      {n} {n === 1 ? 'mes' : 'meses'} — {formatCurrency(total)}
+                                    </SelectItem>
+                                  )
+                                })}
                               </SelectContent>
                             </Select>
                           </div>
