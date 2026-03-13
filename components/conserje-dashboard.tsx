@@ -134,15 +134,7 @@ export function ConserjeDashboard() {
   }
 
   const filtroNorm = filtroPlacaApellido.trim().toLowerCase()
-  const serviciosFiltrados =
-    !filtroNorm
-      ? servicios
-      : servicios.filter((s) => {
-          const placa = (s.vehiculo?.placa ?? '').toLowerCase()
-          const apellido = (s.vehiculo?.apellido_propietario ?? '').toLowerCase()
-          const nombre = (s.vehiculo?.nombre_propietario ?? '').toLowerCase()
-          return placa.includes(filtroNorm) || apellido.includes(filtroNorm) || nombre.includes(filtroNorm)
-        })
+  // Filtro solo aplicado a la sección de servicios pagados (histórico), no a vehículos activos.
   const serviciosHoyFiltrados =
     !filtroNorm
       ? serviciosHoy
@@ -347,17 +339,10 @@ export function ConserjeDashboard() {
         )}
 
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-foreground">
-              Vehiculos Activos ({serviciosFiltrados.length}{servicios.length !== serviciosFiltrados.length ? ` de ${servicios.length}` : ''})
+              Vehiculos Activos ({servicios.length})
             </h2>
-            <Input
-              type="text"
-              placeholder="Filtrar por placa o apellido..."
-              value={filtroPlacaApellido}
-              onChange={(e) => setFiltroPlacaApellido(e.target.value)}
-              className="max-w-xs"
-            />
           </div>
 
           {loading && servicios.length === 0 ? (
@@ -372,11 +357,9 @@ export function ConserjeDashboard() {
                 Use los botones de arriba para registrar un nuevo vehiculo
               </p>
             </div>
-          ) : serviciosFiltrados.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">Ningún vehículo coincide con la búsqueda</p>
           ) : (
             <div className="space-y-3">
-              {serviciosFiltrados.map((servicio) => (
+              {servicios.map((servicio) => (
                 <VehicleCard
                   key={servicio.id}
                   servicio={servicio}
@@ -390,10 +373,19 @@ export function ConserjeDashboard() {
 
         {/* Servicios pagados hoy (solo consulta) */}
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <h2 className="text-lg font-semibold text-foreground">
               Servicios pagados hoy ({serviciosHoyFiltrados.length}{serviciosHoy.length !== serviciosHoyFiltrados.length ? ` de ${serviciosHoy.length}` : ''})
             </h2>
+            {serviciosHoy.length > 0 && (
+              <Input
+                type="text"
+                placeholder="Filtrar por placa o apellido..."
+                value={filtroPlacaApellido}
+                onChange={(e) => setFiltroPlacaApellido(e.target.value)}
+                className="max-w-xs"
+              />
+            )}
           </div>
           {serviciosHoy.length === 0 ? (
             <p className="text-sm text-muted-foreground">
