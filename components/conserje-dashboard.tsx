@@ -430,10 +430,129 @@ export function ConserjeDashboard() {
       </main>
 
       {/* Detalle de servicio pagado (ticket) */}
-      {/* Reutilizamos la lógica de admin para construir el ticket y WhatsApp */}
-      {servicioDetalle && (
-        <div className="hidden" />
-      )}
+      <Dialog open={!!servicioDetalle} onOpenChange={(open) => !open && setServicioDetalle(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Car className="h-5 w-5" />
+              Detalle del servicio
+            </DialogTitle>
+          </DialogHeader>
+          {servicioDetalle && (
+            <div className="grid gap-4 py-2">
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <span className="text-muted-foreground">Placa</span>
+                <span className="font-mono font-medium">{servicioDetalle.vehiculo?.placa || '—'}</span>
+                <span className="text-muted-foreground">Tipo</span>
+                <span>
+                  {servicioDetalle.vehiculo?.tipo === 'residente'
+                    ? 'Residente'
+                    : servicioDetalle.vehiculo?.tipo === 'abonado'
+                      ? 'Abonado'
+                      : 'Visitante'}
+                </span>
+                {(servicioDetalle.vehiculo?.nombre_propietario || servicioDetalle.vehiculo?.apellido_propietario) && (
+                  <>
+                    <span className="text-muted-foreground">Nombre</span>
+                    <span>
+                      {[servicioDetalle.vehiculo.nombre_propietario, servicioDetalle.vehiculo.apellido_propietorio]
+                        .filter(Boolean)
+                        .join(' ')}
+                    </span>
+                  </>
+                )}
+                {servicioDetalle.vehiculo?.numero_oficina_dep && (
+                  <>
+                    <span className="text-muted-foreground">Oficina / Depto.</span>
+                    <span>{servicioDetalle.vehiculo.numero_oficina_dep}</span>
+                  </>
+                )}
+                <span className="text-muted-foreground">Entrada</span>
+                <span>
+                  {new Date(servicioDetalle.entrada_real).toLocaleString('es-PE', {
+                    dateStyle: 'short',
+                    timeStyle: 'short',
+                  })}
+                </span>
+                <span className="text-muted-foreground">Salida</span>
+                <span>
+                  {servicioDetalle.vehiculo?.tipo === 'abonado' && servicioDetalle.vehiculo.vigencia_abono_hasta
+                    ? new Date(servicioDetalle.vehiculo.vigencia_abono_hasta).toLocaleDateString('es-PE')
+                    : servicioDetalle.salida
+                      ? new Date(servicioDetalle.salida).toLocaleString('es-PE', {
+                          dateStyle: 'short',
+                          timeStyle: 'short',
+                        })
+                      : '—'}
+                </span>
+                <span className="text-muted-foreground">Total</span>
+                <span className="font-semibold">{formatCurrency(servicioDetalle.total_pagar ?? 0)}</span>
+                {servicioDetalle.ref_pago_yape && (
+                  <>
+                    <span className="text-muted-foreground">Ref. Yape</span>
+                    <span className="font-mono text-xs break-all">{servicioDetalle.ref_pago_yape}</span>
+                  </>
+                )}
+                <span className="text-muted-foreground">Teléfono (WhatsApp)</span>
+                <span className="font-mono text-xs">{servicioDetalle.vehiculo?.telefono_contacto || '—'}</span>
+              </div>
+              <DialogFooter className="gap-2 flex-wrap">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const ticket = buildTicketTexto(servicioDetalle).replace(/\n/g, '<br/>')
+                    const ventana = window.open('', '_blank')
+                    if (!ventana) return
+                    ventana.document.write(`
+                      <!DOCTYPE html>
+                      <html>
+                        <head>
+                          <meta charset="utf-8" />
+                          <title>Ticket de servicio</title>
+                          <style>
+                            body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 24px; font-size: 14px; }
+                            h1 { font-size: 18px; margin-bottom: 12px; }
+                            .ticket { border: 1px dashed #ccc; padding: 16px 20px; border-radius: 8px; max-width: 360px; }
+                          </style>
+                        </head>
+                        <body>
+                          <div class="ticket">
+                            <h1>Ticket de servicio</h1>
+                            <p>${ticket}</p>
+                          </div>
+                        </body>
+                      </html>
+                    `)
+                    ventana.document.close()
+                    ventana.onload = () => {
+                      ventana.print()
+                      ventana.onafterprint = () => ventana.close()
+                    }
+                  }}
+                >
+                  Imprimir ticket
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => {
+                    const texto = buildTicketTexto(servicioDetalle)
+                    const telefono = servicioDetalle.vehiculo?.telefono_contacto
+                      ? normalizarTelefonoWhatsApp(servicioDetalle.vehiculo.telefono_contacto)
+                      : ''
+                    const url = telefono
+                      ? `https://wa.me/${telefono}?text=${encodeURIComponent(texto)}`
+                      : `https://wa.me/?text=${encodeURIComponent(texto)}`
+                    window.open(url, '_blank')
+                  }}
+                >
+                  Enviar por WhatsApp
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </Dialog>
 
       <ValidationModal
         servicio={selectedServicio}
