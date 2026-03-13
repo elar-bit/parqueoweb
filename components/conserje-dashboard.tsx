@@ -77,8 +77,8 @@ export function ConserjeDashboard() {
     const esResidente = servicio.vehiculo?.tipo === 'residente'
     const esAbonado = servicio.vehiculo?.tipo === 'abonado'
     const nombreResidente =
-      esResidente && (servicio.vehiculo.nombre_propietario || servicio.vehiculo.apellido_propietorio)
-        ? [servicio.vehiculo.nombre_propietorio, servicio.vehiculo.apellido_propietorio].filter(Boolean).join(' ')
+      esResidente && (servicio.vehiculo.nombre_propietario || servicio.vehiculo.apellido_propietario)
+        ? [servicio.vehiculo.nombre_propietario, servicio.vehiculo.apellido_propietario].filter(Boolean).join(' ')
         : ''
     const placa = servicio.vehiculo?.placa || 'Sin placa'
     const entrada = new Date(servicio.entrada_real).toLocaleString('es-PE', {
@@ -360,8 +360,8 @@ export function ConserjeDashboard() {
               {serviciosHoy.map((servicio) => {
                 const nombreResidente =
                   servicio.vehiculo?.tipo === 'residente' &&
-                  (servicio.vehiculo.nombre_propietario || servicio.vehiculo.apellido_propietorio)
-                    ? [servicio.vehiculo.nombre_propietorio, servicio.vehiculo.apellido_propietorio].filter(Boolean).join(' ')
+                  (servicio.vehiculo.nombre_propietario || servicio.vehiculo.apellido_propietario)
+                    ? [servicio.vehiculo.nombre_propietario, servicio.vehiculo.apellido_propietario].filter(Boolean).join(' ')
                     : null
                 return (
                   <div
