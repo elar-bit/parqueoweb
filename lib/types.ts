@@ -5,6 +5,7 @@ export interface Vehiculo {
   nombre_propietario: string | null
   apellido_propietario?: string | null
   numero_oficina_dep?: string | null
+  telefono_contacto?: string | null
   created_at: string
 }
 

@@ -56,6 +56,7 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
   const [nombreResidente, setNombreResidente] = useState('')
   const [apellidoResidente, setApellidoResidente] = useState('')
   const [numeroOficinaDep, setNumeroOficinaDep] = useState('')
+  const [telefonoResidente, setTelefonoResidente] = useState('')
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   const cargarResidentes = async () => {
@@ -107,6 +108,7 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
           nombre: nombreResidente.trim() || null,
           apellido: apellidoResidente.trim() || null,
           numero_oficina_dep: numeroOficinaDep.trim() || null,
+          telefono_contacto: telefonoResidente.trim() || null,
         })
       } else {
         await registrarEntrada(tipo, placa.trim() || null, null)
@@ -118,6 +120,7 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
       setNombreResidente('')
       setApellidoResidente('')
       setNumeroOficinaDep('')
+      setTelefonoResidente('')
       setComboboxSearch('')
       onRegistered()
     } catch (error) {
@@ -136,6 +139,7 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
     setNombreResidente('')
     setApellidoResidente('')
     setNumeroOficinaDep('')
+    setTelefonoResidente('')
     setComboboxSearch('')
     setErrorMsg(null)
   }
@@ -294,6 +298,16 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
                         value={numeroOficinaDep}
                         onChange={(e) => setNumeroOficinaDep(e.target.value)}
                         placeholder="Ej. 101, Depto 2A"
+                      />
+                    </div>
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label htmlFor="telefono-res">Teléfono / WhatsApp (opcional)</Label>
+                      <Input
+                        id="telefono-res"
+                        type="tel"
+                        value={telefonoResidente}
+                        onChange={(e) => setTelefonoResidente(e.target.value)}
+                        placeholder="Ej. 987 654 321"
                       />
                     </div>
                   </div>

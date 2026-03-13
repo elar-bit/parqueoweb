@@ -22,7 +22,7 @@ import { Separator } from '@/components/ui/separator'
 import { calculateBilling, formatCurrency, formatDuration } from '@/lib/billing'
 import { actualizarVehiculo, registrarSalida } from '@/app/actions'
 import type { ServicioConVehiculo, Configuracion } from '@/lib/types'
-import { Printer, Check } from 'lucide-react'
+import { Printer, Check, Loader2 } from 'lucide-react'
 
 function buildTicketTextoWhatsApp(opts: {
   placa: string
@@ -75,7 +75,17 @@ export function ValidationModal({
   const [showTicket, setShowTicket] = useState(false)
   const [billing, setBilling] = useState({ minutosCobrados: 0, total: 0 })
   const [salidaTicket, setSalidaTicket] = useState<Date | null>(null)
+  const [whatsappOpen, setWhatsappOpen] = useState(false)
+  const [whatsappPhone, setWhatsappPhone] = useState('')
+  const [whatsappSaving, setWhatsappSaving] = useState(false)
   const ticketRef = useRef<HTMLDivElement>(null)
+
+  const normalizarTelefonoWhatsApp = (valor: string): string => {
+    const digits = valor.replace(/\D/g, '')
+    if (digits.length === 9 && digits.startsWith('9')) return '51' + digits
+    if (digits.startsWith('51') && digits.length >= 11) return digits.slice(0, 11)
+    return digits || ''
+  }
 
   useEffect(() => {
     if (servicio) {
@@ -169,24 +179,42 @@ export function ValidationModal({
     }
   }
 
-  const handleEnviarWhatsApp = () => {
+  const handleAbrirWhatsApp = () => {
+    setWhatsappPhone(servicio?.vehiculo?.telefono_contacto ?? '')
+    setWhatsappOpen(true)
+  }
+
+  const handleEnviarWhatsApp = async () => {
     if (!servicio) return
-    const nombreResidente =
-      servicio.vehiculo?.tipo === 'residente' &&
-      (servicio.vehiculo.nombre_propietario || servicio.vehiculo.apellido_propietario)
-        ? [servicio.vehiculo.nombre_propietario, servicio.vehiculo.apellido_propietario].filter(Boolean).join(' ')
-        : null
-    const salida = salidaTicket ?? new Date()
-    const texto = buildTicketTextoWhatsApp({
-      placa,
-      tipo,
-      nombreResidente,
-      entrada: new Date(servicio.entrada_real),
-      salida,
-      total: billing.total,
-      refYape: refYape.trim(),
-    })
-    window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank')
+    const numero = normalizarTelefonoWhatsApp(whatsappPhone)
+    setWhatsappSaving(true)
+    try {
+      if (numero) {
+        await actualizarVehiculo(servicio.vehiculo.id, { telefono_contacto: numero })
+      }
+      const nombreResidente =
+        servicio.vehiculo?.tipo === 'residente' &&
+        (servicio.vehiculo.nombre_propietario || servicio.vehiculo.apellido_propietario)
+          ? [servicio.vehiculo.nombre_propietario, servicio.vehiculo.apellido_propietario].filter(Boolean).join(' ')
+          : null
+      const salida = salidaTicket ?? new Date()
+      const texto = buildTicketTextoWhatsApp({
+        placa,
+        tipo,
+        nombreResidente,
+        entrada: new Date(servicio.entrada_real),
+        salida,
+        total: billing.total,
+        refYape: refYape.trim(),
+      })
+      const url = numero
+        ? `https://wa.me/${numero}?text=${encodeURIComponent(texto)}`
+        : `https://wa.me/?text=${encodeURIComponent(texto)}`
+      window.open(url, '_blank')
+      setWhatsappOpen(false)
+    } finally {
+      setWhatsappSaving(false)
+    }
   }
 
   const handleClose = () => {
@@ -203,6 +231,7 @@ export function ValidationModal({
   const tarifa = configuracion.find(c => c.tipo_usuario === tipo)
 
   return (
+    <>
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
         {!showTicket ? (
@@ -361,7 +390,7 @@ export function ValidationModal({
                 <Printer className="h-4 w-4 mr-2" />
                 Imprimir
               </Button>
-              <Button onClick={handleEnviarWhatsApp}>
+              <Button onClick={handleAbrirWhatsApp}>
                 Enviar por WhatsApp
               </Button>
               <Button onClick={handleClose}>
@@ -372,5 +401,40 @@ export function ValidationModal({
         )}
       </DialogContent>
     </Dialog>
+
+    {/* Diálogo número WhatsApp (conserje) */}
+    <Dialog open={whatsappOpen} onOpenChange={(open) => !open && setWhatsappOpen(false)}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Enviar ticket por WhatsApp</DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            Ingrese el número al que enviar el mensaje. Se guardará para futuras consultas y reportes.
+          </p>
+        </DialogHeader>
+        <div className="grid gap-4 py-2">
+          <div className="space-y-2">
+            <Label htmlFor="whatsapp-phone-conserje">Número (ej: 987 654 321)</Label>
+            <Input
+              id="whatsapp-phone-conserje"
+              type="tel"
+              value={whatsappPhone}
+              onChange={(e) => setWhatsappPhone(e.target.value)}
+              placeholder="987654321"
+              disabled={whatsappSaving}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setWhatsappOpen(false)} disabled={whatsappSaving}>
+            Cancelar
+          </Button>
+          <Button onClick={handleEnviarWhatsApp} disabled={whatsappSaving}>
+            {whatsappSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+            Enviar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   )
 }

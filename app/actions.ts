@@ -404,6 +404,7 @@ export type DatosResidente = {
   nombre?: string | null
   apellido?: string | null
   numero_oficina_dep?: string | null
+  telefono_contacto?: string | null
 }
 
 export async function registrarEntrada(
@@ -438,6 +439,7 @@ export async function registrarEntrada(
       if (datosResidente.nombre != null) insertPayload.nombre_propietario = datosResidente.nombre
       if (datosResidente.apellido != null) insertPayload.apellido_propietario = datosResidente.apellido
       if (datosResidente.numero_oficina_dep != null) insertPayload.numero_oficina_dep = datosResidente.numero_oficina_dep
+      if (datosResidente.telefono_contacto != null) insertPayload.telefono_contacto = datosResidente.telefono_contacto
     }
     const { data: nuevo, error: vehiculoError } = await supabase
       .from('vehiculos')
@@ -470,6 +472,7 @@ export async function actualizarVehiculo(
     nombre_propietario?: string
     apellido_propietario?: string | null
     numero_oficina_dep?: string | null
+    telefono_contacto?: string | null
   }
 ): Promise<void> {
   const supabase = await createClient()
@@ -481,6 +484,7 @@ export async function actualizarVehiculo(
   
   if (error) throw error
   revalidatePath('/conserje')
+  revalidatePath('/admin')
 }
 
 export async function registrarSalida(

@@ -26,6 +26,7 @@ import {
   eliminarUsuario,
   resetearPasswordUsuario,
   eliminarServicio,
+  actualizarVehiculo,
   type FiltrosAdmin,
   type UsuarioRow,
 } from '@/app/actions'
@@ -93,6 +94,9 @@ export function AdminDashboard() {
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null)
   const [deletingServicioId, setDeletingServicioId] = useState<string | null>(null)
   const [servicioDetalle, setServicioDetalle] = useState<ServicioConVehiculo | null>(null)
+  const [whatsappOpen, setWhatsappOpen] = useState(false)
+  const [whatsappPhone, setWhatsappPhone] = useState('')
+  const [whatsappSaving, setWhatsappSaving] = useState(false)
 
   const buildTicketTexto = (servicio: ServicioConVehiculo): string => {
     const esResidente = servicio.vehiculo?.tipo === 'residente'
@@ -167,11 +171,37 @@ export function AdminDashboard() {
     }
   }
 
-  const handleEnviarWhatsAppServicio = () => {
+  const normalizarTelefonoWhatsApp = (valor: string): string => {
+    const digits = valor.replace(/\D/g, '')
+    if (digits.length === 9 && digits.startsWith('9')) return '51' + digits
+    if (digits.startsWith('51') && digits.length >= 11) return digits.slice(0, 11)
+    return digits || ''
+  }
+
+  const handleAbrirWhatsApp = () => {
     if (!servicioDetalle) return
-    const texto = buildTicketTexto(servicioDetalle)
-    const url = `https://wa.me/?text=${encodeURIComponent(texto)}`
-    window.open(url, '_blank')
+    setWhatsappPhone(servicioDetalle.vehiculo?.telefono_contacto ?? '')
+    setWhatsappOpen(true)
+  }
+
+  const handleEnviarWhatsAppServicio = async () => {
+    if (!servicioDetalle?.vehiculo) return
+    const numero = normalizarTelefonoWhatsApp(whatsappPhone)
+    setWhatsappSaving(true)
+    try {
+      if (numero) {
+        await actualizarVehiculo(servicioDetalle.vehiculo.id, { telefono_contacto: numero })
+      }
+      const texto = buildTicketTexto(servicioDetalle)
+      const url = numero
+        ? `https://wa.me/${numero}?text=${encodeURIComponent(texto)}`
+        : `https://wa.me/?text=${encodeURIComponent(texto)}`
+      window.open(url, '_blank')
+      setWhatsappOpen(false)
+      loadData()
+    } finally {
+      setWhatsappSaving(false)
+    }
   }
 
   const [tipoGrafico, setTipoGrafico] = useState<'bar' | 'pie'>('bar')
@@ -362,7 +392,7 @@ export function AdminDashboard() {
   const exportarExcel = () => {
     const titulo = 'Reporte de ingresos - Estacionamiento'
     const filtrosLinea = `Datos: ${leyendaDatos}. ${textoPeriodo}`
-    const headers = ['Fecha salida', 'Placa', 'Tipo', 'Nombre residente', 'Oficina/Depto', 'Entrada', 'Salida', 'Total (S/)', 'Ref. Yape']
+    const headers = ['Fecha salida', 'Placa', 'Tipo', 'Nombre residente', 'Oficina/Depto', 'Teléfono (WhatsApp)', 'Entrada', 'Salida', 'Total (S/)', 'Ref. Yape']
     const rows = serviciosList.map((s) => {
       const nombreResidente = (s.vehiculo?.tipo === 'residente' && (s.vehiculo.nombre_propietario || s.vehiculo.apellido_propietario))
         ? [s.vehiculo.nombre_propietario, s.vehiculo.apellido_propietario].filter(Boolean).join(' ')
@@ -373,6 +403,7 @@ export function AdminDashboard() {
         s.vehiculo?.tipo === 'residente' ? 'Residente' : 'Visitante',
         nombreResidente,
         s.vehiculo?.numero_oficina_dep ?? '',
+        s.vehiculo?.telefono_contacto ?? '',
         s.entrada_real ? new Date(s.entrada_real).toLocaleString('es-PE') : '',
         s.salida ? new Date(s.salida).toLocaleString('es-PE') : '',
         String(s.total_pagar ?? ''),
@@ -419,7 +450,7 @@ export function AdminDashboard() {
           <p class="fecha">Generado: ${new Date().toLocaleString('es-PE')}</p>
           <table>
             <thead><tr>
-              <th>Fecha salida</th><th>Placa</th><th>Tipo</th><th>Nombre residente</th><th>Oficina/Depto</th>
+              <th>Fecha salida</th><th>Placa</th><th>Tipo</th><th>Nombre residente</th><th>Oficina/Depto</th><th>Teléfono (WhatsApp)</th>
               <th>Entrada</th><th>Salida</th><th>Total (S/)</th><th>Ref. Yape</th>
             </tr></thead>
             <tbody>
@@ -435,6 +466,7 @@ export function AdminDashboard() {
                   <td>${s.vehiculo?.tipo === 'residente' ? 'Residente' : 'Visitante'}</td>
                   <td>${esc(nombreResidente)}</td>
                   <td>${esc(s.vehiculo?.numero_oficina_dep ?? '')}</td>
+                  <td>${esc(s.vehiculo?.telefono_contacto ?? '')}</td>
                   <td>${s.entrada_real ? new Date(s.entrada_real).toLocaleString('es-PE') : ''}</td>
                   <td>${s.salida ? new Date(s.salida).toLocaleString('es-PE') : ''}</td>
                   <td>${s.total_pagar ?? ''}</td>
@@ -1007,17 +1039,53 @@ export function AdminDashboard() {
                       <span className="font-mono text-xs break-all">{servicioDetalle.ref_pago_yape}</span>
                     </>
                   )}
+                  <span className="text-muted-foreground">Teléfono (WhatsApp)</span>
+                  <span className="font-mono text-xs">{servicioDetalle.vehiculo?.telefono_contacto || '—'}</span>
                 </div>
                 <div className="flex flex-wrap gap-2 pt-2">
                   <Button variant="outline" size="sm" onClick={handleImprimirServicioDetalle}>
                     Imprimir ticket
                   </Button>
-                  <Button variant="default" size="sm" onClick={handleEnviarWhatsAppServicio}>
+                  <Button variant="default" size="sm" onClick={handleAbrirWhatsApp}>
                     Enviar por WhatsApp
                   </Button>
                 </div>
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Diálogo: número para enviar ticket por WhatsApp */}
+        <Dialog open={whatsappOpen} onOpenChange={(open) => !open && setWhatsappOpen(false)}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Enviar ticket por WhatsApp</DialogTitle>
+              <p className="text-sm text-muted-foreground">
+                Ingrese el número al que enviar el mensaje. Se guardará para futuras consultas y reportes.
+              </p>
+            </DialogHeader>
+            <div className="grid gap-4 py-2">
+              <div className="space-y-2">
+                <Label htmlFor="whatsapp-phone">Número (ej: 987 654 321)</Label>
+                <Input
+                  id="whatsapp-phone"
+                  type="tel"
+                  value={whatsappPhone}
+                  onChange={(e) => setWhatsappPhone(e.target.value)}
+                  placeholder="987654321"
+                  disabled={whatsappSaving}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setWhatsappOpen(false)} disabled={whatsappSaving}>
+                Cancelar
+              </Button>
+              <Button onClick={handleEnviarWhatsAppServicio} disabled={whatsappSaving}>
+                {whatsappSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                Enviar
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
 
