@@ -50,36 +50,38 @@ export function ConserjeDashboard() {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-primary flex items-center justify-center">
-              <Car className="h-5 w-5 text-primary-foreground" />
+        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="h-9 w-9 sm:h-10 sm:w-10 shrink-0 rounded-lg bg-primary flex items-center justify-center">
+                <Car className="h-4 w-4 sm:h-5 sm:w-5 text-primary-foreground" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-base sm:text-xl font-semibold text-foreground truncate">Control de Estacionamiento</h1>
+                <p className="text-xs sm:text-sm text-muted-foreground">Vista de Conserje</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-xl font-semibold text-foreground">Control de Estacionamiento</h1>
-              <p className="text-sm text-muted-foreground">Vista de Conserje</p>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" onClick={loadData} disabled={loading} className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0">
+                <RefreshCw className={`h-4 w-4 sm:mr-2 ${loading ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">Actualizar</span>
+              </Button>
+              <Button variant="ghost" size="sm" asChild className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0">
+                <Link href="/">Inicio</Link>
+              </Button>
+              <Button variant="ghost" size="sm" asChild className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0">
+                <Link href="/admin">Admin</Link>
+              </Button>
+              <Button variant="ghost" size="sm" onClick={handleSalir} className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0">
+                <LogOut className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Salir</span>
+              </Button>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Actualizar
-            </Button>
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/">Inicio</Link>
-            </Button>
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/admin">Ver Dashboard Admin</Link>
-            </Button>
-            <Button variant="ghost" size="sm" onClick={handleSalir}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Salir
-            </Button>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-6 space-y-6">
+      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-6">
         <QuickRegister onRegistered={loadData} />
 
         <div className="space-y-4">

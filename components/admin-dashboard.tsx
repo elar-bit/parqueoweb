@@ -351,42 +351,44 @@ export function AdminDashboard() {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-primary flex items-center justify-center">
-              <BarChart3 className="h-5 w-5 text-primary-foreground" />
+        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="h-9 w-9 sm:h-10 sm:w-10 shrink-0 rounded-lg bg-primary flex items-center justify-center">
+                <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 text-primary-foreground" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-base sm:text-xl font-semibold text-foreground truncate">Dashboard Administrativo</h1>
+                <p className="text-xs sm:text-sm text-muted-foreground">Control de Estacionamiento</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-xl font-semibold text-foreground">Dashboard Administrativo</h1>
-              <p className="text-sm text-muted-foreground">Control de Estacionamiento</p>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" onClick={loadData} disabled={loading} className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0">
+                <RefreshCw className={`h-4 w-4 sm:mr-2 ${loading ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">Actualizar</span>
+              </Button>
+              <Button variant="ghost" size="sm" asChild className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0">
+                <Link href="/conserje">Conserje</Link>
+              </Button>
+              <Button variant="ghost" size="sm" onClick={handleLogout} className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0">
+                <LogOut className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Salir</span>
+              </Button>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Actualizar
-            </Button>
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/conserje">Vista Conserje</Link>
-            </Button>
-            <Button variant="ghost" size="sm" onClick={handleLogout}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Salir
-            </Button>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-6 space-y-6">
+      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-6">
         {/* Filtros */}
         <Card className="border-border">
-          <CardHeader>
-            <CardTitle className="text-foreground flex items-center gap-2">
+          <CardHeader className="p-4 sm:p-6">
+            <CardTitle className="text-foreground text-base sm:text-lg">
               Filtros
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-4 items-end">
+          <CardContent className="p-4 sm:p-6 pt-0">
+            <div className="flex flex-wrap gap-3 sm:gap-4 items-end">
               <div className="space-y-2">
                 <Label>Desde</Label>
                 <Input
@@ -424,7 +426,7 @@ export function AdminDashboard() {
         </Card>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           <Card className="border-border">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -471,15 +473,15 @@ export function AdminDashboard() {
 
         {/* Chart y reportes */}
         <Card className="border-border">
-          <CardHeader>
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <CardTitle className="text-foreground">Ingresos por día</CardTitle>
-                <p className="text-sm text-muted-foreground mt-1">Leyenda: {leyendaDatos}. {textoPeriodo}</p>
+          <CardHeader className="p-4 sm:p-6 pb-2">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <CardTitle className="text-foreground text-base sm:text-lg">Ingresos por día</CardTitle>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-1 break-words">Leyenda: {leyendaDatos}. {textoPeriodo}</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Select value={tipoGrafico} onValueChange={(v) => setTipoGrafico(v as 'bar' | 'pie')}>
-                  <SelectTrigger className="w-[140px]">
+                  <SelectTrigger className="w-full sm:w-[140px] min-h-[44px] sm:min-h-0">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -638,8 +640,8 @@ export function AdminDashboard() {
                 <p className="text-muted-foreground text-sm">No hay usuarios aún.</p>
               ) : (
                 <>
-                <div className="border border-border rounded-lg overflow-hidden">
-                  <table className="w-full text-sm">
+                <div className="border border-border rounded-lg overflow-x-auto -mx-2 sm:mx-0">
+                  <table className="w-full text-sm min-w-[500px]">
                     <thead className="bg-muted/50">
                       <tr>
                         <th className="text-left p-3 font-medium">Nombre</th>
@@ -774,18 +776,18 @@ export function AdminDashboard() {
             {serviciosList.length === 0 ? (
               <p className="text-muted-foreground text-center py-8">No hay servicios con los filtros aplicados</p>
             ) : (
-              <div className="space-y-3 max-h-[400px] overflow-y-auto">
+              <div className="space-y-3 max-h-[400px] overflow-y-auto overflow-x-hidden">
                 {serviciosList.map((servicio) => (
                   <div
                     key={servicio.id}
-                    className="flex items-center justify-between p-3 bg-muted/50 rounded-lg gap-2"
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 bg-muted/50 rounded-lg gap-2"
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="h-8 w-8 rounded-full bg-background flex items-center justify-center shrink-0">
                         <Car className="h-4 w-4 text-muted-foreground" />
                       </div>
-                      <div>
-                        <p className="font-mono font-medium text-foreground">
+                      <div className="min-w-0">
+                        <p className="font-mono font-medium text-foreground truncate">
                           {servicio.vehiculo?.placa || 'Sin Placa'}
                         </p>
                         <p className="text-xs text-muted-foreground">
@@ -793,21 +795,23 @@ export function AdminDashboard() {
                         </p>
                       </div>
                     </div>
-                    <div className="text-right shrink-0">
-                      <p className="font-semibold text-foreground">
-                        {formatCurrency(servicio.total_pagar || 0)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {servicio.salida &&
-                          new Date(servicio.salida).toLocaleString('es-PE', {
-                            dateStyle: 'short',
-                            timeStyle: 'short',
-                          })}
-                      </p>
+                    <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
+                      <div className="text-left sm:text-right">
+                        <p className="font-semibold text-foreground text-sm">
+                          {formatCurrency(servicio.total_pagar || 0)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {servicio.salida &&
+                            new Date(servicio.salida).toLocaleString('es-PE', {
+                              dateStyle: 'short',
+                              timeStyle: 'short',
+                            })}
+                        </p>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={() => setDeletingServicioId(servicio.id)} title="Eliminar registro" className="text-destructive hover:text-destructive shrink-0 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
-                    <Button variant="ghost" size="sm" onClick={() => setDeletingServicioId(servicio.id)} title="Eliminar registro" className="text-destructive hover:text-destructive shrink-0">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
                   </div>
                 ))}
               </div>

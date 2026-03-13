@@ -89,22 +89,22 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
       </CardHeader>
       <CardContent>
         {paso === 'tipo' ? (
-          <div className="flex gap-4">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             <Button
               size="lg"
-              className="flex-1 h-24 flex-col gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+              className="flex-1 min-h-[80px] sm:h-24 flex flex-col gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
               onClick={() => handleSeleccionarTipo('visitante')}
             >
-              <Car className="h-8 w-8" />
+              <Car className="h-7 w-7 sm:h-8 sm:w-8" />
               <span className="text-sm font-medium">Visitante</span>
             </Button>
             <Button
               size="lg"
               variant="secondary"
-              className="flex-1 h-24 flex-col gap-2"
+              className="flex-1 min-h-[80px] sm:h-24 flex flex-col gap-2"
               onClick={() => handleSeleccionarTipo('residente')}
             >
-              <User className="h-8 w-8" />
+              <User className="h-7 w-7 sm:h-8 sm:w-8" />
               <span className="text-sm font-medium">Residente</span>
             </Button>
           </div>

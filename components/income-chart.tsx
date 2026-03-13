@@ -28,7 +28,7 @@ export function IncomeChart({ data, tipo = 'bar', leyenda }: IncomeChartProps) {
     return (
       <div className="space-y-2">
         {leyenda && <p className="text-sm text-muted-foreground font-medium">{leyenda}</p>}
-        <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+        <div className="h-[260px] sm:h-[300px] flex items-center justify-center text-muted-foreground">
           No hay datos disponibles
         </div>
       </div>
@@ -53,7 +53,7 @@ export function IncomeChart({ data, tipo = 'bar', leyenda }: IncomeChartProps) {
     return (
       <div className="space-y-2 w-full">
         {leyenda && <p className="text-sm text-muted-foreground font-medium">Datos: {leyenda}</p>}
-        <div className="h-[300px] w-full">
+        <div className="h-[260px] sm:h-[300px] w-full min-w-0">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
@@ -81,7 +81,7 @@ export function IncomeChart({ data, tipo = 'bar', leyenda }: IncomeChartProps) {
   return (
     <div className="space-y-2 w-full">
       {leyenda && <p className="text-sm text-muted-foreground font-medium">Datos: {leyenda}</p>}
-      <div className="h-[300px] w-full">
+      <div className="h-[260px] sm:h-[300px] w-full min-w-0">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={formattedData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />

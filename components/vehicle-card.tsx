@@ -35,15 +35,15 @@ export function VehicleCard({ servicio, configuracion, onValidate }: VehicleCard
 
   return (
     <Card className="border-border hover:border-primary/50 transition-colors">
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
-              <Car className="h-6 w-6 text-muted-foreground" />
+      <CardContent className="p-3 sm:p-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+            <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-muted flex items-center justify-center shrink-0">
+              <Car className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-lg font-semibold text-foreground">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-mono text-base sm:text-lg font-semibold text-foreground">
                   {servicio.vehiculo.placa || 'Sin Placa'}
                 </span>
                 <Badge 
@@ -54,20 +54,20 @@ export function VehicleCard({ servicio, configuracion, onValidate }: VehicleCard
                 </Badge>
               </div>
               {servicio.vehiculo.nombre_propietario && (
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground truncate">
                   {servicio.vehiculo.nombre_propietario}
                 </p>
               )}
             </div>
           </div>
           
-          <div className="flex items-center gap-6">
-            <div className="text-right">
+          <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+            <div className="text-left sm:text-right">
               <div className="flex items-center gap-1 text-muted-foreground">
                 <Clock className="h-4 w-4" />
-                <span className="text-sm">Tiempo</span>
+                <span className="text-xs sm:text-sm">Tiempo</span>
               </div>
-              <p className="font-semibold text-foreground">
+              <p className="font-semibold text-foreground text-sm sm:text-base">
                 {formatDuration(elapsed.totalMinutes)}
               </p>
               {elapsed.billableMinutes > 0 && (
@@ -77,17 +77,17 @@ export function VehicleCard({ servicio, configuracion, onValidate }: VehicleCard
               )}
             </div>
             
-            <div className="text-right">
+            <div className="text-left sm:text-right">
               <div className="flex items-center gap-1 text-muted-foreground">
                 <DollarSign className="h-4 w-4" />
-                <span className="text-sm">Estimado</span>
+                <span className="text-xs sm:text-sm">Estimado</span>
               </div>
-              <p className="font-semibold text-foreground">
+              <p className="font-semibold text-foreground text-sm sm:text-base">
                 {elapsed.billableMinutes > 0 ? formatCurrency(estimatedCost) : 'Gratis'}
               </p>
             </div>
             
-            <Button onClick={() => onValidate(servicio)}>
+            <Button onClick={() => onValidate(servicio)} className="w-full sm:w-auto min-h-[44px] sm:min-h-0">
               Validar Salida
             </Button>
           </div>
