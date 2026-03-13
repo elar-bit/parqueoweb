@@ -3,6 +3,8 @@ export interface Vehiculo {
   placa: string | null
   tipo: 'visitante' | 'residente'
   nombre_propietario: string | null
+  apellido_propietario?: string | null
+  numero_oficina_dep?: string | null
   created_at: string
 }
 

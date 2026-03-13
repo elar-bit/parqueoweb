@@ -1,19 +1,26 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { registrarEntrada, getPlacasResidentes } from '@/app/actions'
-import { Car, User, Loader2 } from 'lucide-react'
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
+import { registrarEntrada, getPlacasResidentes, tieneEntradaActiva } from '@/app/actions'
+import type { ResidenteOption } from '@/app/actions'
+import { Car, User, Loader2, Check, ChevronsUpDown } from 'lucide-react'
 
 interface QuickRegisterProps {
   onRegistered: () => void
@@ -21,13 +28,34 @@ interface QuickRegisterProps {
 
 type TipoEntrada = 'visitante' | 'residente' | null
 
+function normalize(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+}
+
+function matchResidente(r: ResidenteOption, search: string): boolean {
+  const q = normalize(search.trim())
+  if (!q) return true
+  const placa = normalize(r.placa)
+  const nombre = normalize(r.nombre_propietario ?? '')
+  const apellido = normalize(r.apellido_propietario ?? '')
+  return placa.includes(q) || nombre.includes(q) || apellido.includes(q)
+}
+
 export function QuickRegister({ onRegistered }: QuickRegisterProps) {
   const [paso, setPaso] = useState<'tipo' | 'placa'>('tipo')
   const [tipo, setTipo] = useState<TipoEntrada>(null)
   const [placa, setPlaca] = useState('')
   const [residenteSeleccionado, setResidenteSeleccionado] = useState<string | null>(null)
-  const [placasResidentes, setPlacasResidentes] = useState<{ id: string; placa: string; nombre_propietario: string | null }[]>([])
+  const [placasResidentes, setPlacasResidentes] = useState<ResidenteOption[]>([])
   const [loading, setLoading] = useState(false)
+  const [comboboxOpen, setComboboxOpen] = useState(false)
+  const [comboboxSearch, setComboboxSearch] = useState('')
+  const [nombreResidente, setNombreResidente] = useState('')
+  const [apellidoResidente, setApellidoResidente] = useState('')
+  const [numeroOficinaDep, setNumeroOficinaDep] = useState('')
 
   const cargarResidentes = async () => {
     const list = await getPlacasResidentes()
@@ -38,11 +66,30 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
     if (tipo === 'residente') cargarResidentes()
   }, [tipo])
 
+  const residentesFiltrados = useMemo(() => {
+    return placasResidentes.filter((r) => matchResidente(r, comboboxSearch))
+  }, [placasResidentes, comboboxSearch])
+
   const handleSeleccionarTipo = (t: 'visitante' | 'residente') => {
     setTipo(t)
     setPaso('placa')
     setPlaca('')
     setResidenteSeleccionado(null)
+    setNombreResidente('')
+    setApellidoResidente('')
+    setNumeroOficinaDep('')
+    setComboboxSearch('')
+  }
+
+  const handleSeleccionarResidente = async (id: string) => {
+    const yaActivo = await tieneEntradaActiva(id)
+    if (yaActivo) {
+      alert('Este vehículo ya tiene una entrada activa. No se puede duplicar la entrada.')
+      return
+    }
+    setResidenteSeleccionado(id)
+    setPlaca('')
+    setComboboxOpen(false)
   }
 
   const handleRegistrar = async () => {
@@ -51,6 +98,12 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
     try {
       if (tipo === 'residente' && residenteSeleccionado) {
         await registrarEntrada('residente', null, residenteSeleccionado)
+      } else if (tipo === 'residente' && placa.trim()) {
+        await registrarEntrada('residente', placa.trim(), null, {
+          nombre: nombreResidente.trim() || null,
+          apellido: apellidoResidente.trim() || null,
+          numero_oficina_dep: numeroOficinaDep.trim() || null,
+        })
       } else {
         await registrarEntrada(tipo, placa.trim() || null, null)
       }
@@ -58,6 +111,10 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
       setTipo(null)
       setPlaca('')
       setResidenteSeleccionado(null)
+      setNombreResidente('')
+      setApellidoResidente('')
+      setNumeroOficinaDep('')
+      setComboboxSearch('')
       onRegistered()
     } catch (error) {
       console.error('Error registering entry:', error)
@@ -71,6 +128,10 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
     setTipo(null)
     setPlaca('')
     setResidenteSeleccionado(null)
+    setNombreResidente('')
+    setApellidoResidente('')
+    setNumeroOficinaDep('')
+    setComboboxSearch('')
   }
 
   const puedeRegistrar =
@@ -79,6 +140,18 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
       : tipo === 'residente'
         ? residenteSeleccionado !== null || placa.trim().length > 0
         : false
+
+  const residenteLabel = residenteSeleccionado
+    ? (() => {
+        const r = placasResidentes.find((x) => x.id === residenteSeleccionado)
+        if (!r) return 'Seleccionar residente'
+        const parts = [r.placa]
+        if (r.nombre_propietario || r.apellido_propietario) {
+          parts.push([r.nombre_propietario, r.apellido_propietario].filter(Boolean).join(' '))
+        }
+        return parts.join(' — ')
+      })()
+    : 'Buscar por placa o apellido...'
 
   return (
     <Card className="border-border">
@@ -111,47 +184,115 @@ export function QuickRegister({ onRegistered }: QuickRegisterProps) {
         ) : (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              {tipo === 'visitante' ? 'Ingrese la placa del visitante (opcional).' : 'Seleccione una placa registrada o ingrese una nueva.'}
+              {tipo === 'visitante'
+                ? 'Ingrese la placa del visitante (opcional).'
+                : 'Busque por placa o apellido una placa ya registrada o ingrese una nueva con nombre y apellido.'}
             </p>
 
-            {tipo === 'residente' && placasResidentes.length > 0 && (
+            {tipo === 'residente' && (
               <div className="space-y-2">
                 <Label>Placa ya registrada</Label>
-                <Select
-                  value={residenteSeleccionado ?? 'nueva'}
-                  onValueChange={(v) => {
-                    setResidenteSeleccionado(v === 'nueva' ? null : v)
-                    if (v !== 'nueva') setPlaca('')
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar o ingresar nueva" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="nueva">Nueva placa (escribir abajo)</SelectItem>
-                    {placasResidentes.map((r) => (
-                      <SelectItem key={r.id} value={r.id}>
-                        {r.placa}
-                        {r.nombre_propietario ? ` - ${r.nombre_propietario}` : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={comboboxOpen}
+                      className="w-full justify-between font-normal"
+                    >
+                      {residenteLabel}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                    <Command shouldFilter={false}>
+                      <CommandInput
+                        placeholder="Buscar por placa o apellido..."
+                        value={comboboxSearch}
+                        onValueChange={setComboboxSearch}
+                      />
+                      <CommandList>
+                        <CommandEmpty>Ningún residente coincide.</CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem
+                            value="nueva"
+                            onSelect={() => {
+                              setResidenteSeleccionado(null)
+                              setComboboxOpen(false)
+                            }}
+                          >
+                            <span className="mr-2 flex h-4 w-4 shrink-0 items-center justify-center">
+                              <Check className={residenteSeleccionado === null ? 'opacity-100' : 'opacity-0'} />
+                            </span>
+                            Nueva placa (registrar abajo)
+                          </CommandItem>
+                          {residentesFiltrados.map((r) => (
+                            <CommandItem
+                              key={r.id}
+                              value={r.id}
+                              onSelect={() => handleSeleccionarResidente(r.id)}
+                            >
+                              <span className="mr-2 flex h-4 w-4 shrink-0 items-center justify-center">
+                                <Check className={residenteSeleccionado === r.id ? 'opacity-100' : 'opacity-0'} />
+                              </span>
+                              {r.placa}
+                              {(r.nombre_propietario || r.apellido_propietario) &&
+                                ` — ${[r.nombre_propietario, r.apellido_propietario].filter(Boolean).join(' ')}`}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
             )}
 
             {(tipo === 'visitante' || residenteSeleccionado === null) && (
-              <div className="space-y-2">
-                <Label htmlFor="placa">{tipo === 'residente' ? 'Nueva placa' : 'Placa (opcional)'}</Label>
-                <Input
-                  id="placa"
-                  value={placa}
-                  onChange={(e) => setPlaca(e.target.value.toUpperCase())}
-                  placeholder="ABC-123"
-                  className="font-mono"
-                  onKeyDown={(e) => e.key === 'Enter' && handleRegistrar()}
-                />
-              </div>
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="placa">{tipo === 'residente' ? 'Placa' : 'Placa (opcional)'}</Label>
+                  <Input
+                    id="placa"
+                    value={placa}
+                    onChange={(e) => setPlaca(e.target.value.toUpperCase())}
+                    placeholder="ABC-123"
+                    className="font-mono"
+                    onKeyDown={(e) => e.key === 'Enter' && handleRegistrar()}
+                  />
+                </div>
+                {tipo === 'residente' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="nombre-res">Nombre</Label>
+                      <Input
+                        id="nombre-res"
+                        value={nombreResidente}
+                        onChange={(e) => setNombreResidente(e.target.value)}
+                        placeholder="Nombre del residente"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="apellido-res">Apellido</Label>
+                      <Input
+                        id="apellido-res"
+                        value={apellidoResidente}
+                        onChange={(e) => setApellidoResidente(e.target.value)}
+                        placeholder="Apellido del residente"
+                      />
+                    </div>
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label htmlFor="oficina-dep">Nº oficina / departamento (opcional)</Label>
+                      <Input
+                        id="oficina-dep"
+                        value={numeroOficinaDep}
+                        onChange={(e) => setNumeroOficinaDep(e.target.value)}
+                        placeholder="Ej. 101, Depto 2A"
+                      />
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
             <div className="flex gap-2 pt-2">

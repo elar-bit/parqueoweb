@@ -346,12 +346,19 @@ export async function getServiciosActivos(): Promise<ServicioConVehiculo[]> {
   }
 }
 
-export async function getPlacasResidentes(): Promise<{ id: string; placa: string; nombre_propietario: string | null }[]> {
+export type ResidenteOption = {
+  id: string
+  placa: string
+  nombre_propietario: string | null
+  apellido_propietario: string | null
+}
+
+export async function getPlacasResidentes(): Promise<ResidenteOption[]> {
   try {
     const supabase = await createClient()
     const { data, error } = await supabase
       .from('vehiculos')
-      .select('id, placa, nombre_propietario')
+      .select('id, placa, nombre_propietario, apellido_propietario')
       .eq('tipo', 'residente')
       .not('placa', 'is', null)
       .order('placa')
@@ -359,17 +366,51 @@ export async function getPlacasResidentes(): Promise<{ id: string; placa: string
       console.error('getPlacasResidentes error:', error)
       return []
     }
-    return (data || []).filter((v): v is { id: string; placa: string; nombre_propietario: string | null } => v.placa != null)
+    return (data || []).filter(
+      (v): v is ResidenteOption =>
+        v.placa != null &&
+        typeof v.id === 'string' &&
+        typeof v.placa === 'string'
+    ).map((v) => ({
+      id: v.id,
+      placa: v.placa,
+      nombre_propietario: v.nombre_propietario ?? null,
+      apellido_propietario: (v as { apellido_propietario?: string | null }).apellido_propietario ?? null,
+    }))
   } catch (e) {
     console.error('getPlacasResidentes exception:', e)
     return []
   }
 }
 
+/** Indica si el vehículo ya tiene una entrada activa (evitar duplicar). */
+export async function tieneEntradaActiva(vehiculoId: string): Promise<boolean> {
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('servicios')
+      .select('id')
+      .eq('vehiculo_id', vehiculoId)
+      .eq('estado', 'activo')
+      .limit(1)
+    if (error) return false
+    return (data?.length ?? 0) > 0
+  } catch {
+    return false
+  }
+}
+
+export type DatosResidente = {
+  nombre?: string | null
+  apellido?: string | null
+  numero_oficina_dep?: string | null
+}
+
 export async function registrarEntrada(
   tipo: 'visitante' | 'residente',
   placa?: string | null,
-  vehiculoIdExistente?: string | null
+  vehiculoIdExistente?: string | null,
+  datosResidente?: DatosResidente | null
 ): Promise<{
   vehiculo: Vehiculo
   servicio: { id: string }
@@ -389,12 +430,18 @@ export async function registrarEntrada(
     vehiculo = existing as Vehiculo
   } else {
     // Crear nuevo vehículo (visitante o residente con placa nueva)
+    const insertPayload: Record<string, unknown> = {
+      tipo,
+      placa: placa?.trim() || null,
+    }
+    if (tipo === 'residente' && datosResidente) {
+      if (datosResidente.nombre != null) insertPayload.nombre_propietario = datosResidente.nombre
+      if (datosResidente.apellido != null) insertPayload.apellido_propietario = datosResidente.apellido
+      if (datosResidente.numero_oficina_dep != null) insertPayload.numero_oficina_dep = datosResidente.numero_oficina_dep
+    }
     const { data: nuevo, error: vehiculoError } = await supabase
       .from('vehiculos')
-      .insert({
-        tipo,
-        placa: placa?.trim() || null,
-      })
+      .insert(insertPayload)
       .select()
       .single()
     if (vehiculoError) throw vehiculoError
@@ -417,7 +464,13 @@ export async function registrarEntrada(
 
 export async function actualizarVehiculo(
   vehiculoId: string,
-  data: { placa?: string; tipo?: 'visitante' | 'residente'; nombre_propietario?: string }
+  data: {
+    placa?: string
+    tipo?: 'visitante' | 'residente'
+    nombre_propietario?: string
+    apellido_propietario?: string | null
+    numero_oficina_dep?: string | null
+  }
 ): Promise<void> {
   const supabase = await createClient()
   
