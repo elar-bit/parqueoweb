@@ -1,4 +1,5 @@
 'use client'
+// Panel conserje: entradas, servicios del mes, alertas abonados
 
 import { useState, useEffect, useCallback } from 'react'
 import { QuickRegister } from '@/components/quick-register'

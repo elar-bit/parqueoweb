@@ -1,4 +1,5 @@
 'use server'
+// Server actions para ParqueoWeb
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'

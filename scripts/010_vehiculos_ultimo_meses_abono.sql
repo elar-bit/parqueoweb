@@ -1,4 +1,4 @@
--- Número de meses del último pago de abono (para mostrar "Abonado (N meses)" en la tabla)
+-- 010: Número de meses del último pago de abono (para mostrar "Abonado (N meses)" en la tabla)
 ALTER TABLE vehiculos
   ADD COLUMN IF NOT EXISTS ultimo_numero_meses_abono SMALLINT;
 

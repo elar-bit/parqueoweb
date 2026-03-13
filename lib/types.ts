@@ -1,3 +1,4 @@
+// Tipos del dominio ParqueoWeb
 export interface Vehiculo {
   id: string
   placa: string | null

@@ -1,4 +1,5 @@
 'use client'
+// Panel de administración: alertas, servicios, usuarios, tarifas, reportes
 
 import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
