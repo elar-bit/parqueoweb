@@ -15,6 +15,7 @@ import {
 import {
   getServiciosActivos,
   getIngresosFiltrados,
+  getIngresosFiltradosConTipo,
   getServiciosPagadosFiltrados,
   getConfiguracion,
   updateConfiguracion,
@@ -54,6 +55,7 @@ import {
 export function AdminDashboard() {
   const [activeCount, setActiveCount] = useState(0)
   const [chartData, setChartData] = useState<{ fecha: string; total: number }[]>([])
+  const [chartDataConTipo, setChartDataConTipo] = useState<{ fecha: string; visitantes: number; residentes: number }[]>([])
   const [serviciosList, setServiciosList] = useState<ServicioConVehiculo[]>([])
   const [configuracion, setConfiguracion] = useState<Configuracion[]>([])
   const [loading, setLoading] = useState(true)
@@ -101,15 +103,17 @@ export function AdminDashboard() {
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      const [activos, ingresos, servicios, config, users] = await Promise.all([
+      const [activos, ingresos, ingresosConTipo, servicios, config, users] = await Promise.all([
         getServiciosActivos(),
         getIngresosFiltrados(filtros),
+        filtroTipo === '' ? getIngresosFiltradosConTipo({ ...filtros, tipo: null }) : Promise.resolve([]),
         getServiciosPagadosFiltrados(filtros),
         getConfiguracion(),
         getUsuarios(),
       ])
       setActiveCount(activos.length)
       setChartData(ingresos)
+      setChartDataConTipo(ingresosConTipo)
       setServiciosList(servicios)
       setConfiguracion(config)
       setUsuarios(users)
@@ -476,7 +480,12 @@ export function AdminDashboard() {
           <CardHeader className="p-4 sm:p-6 pb-2">
             <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
               <div className="min-w-0">
-                <CardTitle className="text-foreground text-base sm:text-lg">Ingresos por día</CardTitle>
+                <CardTitle className="text-foreground text-base sm:text-lg">
+                  Ingresos por día
+                  {filtroTipo === 'visitante' && ' — Visitantes'}
+                  {filtroTipo === 'residente' && ' — Residentes'}
+                  {filtroTipo === '' && ' — Visitantes y Residentes'}
+                </CardTitle>
                 <p className="text-xs sm:text-sm text-muted-foreground mt-1 break-words">Leyenda: {leyendaDatos}. {textoPeriodo}</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -501,7 +510,12 @@ export function AdminDashboard() {
             </div>
           </CardHeader>
           <CardContent>
-            <IncomeChart data={chartData} tipo={tipoGrafico} leyenda={leyendaDatos} />
+            <IncomeChart
+              data={chartData}
+              tipo={tipoGrafico}
+              leyenda={leyendaDatos}
+              dataConTipo={filtroTipo === '' ? chartDataConTipo : undefined}
+            />
           </CardContent>
         </Card>
 

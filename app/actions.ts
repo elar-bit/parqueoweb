@@ -611,6 +611,30 @@ export async function getIngresosFiltrados(filtros: FiltrosAdmin): Promise<{ fec
   }
 }
 
+/** Ingresos por fecha con desglose visitantes / residentes (para gráfica con dos series). */
+export async function getIngresosFiltradosConTipo(
+  filtros: Omit<FiltrosAdmin, 'tipo'> & { tipo: null }
+): Promise<{ fecha: string; visitantes: number; residentes: number }[]> {
+  try {
+    const servicios = await getServiciosPagadosFiltrados({ ...filtros, tipo: null })
+    const grouped: Record<string, { visitantes: number; residentes: number }> = {}
+    servicios.forEach((s) => {
+      if (s.salida && s.total_pagar != null) {
+        const dateKey = new Date(s.salida).toISOString().split('T')[0]
+        if (!grouped[dateKey]) grouped[dateKey] = { visitantes: 0, residentes: 0 }
+        const tipo = s.vehiculo?.tipo === 'residente' ? 'residentes' : 'visitantes'
+        grouped[dateKey][tipo] += Number(s.total_pagar)
+      }
+    })
+    return Object.entries(grouped)
+      .map(([fecha, v]) => ({ fecha, visitantes: v.visitantes, residentes: v.residentes }))
+      .sort((a, b) => a.fecha.localeCompare(b.fecha))
+  } catch (e) {
+    console.error('getIngresosFiltradosConTipo exception:', e)
+    return []
+  }
+}
+
 export async function updateConfiguracion(
   tipoUsuario: 'visitante' | 'residente',
   precioHora: number
