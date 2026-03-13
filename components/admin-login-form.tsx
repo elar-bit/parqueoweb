@@ -5,10 +5,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { loginAdmin } from '@/app/actions'
-import { Lock, Loader2 } from 'lucide-react'
+import { loginUsuario } from '@/app/actions'
+import { Lock, Loader2, User } from 'lucide-react'
 
 export function AdminLoginForm() {
+  const [usuario, setUsuario] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -18,7 +19,7 @@ export function AdminLoginForm() {
     setError('')
     setLoading(true)
     try {
-      const result = await loginAdmin(password)
+      const result = await loginUsuario(usuario, password, { soloAdmin: true })
       if (result.ok) {
         window.location.reload()
       } else {
@@ -42,11 +43,23 @@ export function AdminLoginForm() {
           </div>
           <CardTitle className="text-center text-foreground">Acceso Administrativo</CardTitle>
           <p className="text-sm text-muted-foreground text-center">
-            Ingrese la contraseña para continuar
+            Usuario y contraseña por defecto: admin / admin
           </p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="usuario">Usuario</Label>
+              <Input
+                id="usuario"
+                type="text"
+                value={usuario}
+                onChange={(e) => setUsuario(e.target.value)}
+                placeholder="admin"
+                autoComplete="username"
+                disabled={loading}
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="password">Contraseña</Label>
               <Input
@@ -55,7 +68,7 @@ export function AdminLoginForm() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                autoFocus
+                autoComplete="current-password"
                 disabled={loading}
               />
             </div>

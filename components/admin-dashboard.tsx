@@ -19,11 +19,14 @@ import {
   getConfiguracion,
   updateConfiguracion,
   logoutAdmin,
+  getUsuarios,
+  crearUsuario,
   type FiltrosAdmin,
+  type UsuarioRow,
 } from '@/app/actions'
 import type { ServicioConVehiculo, Configuracion } from '@/lib/types'
 import { formatCurrency } from '@/lib/billing'
-import { Car, DollarSign, RefreshCw, BarChart3, LogOut, Settings, Loader2 } from 'lucide-react'
+import { Car, DollarSign, RefreshCw, BarChart3, LogOut, Settings, Loader2, Users, UserPlus } from 'lucide-react'
 import Link from 'next/link'
 import { IncomeChart } from '@/components/income-chart'
 
@@ -43,6 +46,15 @@ export function AdminDashboard() {
   const [savingTarifas, setSavingTarifas] = useState(false)
   const [tarifaMsg, setTarifaMsg] = useState('')
 
+  const [usuarios, setUsuarios] = useState<UsuarioRow[]>([])
+  const [nombreUser, setNombreUser] = useState('')
+  const [apellidoUser, setApellidoUser] = useState('')
+  const [usuarioUser, setUsuarioUser] = useState('')
+  const [passwordUser, setPasswordUser] = useState('')
+  const [rolUser, setRolUser] = useState<'admin' | 'conserje'>('conserje')
+  const [savingUser, setSavingUser] = useState(false)
+  const [usuarioMsg, setUsuarioMsg] = useState('')
+
   const filtros: FiltrosAdmin = {
     fechaDesde: filtroFechaDesde || null,
     fechaHasta: filtroFechaHasta || null,
@@ -52,16 +64,18 @@ export function AdminDashboard() {
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      const [activos, ingresos, servicios, config] = await Promise.all([
+      const [activos, ingresos, servicios, config, users] = await Promise.all([
         getServiciosActivos(),
         getIngresosFiltrados(filtros),
         getServiciosPagadosFiltrados(filtros),
         getConfiguracion(),
+        getUsuarios(),
       ])
       setActiveCount(activos.length)
       setChartData(ingresos)
       setServiciosList(servicios)
       setConfiguracion(config)
+      setUsuarios(users)
       const visitante = config.find((c) => c.tipo_usuario === 'visitante')
       const residente = config.find((c) => c.tipo_usuario === 'residente')
       setTarifaVisitante(visitante ? String(visitante.precio_hora) : '')
@@ -109,6 +123,30 @@ export function AdminDashboard() {
   const handleLogout = async () => {
     await logoutAdmin()
     window.location.reload()
+  }
+
+  const handleCrearUsuario = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setUsuarioMsg('')
+    setSavingUser(true)
+    try {
+      const result = await crearUsuario(nombreUser, apellidoUser, usuarioUser, passwordUser, rolUser)
+      if (result.ok) {
+        setNombreUser('')
+        setApellidoUser('')
+        setUsuarioUser('')
+        setPasswordUser('')
+        setUsuarioMsg('Usuario creado correctamente.')
+        const users = await getUsuarios()
+        setUsuarios(users)
+      } else {
+        setUsuarioMsg(result.error || 'Error al crear usuario')
+      }
+    } catch {
+      setUsuarioMsg('Error de conexión')
+    } finally {
+      setSavingUser(false)
+    }
   }
 
   return (
@@ -287,6 +325,121 @@ export function AdminDashboard() {
                 {tarifaMsg}
               </p>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Gestión de usuarios */}
+        <Card className="border-border">
+          <CardHeader>
+            <CardTitle className="text-foreground flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Gestión de usuarios
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">Agregar administradores o conserjes (nombre, apellido, usuario y contraseña).</p>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <form onSubmit={handleCrearUsuario} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Nombre</Label>
+                  <Input
+                    value={nombreUser}
+                    onChange={(e) => setNombreUser(e.target.value)}
+                    placeholder="Juan"
+                    required
+                    disabled={savingUser}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Apellido</Label>
+                  <Input
+                    value={apellidoUser}
+                    onChange={(e) => setApellidoUser(e.target.value)}
+                    placeholder="Pérez"
+                    required
+                    disabled={savingUser}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Usuario (inicio de sesión)</Label>
+                  <Input
+                    value={usuarioUser}
+                    onChange={(e) => setUsuarioUser(e.target.value)}
+                    placeholder="jperez"
+                    required
+                    disabled={savingUser}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Contraseña</Label>
+                  <Input
+                    type="password"
+                    value={passwordUser}
+                    onChange={(e) => setPasswordUser(e.target.value)}
+                    placeholder="Mínimo 4 caracteres"
+                    required
+                    minLength={4}
+                    disabled={savingUser}
+                  />
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-4 items-end">
+                <div className="space-y-2">
+                  <Label>Rol</Label>
+                  <Select value={rolUser} onValueChange={(v) => setRolUser(v as 'admin' | 'conserje')} disabled={savingUser}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">Administrador</SelectItem>
+                      <SelectItem value="conserje">Conserje</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button type="submit" disabled={savingUser}>
+                  {savingUser ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <UserPlus className="h-4 w-4 mr-2" />}
+                  Agregar usuario
+                </Button>
+              </div>
+              {usuarioMsg && (
+                <p className={`text-sm ${usuarioMsg.includes('correctamente') ? 'text-green-600' : 'text-destructive'}`}>
+                  {usuarioMsg}
+                </p>
+              )}
+            </form>
+            <div>
+              <h4 className="text-sm font-medium text-foreground mb-2">Usuarios registrados</h4>
+              {usuarios.length === 0 ? (
+                <p className="text-muted-foreground text-sm">No hay usuarios aún.</p>
+              ) : (
+                <div className="border border-border rounded-lg overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/50">
+                      <tr>
+                        <th className="text-left p-3 font-medium">Nombre</th>
+                        <th className="text-left p-3 font-medium">Usuario</th>
+                        <th className="text-left p-3 font-medium">Rol</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {usuarios.map((u) => (
+                        <tr key={u.id} className="border-t border-border">
+                          <td className="p-3">{u.nombre} {u.apellido}</td>
+                          <td className="p-3 font-mono">{u.usuario}</td>
+                          <td className="p-3">
+                            <span className={u.rol === 'admin' ? 'text-primary font-medium' : 'text-muted-foreground'}>
+                              {u.rol === 'admin' ? 'Administrador' : 'Conserje'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
 

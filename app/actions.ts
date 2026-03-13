@@ -4,36 +4,93 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { createHmac } from 'crypto'
+import { hash, compare } from 'bcryptjs'
 import { calculateBilling } from '@/lib/billing'
 import type { Configuracion, ServicioConVehiculo, Vehiculo } from '@/lib/types'
 
-const ADMIN_COOKIE_NAME = 'parqueo_admin'
+const SESSION_COOKIE_NAME = 'parqueo_session'
+const DEFAULT_ADMIN_USER = 'admin'
+const DEFAULT_ADMIN_PASS = 'admin'
 
-function getAdminToken(): string {
-  const secret = process.env.ADMIN_PASSWORD || 'default-secret-change-me'
-  return createHmac('sha256', secret).update('parqueo_admin_ok').digest('hex')
+function signSession(payload: { userId: string; role: string }): string {
+  const secret = process.env.SESSION_SECRET || 'parqueo-secret-change-in-production'
+  const data = JSON.stringify(payload)
+  return createHmac('sha256', secret).update(data).digest('hex') + '.' + Buffer.from(data).toString('base64')
+}
+
+function verifySession(token: string): { userId: string; role: string } | null {
+  try {
+    const [sig, dataB64] = token.split('.')
+    if (!sig || !dataB64) return null
+    const payload = JSON.parse(Buffer.from(dataB64, 'base64').toString()) as { userId: string; role: string }
+    const expected = signSession(payload)
+    if (expected !== token) return null
+    return payload
+  } catch {
+    return null
+  }
 }
 
 export async function getAdminAuth(): Promise<boolean> {
   const cookieStore = await cookies()
-  const token = cookieStore.get(ADMIN_COOKIE_NAME)?.value
-  return token === getAdminToken()
+  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value
+  if (!token) return false
+  const session = verifySession(token)
+  return session?.role === 'admin'
 }
 
-export async function loginAdmin(password: string): Promise<{ ok: boolean; error?: string }> {
-  const expected = process.env.ADMIN_PASSWORD
-  if (!expected) {
-    return { ok: false, error: 'Admin no configurado' }
+async function ensureDefaultAdmin(supabase: Awaited<ReturnType<typeof createClient>>) {
+  const { data: existing } = await supabase.from('usuarios').select('id').eq('usuario', DEFAULT_ADMIN_USER).single()
+  if (existing) return
+  const password_hash = await hash(DEFAULT_ADMIN_PASS, 10)
+  await supabase.from('usuarios').insert({
+    nombre: 'Admin',
+    apellido: 'Sistema',
+    usuario: DEFAULT_ADMIN_USER,
+    password_hash,
+    rol: 'admin',
+  })
+}
+
+export async function loginUsuario(
+  usuario: string,
+  password: string,
+  options?: { soloAdmin?: boolean }
+): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createClient()
+  const usuarioNorm = (usuario || '').trim().toLowerCase()
+  const passwordNorm = password || ''
+
+  if (usuarioNorm === DEFAULT_ADMIN_USER && passwordNorm === DEFAULT_ADMIN_PASS) {
+    await ensureDefaultAdmin(supabase)
   }
-  if (password !== expected) {
-    return { ok: false, error: 'Contraseña incorrecta' }
+
+  const { data: user, error } = await supabase
+    .from('usuarios')
+    .select('id, usuario, password_hash, rol')
+    .eq('usuario', usuarioNorm)
+    .single()
+
+  if (error || !user) {
+    return { ok: false, error: 'Usuario o contraseña incorrectos' }
   }
+
+  const valid = await compare(passwordNorm, user.password_hash)
+  if (!valid) {
+    return { ok: false, error: 'Usuario o contraseña incorrectos' }
+  }
+
+  if (options?.soloAdmin && user.rol !== 'admin') {
+    return { ok: false, error: 'Solo los administradores pueden acceder al panel.' }
+  }
+
+  const token = signSession({ userId: user.id, role: user.rol })
   const cookieStore = await cookies()
-  cookieStore.set(ADMIN_COOKIE_NAME, getAdminToken(), {
+  cookieStore.set(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
-    maxAge: 60 * 60 * 24, // 24h
+    maxAge: 60 * 60 * 24,
     path: '/',
   })
   return { ok: true }
@@ -41,7 +98,86 @@ export async function loginAdmin(password: string): Promise<{ ok: boolean; error
 
 export async function logoutAdmin(): Promise<void> {
   const cookieStore = await cookies()
-  cookieStore.delete(ADMIN_COOKIE_NAME)
+  cookieStore.delete(SESSION_COOKIE_NAME)
+}
+
+export type UsuarioRow = {
+  id: string
+  nombre: string
+  apellido: string
+  usuario: string
+  rol: 'admin' | 'conserje'
+  created_at: string
+}
+
+export async function getUsuarios(): Promise<UsuarioRow[]> {
+  const authed = await getAdminAuth()
+  if (!authed) return []
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('usuarios')
+      .select('id, nombre, apellido, usuario, rol, created_at')
+      .order('usuario')
+    if (error) {
+      console.error('getUsuarios error:', error)
+      return []
+    }
+    return (data || []) as UsuarioRow[]
+  } catch (e) {
+    console.error('getUsuarios exception:', e)
+    return []
+  }
+}
+
+export async function crearUsuario(
+  nombre: string,
+  apellido: string,
+  usuario: string,
+  password: string,
+  rol: 'admin' | 'conserje'
+): Promise<{ ok: boolean; error?: string }> {
+  const authed = await getAdminAuth()
+  if (!authed) return { ok: false, error: 'No autorizado' }
+
+  const nombreTrim = (nombre || '').trim()
+  const apellidoTrim = (apellido || '').trim()
+  const usuarioTrim = (usuario || '').trim().toLowerCase()
+  const passwordTrim = (password || '').trim()
+
+  if (!nombreTrim || !apellidoTrim || !usuarioTrim || !passwordTrim) {
+    return { ok: false, error: 'Complete todos los campos' }
+  }
+  if (passwordTrim.length < 4) {
+    return { ok: false, error: 'La contraseña debe tener al menos 4 caracteres' }
+  }
+  if (rol !== 'admin' && rol !== 'conserje') {
+    return { ok: false, error: 'Rol no válido' }
+  }
+
+  try {
+    const supabase = await createClient()
+    const { data: existing } = await supabase.from('usuarios').select('id').eq('usuario', usuarioTrim).single()
+    if (existing) return { ok: false, error: 'El usuario ya existe' }
+
+    const password_hash = await hash(passwordTrim, 10)
+    const { error } = await supabase.from('usuarios').insert({
+      nombre: nombreTrim,
+      apellido: apellidoTrim,
+      usuario: usuarioTrim,
+      password_hash,
+      rol,
+    })
+    if (error) {
+      console.error('crearUsuario error:', error)
+      return { ok: false, error: error.message }
+    }
+    revalidatePath('/admin')
+    return { ok: true }
+  } catch (e) {
+    console.error('crearUsuario exception:', e)
+    return { ok: false, error: String(e) }
+  }
 }
 
 export async function getConfiguracion(): Promise<Configuracion[]> {
