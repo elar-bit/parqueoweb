@@ -612,6 +612,7 @@ export function AdminDashboard() {
               {usuarios.length === 0 ? (
                 <p className="text-muted-foreground text-sm">No hay usuarios aún.</p>
               ) : (
+                <>
                 <div className="border border-border rounded-lg overflow-hidden">
                   <table className="w-full text-sm">
                     <thead className="bg-muted/50">
@@ -733,6 +734,7 @@ export function AdminDashboard() {
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
+                </>
               )}
             </div>
           </CardContent>
