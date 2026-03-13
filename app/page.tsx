@@ -2,11 +2,13 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Car, BarChart3, User } from 'lucide-react'
+import { LoginCarAnimation } from '@/components/login-car-animation'
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4 sm:p-6">
-      <div className="max-w-2xl w-full space-y-6 sm:space-y-8">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 sm:p-6 relative">
+      <LoginCarAnimation />
+      <div className="max-w-2xl w-full space-y-6 sm:space-y-8 relative z-10">
         <div className="text-center space-y-2">
           <div className="h-14 w-14 sm:h-16 sm:w-16 mx-auto rounded-2xl bg-primary flex items-center justify-center mb-3 sm:mb-4">
             <Car className="h-7 w-7 sm:h-8 sm:w-8 text-primary-foreground" />

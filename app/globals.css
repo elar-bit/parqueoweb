@@ -128,3 +128,23 @@
     padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   }
 }
+
+/* Personitas que a veces miran al usuario (login/city background) */
+@keyframes person-look-side {
+  0%, 90% { opacity: 1; }
+  92%, 97% { opacity: 0; }
+  100% { opacity: 1; }
+}
+@keyframes person-look-front {
+  0%, 90% { opacity: 0; }
+  92%, 97% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.animate-person-side {
+  animation-name: person-look-side;
+  animation-iteration-count: infinite;
+}
+.animate-person-front {
+  animation-name: person-look-front;
+  animation-iteration-count: infinite;
+}

@@ -1,70 +1,167 @@
 'use client'
 
+/**
+ * Escena de mini-ciudad: caminos, carritos que se detienen en semáforos,
+ * árboles, personitas que a veces miran al usuario.
+ */
 export function LoginCarAnimation() {
+  const path1 = 'M -40 85 Q 90 45 180 85 T 360 85 T 540 85'
+  const path2 = 'M 540 195 Q 380 235 260 195 T -40 195'
+
+  const dur1 = 22
+  const keyTimes1 = '0;0.18;0.36;0.36;0.55;0.73;0.73;0.91;1'
+  const values1 = '0;0.28;0.28;0.28;0.58;0.58;0.58;0.88;1'
+
+  const dur2 = 20
+  const keyTimes2 = '0;0.2;0.4;0.4;0.6;0.8;0.8;1'
+  const values2 = '0;0.35;0.35;0.35;0.7;0.7;0.7;1'
+
   return (
     <div
       className="absolute inset-0 overflow-hidden pointer-events-none"
       aria-hidden
     >
       <svg
-        className="absolute w-full h-full opacity-[0.15]"
-        viewBox="0 0 500 300"
+        className="absolute w-full h-full opacity-[0.18]"
+        viewBox="0 0 500 280"
         preserveAspectRatio="xMidYMid slice"
       >
         <defs>
-          {/* Línea del camino 1 (ondulada) */}
-          <path
-            id="road-1"
-            d="M -30 80 Q 100 40 200 80 T 400 80 T 530 80"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeDasharray="10 8"
-            strokeLinecap="round"
-          />
-          {/* Línea del camino 2 (sentido contrario) */}
-          <path
-            id="road-2"
-            d="M 530 180 Q 400 220 250 180 T -30 180"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeDasharray="10 8"
-            strokeLinecap="round"
-          />
-          {/* Carrito tipo sprite */}
+          <path id="road-1" d={path1} fill="none" stroke="currentColor" strokeWidth="2.5" strokeDasharray="10 8" strokeLinecap="round" />
+          <path id="road-2" d={path2} fill="none" stroke="currentColor" strokeWidth="2.5" strokeDasharray="10 8" strokeLinecap="round" />
           <g id="car-sprite">
             <rect x="-10" y="-6" width="20" height="12" rx="3" fill="currentColor" opacity="0.95" />
             <circle cx="-6" cy="6" r="4" fill="currentColor" opacity="0.8" />
             <circle cx="6" cy="6" r="4" fill="currentColor" opacity="0.8" />
             <rect x="-5" y="-10" width="10" height="5" rx="1" fill="currentColor" opacity="0.7" />
           </g>
+          <g id="tree">
+            <ellipse cx="0" cy="-12" rx="14" ry="18" fill="currentColor" opacity="0.25" />
+            <rect x="-2" y="2" width="4" height="14" fill="currentColor" opacity="0.2" />
+          </g>
+          <g id="person-side">
+            <circle cx="0" cy="-8" r="5" fill="currentColor" opacity="0.5" />
+            <line x1="0" y1="-2" x2="0" y2="12" stroke="currentColor" strokeWidth="2" opacity="0.5" />
+            <line x1="-8" y1="4" x2="8" y2="4" stroke="currentColor" strokeWidth="1.5" opacity="0.5" />
+            <line x1="0" y1="12" x2="-4" y2="20" stroke="currentColor" strokeWidth="1.5" opacity="0.5" />
+            <line x1="0" y1="12" x2="4" y2="20" stroke="currentColor" strokeWidth="1.5" opacity="0.5" />
+          </g>
+          <g id="person-front">
+            <circle cx="0" cy="-8" r="5" fill="currentColor" opacity="0.6" />
+            <circle cx="-2" cy="-9" r="1.2" fill="var(--background)" opacity="0.9" />
+            <circle cx="2" cy="-9" r="1.2" fill="var(--background)" opacity="0.9" />
+            <line x1="0" y1="-2" x2="0" y2="12" stroke="currentColor" strokeWidth="2" opacity="0.5" />
+            <line x1="-6" y1="4" x2="6" y2="4" stroke="currentColor" strokeWidth="1.5" opacity="0.5" />
+            <line x1="0" y1="12" x2="-4" y2="20" stroke="currentColor" strokeWidth="1.5" opacity="0.5" />
+            <line x1="0" y1="12" x2="4" y2="20" stroke="currentColor" strokeWidth="1.5" opacity="0.5" />
+          </g>
         </defs>
-        {/* Camino 1 */}
+
+        {/* Edificios de fondo */}
+        <rect x="0" y="0" width="120" height="70" fill="currentColor" opacity="0.06" />
+        <rect x="380" y="0" width="130" height="55" fill="currentColor" opacity="0.06" />
+        <rect x="180" y="0" width="80" height="90" fill="currentColor" opacity="0.05" />
+
+        {/* Árboles */}
+        <g transform="translate(55, 35)" className="text-primary">
+          <use href="#tree" />
+        </g>
+        <g transform="translate(220, 28)" className="text-primary">
+          <use href="#tree" />
+        </g>
+        <g transform="translate(420, 40)" className="text-primary">
+          <use href="#tree" />
+        </g>
+        <g transform="translate(130, 230)" className="text-primary">
+          <use href="#tree" />
+        </g>
+        <g transform="translate(340, 218)" className="text-primary">
+          <use href="#tree" />
+        </g>
+
+        {/* Semáforo 1 (camino 1, primera parada) */}
+        <g transform="translate(155, 78)" className="text-primary">
+          <rect x="-6" y="-20" width="12" height="24" rx="2" fill="currentColor" opacity="0.3" stroke="currentColor" strokeWidth="0.5" />
+          <circle id="tl1-green" r="3" cy="-12" fill="#22c55e" opacity="0.9" />
+          <circle id="tl1-red" r="3" cy="4" fill="#ef4444" opacity="0.15" />
+          <animate href="#tl1-red" attributeName="opacity" values="0.15;0.15;0.9;0.9;0.15" keyTimes="0;0.36;0.36;0.73;1" dur={`${dur1}s`} repeatCount="indefinite" />
+          <animate href="#tl1-green" attributeName="opacity" values="0.9;0.9;0.15;0.15;0.9" keyTimes="0;0.36;0.36;0.73;1" dur={`${dur1}s`} repeatCount="indefinite" />
+        </g>
+        {/* Semáforo 2 (camino 1, segunda parada) */}
+        <g transform="translate(355, 78)" className="text-primary">
+          <rect x="-6" y="-20" width="12" height="24" rx="2" fill="currentColor" opacity="0.3" stroke="currentColor" strokeWidth="0.5" />
+          <circle id="tl2-green" r="3" cy="-12" fill="#22c55e" opacity="0.15" />
+          <circle id="tl2-red" r="3" cy="4" fill="#ef4444" opacity="0.9" />
+          <animate href="#tl2-red" attributeName="opacity" values="0.9;0.15;0.15;0.9;0.9" keyTimes="0;0.18;0.55;0.55;1" dur={`${dur1}s`} repeatCount="indefinite" />
+          <animate href="#tl2-green" attributeName="opacity" values="0.15;0.9;0.9;0.15;0.15" keyTimes="0;0.18;0.55;0.55;1" dur={`${dur1}s`} repeatCount="indefinite" />
+        </g>
+        {/* Semáforo 3 (camino 2) */}
+        <g transform="translate(390, 188)" className="text-primary">
+          <rect x="-6" y="-20" width="12" height="24" rx="2" fill="currentColor" opacity="0.3" stroke="currentColor" strokeWidth="0.5" />
+          <circle id="tl3-green" r="3" cy="-12" fill="#22c55e" opacity="0.15" />
+          <circle id="tl3-red" r="3" cy="4" fill="#ef4444" opacity="0.9" />
+          <animate href="#tl3-red" attributeName="opacity" values="0.9;0.9;0.15;0.15" keyTimes="0;0.4;0.4;1" dur={`${dur2}s`} repeatCount="indefinite" />
+          <animate href="#tl3-green" attributeName="opacity" values="0.15;0.15;0.9;0.9" keyTimes="0;0.4;0.4;1" dur={`${dur2}s`} repeatCount="indefinite" />
+        </g>
+        {/* Semáforo 4 (camino 2) */}
+        <g transform="translate(150, 200)" className="text-primary">
+          <rect x="-6" y="-20" width="12" height="24" rx="2" fill="currentColor" opacity="0.3" stroke="currentColor" strokeWidth="0.5" />
+          <circle id="tl4-green" r="3" cy="-12" fill="#22c55e" opacity="0.9" />
+          <circle id="tl4-red" r="3" cy="4" fill="#ef4444" opacity="0.15" />
+          <animate href="#tl4-red" attributeName="opacity" values="0.15;0.15;0.9;0.9" keyTimes="0;0.2;0.2;1" dur={`${dur2}s`} repeatCount="indefinite" />
+          <animate href="#tl4-green" attributeName="opacity" values="0.9;0.9;0.15;0.15" keyTimes="0;0.2;0.2;1" dur={`${dur2}s`} repeatCount="indefinite" />
+        </g>
+
         <use href="#road-1" className="text-primary" />
-        {/* Carritos en camino 1 */}
+        <use href="#road-2" className="text-primary" />
+
+        {/* Carritos camino 1 */}
         <g fill="hsl(var(--primary))" className="text-primary">
           <use href="#car-sprite" />
-          <animateMotion dur="7s" repeatCount="indefinite" rotate="auto" path="M -30 80 Q 100 40 200 80 T 400 80 T 530 80" />
+          <animateMotion path={path1} dur={`${dur1}s`} repeatCount="indefinite" rotate="auto" keyTimes={keyTimes1} values={values1} calcMode="linear" />
         </g>
         <g fill="hsl(var(--primary))" className="text-primary opacity-80">
           <use href="#car-sprite" />
-          <animateMotion dur="7s" repeatCount="indefinite" begin="1.5s" rotate="auto" path="M -30 80 Q 100 40 200 80 T 400 80 T 530 80" />
+          <animateMotion path={path1} dur={`${dur1}s`} repeatCount="indefinite" begin="2.5s" rotate="auto" keyTimes={keyTimes1} values={values1} calcMode="linear" />
         </g>
         <g fill="hsl(var(--primary))" className="text-primary opacity-60">
           <use href="#car-sprite" />
-          <animateMotion dur="7s" repeatCount="indefinite" begin="3.5s" rotate="auto" path="M -30 80 Q 100 40 200 80 T 400 80 T 530 80" />
+          <animateMotion path={path1} dur={`${dur1}s`} repeatCount="indefinite" begin="5s" rotate="auto" keyTimes={keyTimes1} values={values1} calcMode="linear" />
         </g>
-        {/* Camino 2 */}
-        <use href="#road-2" className="text-primary" />
-        {/* Carritos en camino 2 */}
-        <g fill="hsl(var(--primary))" className="text-primary opacity-70">
+
+        <g fill="hsl(var(--primary))" className="text-primary opacity-75">
           <use href="#car-sprite" />
-          <animateMotion dur="9s" repeatCount="indefinite" rotate="auto" path="M 530 180 Q 400 220 250 180 T -30 180" />
+          <animateMotion path={path2} dur={`${dur2}s`} repeatCount="indefinite" rotate="auto" keyTimes={keyTimes2} values={values2} calcMode="linear" />
         </g>
-        <g fill="hsl(var(--primary))" className="text-primary opacity-50">
+        <g fill="hsl(var(--primary))" className="text-primary opacity-55">
           <use href="#car-sprite" />
-          <animateMotion dur="9s" repeatCount="indefinite" begin="3s" rotate="auto" path="M 530 180 Q 400 220 250 180 T -30 180" />
+          <animateMotion path={path2} dur={`${dur2}s`} repeatCount="indefinite" begin="4s" rotate="auto" keyTimes={keyTimes2} values={values2} calcMode="linear" />
+        </g>
+
+        {/* Personas que a veces miran hacia ti */}
+        <g transform="translate(75, 100)" className="text-primary">
+          <g className="animate-person-side" style={{ animationDuration: '18s', animationDelay: '0s' }}>
+            <use href="#person-side" />
+          </g>
+          <g className="animate-person-front" style={{ animationDuration: '18s', animationDelay: '0s' }}>
+            <use href="#person-front" />
+          </g>
+        </g>
+        <g transform="translate(270, 96)" className="text-primary">
+          <g className="animate-person-side" style={{ animationDuration: '22s', animationDelay: '5s' }}>
+            <use href="#person-side" />
+          </g>
+          <g className="animate-person-front" style={{ animationDuration: '22s', animationDelay: '5s' }}>
+            <use href="#person-front" />
+          </g>
+        </g>
+        <g transform="translate(195, 208)" className="text-primary">
+          <g className="animate-person-side" style={{ animationDuration: '20s', animationDelay: '8s' }}>
+            <use href="#person-side" />
+          </g>
+          <g className="animate-person-front" style={{ animationDuration: '20s', animationDelay: '8s' }}>
+            <use href="#person-front" />
+          </g>
         </g>
       </svg>
     </div>
