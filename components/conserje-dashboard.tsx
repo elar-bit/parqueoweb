@@ -552,7 +552,8 @@ export function ConserjeDashboard() {
               </DialogFooter>
             </div>
           )}
-        </Dialog>
+        </DialogContent>
+      </Dialog>
 
       <ValidationModal
         servicio={selectedServicio}
