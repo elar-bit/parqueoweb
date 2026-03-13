@@ -71,7 +71,7 @@ export function LoginCarAnimation() {
         </g>
 
         {/* Carritos pista superior: uno con color, otro con otro color */}
-        <g fill="var(--chart-1)" className="opacity-90">
+        <g className="opacity-90" style={{ color: 'var(--chart-1)' }}>
           <use href="#car-sprite" />
           <animateMotion
             path={path1}
@@ -80,7 +80,7 @@ export function LoginCarAnimation() {
             rotate="auto"
           />
         </g>
-        <g fill="var(--chart-2)" className="opacity-90">
+        <g className="opacity-90" style={{ color: 'var(--chart-2)' }}>
           <use href="#car-sprite" />
           <animateMotion
             path={path1}
@@ -92,7 +92,7 @@ export function LoginCarAnimation() {
         </g>
 
         {/* Carritos pista inferior: uno con color, otro con otro color */}
-        <g fill="var(--chart-3)" className="opacity-90">
+        <g className="opacity-90" style={{ color: 'var(--chart-3)' }}>
           <use href="#car-sprite" />
           <animateMotion
             path={path2}
@@ -101,7 +101,7 @@ export function LoginCarAnimation() {
             rotate="auto"
           />
         </g>
-        <g fill="var(--chart-4)" className="opacity-90">
+        <g className="opacity-90" style={{ color: 'var(--chart-4)' }}>
           <use href="#car-sprite" />
           <animateMotion
             path={path2}
