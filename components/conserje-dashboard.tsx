@@ -413,12 +413,12 @@ export function ConserjeDashboard() {
 
         {/* Servicios del mes (consulta por mes) */}
         <div className="space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <h2 className="text-lg font-semibold text-foreground">
-              Servicios del mes ({serviciosHoyFiltrados.length}{serviciosHoy.length !== serviciosHoyFiltrados.length ? ` de ${serviciosHoy.length}` : ''})
-            </h2>
-            <div className="flex flex-row items-center gap-3 flex-wrap">
-              <div className="flex items-center gap-4 text-xs text-muted-foreground shrink-0 mr-2 sm:mr-4 order-first w-full sm:w-auto sm:order-none justify-center sm:justify-start">
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-row items-center gap-2 flex-wrap">
+              <h2 className="text-lg font-semibold text-foreground">
+                Servicios del mes ({serviciosHoyFiltrados.length}{serviciosHoy.length !== serviciosHoyFiltrados.length ? ` de ${serviciosHoy.length}` : ''})
+              </h2>
+              <div className="flex items-center gap-3 text-xs text-muted-foreground shrink-0">
                 <span className="flex items-center gap-1.5">
                   <span className="h-2.5 w-2.5 rounded-full bg-amber-200" aria-hidden />
                   Visitantes
@@ -432,6 +432,8 @@ export function ConserjeDashboard() {
                   Abonados
                 </span>
               </div>
+            </div>
+            <div className="flex flex-row items-center gap-2 flex-wrap">
               <div className="flex items-center gap-2">
                 <Label className="text-xs text-muted-foreground whitespace-nowrap">Mes</Label>
                 <Select
