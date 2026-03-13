@@ -1,8 +1,8 @@
 'use client'
 
 /**
- * Escena de mini-ciudad: caminos, carritos que se detienen en semáforos,
- * árboles, personitas que a veces miran al usuario.
+ * Escena de ciudad: pistas, carritos que se detienen en semáforos
+ * y un águila surcando el cielo de fondo.
  */
 export function LoginCarAnimation() {
   const path1 = 'M -40 85 Q 90 45 180 85 T 360 85 T 540 85'
@@ -21,39 +21,28 @@ export function LoginCarAnimation() {
       className="absolute inset-0 overflow-hidden pointer-events-none"
       aria-hidden
     >
-      <svg
-        className="absolute w-full h-full opacity-[0.18]"
-        viewBox="0 0 500 280"
-        preserveAspectRatio="xMidYMid slice"
-      >
+      <svg className="absolute w-full h-full opacity-[0.2]" viewBox="0 0 500 280" preserveAspectRatio="xMidYMid slice">
         <defs>
-          <path id="road-1" d={path1} fill="none" stroke="currentColor" strokeWidth="2.5" strokeDasharray="10 8" strokeLinecap="round" />
-          <path id="road-2" d={path2} fill="none" stroke="currentColor" strokeWidth="2.5" strokeDasharray="10 8" strokeLinecap="round" />
+          {/* Pistas: usamos el path como eje y luego dibujamos la calzada y la línea central */}
+          <path id="road-1" d={path1} fill="none" stroke="currentColor" strokeWidth="1" />
+          <path id="road-2" d={path2} fill="none" stroke="currentColor" strokeWidth="1" />
+          {/* Carrito */}
           <g id="car-sprite">
             <rect x="-10" y="-6" width="20" height="12" rx="3" fill="currentColor" opacity="0.95" />
             <circle cx="-6" cy="6" r="4" fill="currentColor" opacity="0.8" />
             <circle cx="6" cy="6" r="4" fill="currentColor" opacity="0.8" />
             <rect x="-5" y="-10" width="10" height="5" rx="1" fill="currentColor" opacity="0.7" />
           </g>
+          {/* Árbol simple */}
           <g id="tree">
             <ellipse cx="0" cy="-12" rx="14" ry="18" fill="currentColor" opacity="0.25" />
             <rect x="-2" y="2" width="4" height="14" fill="currentColor" opacity="0.2" />
           </g>
-          <g id="person-side">
-            <circle cx="0" cy="-8" r="5" fill="currentColor" opacity="0.5" />
-            <line x1="0" y1="-2" x2="0" y2="12" stroke="currentColor" strokeWidth="2" opacity="0.5" />
-            <line x1="-8" y1="4" x2="8" y2="4" stroke="currentColor" strokeWidth="1.5" opacity="0.5" />
-            <line x1="0" y1="12" x2="-4" y2="20" stroke="currentColor" strokeWidth="1.5" opacity="0.5" />
-            <line x1="0" y1="12" x2="4" y2="20" stroke="currentColor" strokeWidth="1.5" opacity="0.5" />
-          </g>
-          <g id="person-front">
-            <circle cx="0" cy="-8" r="5" fill="currentColor" opacity="0.6" />
-            <circle cx="-2" cy="-9" r="1.2" fill="var(--background)" opacity="0.9" />
-            <circle cx="2" cy="-9" r="1.2" fill="var(--background)" opacity="0.9" />
-            <line x1="0" y1="-2" x2="0" y2="12" stroke="currentColor" strokeWidth="2" opacity="0.5" />
-            <line x1="-6" y1="4" x2="6" y2="4" stroke="currentColor" strokeWidth="1.5" opacity="0.5" />
-            <line x1="0" y1="12" x2="-4" y2="20" stroke="currentColor" strokeWidth="1.5" opacity="0.5" />
-            <line x1="0" y1="12" x2="4" y2="20" stroke="currentColor" strokeWidth="1.5" opacity="0.5" />
+          {/* Águila sencilla (cuerpo + alas) */}
+          <g id="eagle-sprite">
+            <path d="M -10 0 C -4 -4, 4 -4, 10 0 C 4 2, -4 2, -10 0 Z" fill="currentColor" opacity="0.85" />
+            <path d="M 0 0 C -4 -10, -2 -14, 0 -10 C 2 -14, 4 -10, 0 0 Z" fill="currentColor" opacity="0.9" />
+            <circle cx="7" cy="-1" r="1.3" fill="var(--background)" opacity="0.9" />
           </g>
         </defs>
 
@@ -62,7 +51,7 @@ export function LoginCarAnimation() {
         <rect x="380" y="0" width="130" height="55" fill="currentColor" opacity="0.06" />
         <rect x="180" y="0" width="80" height="90" fill="currentColor" opacity="0.05" />
 
-        {/* Árboles */}
+        {/* Árboles en la ciudad */}
         <g transform="translate(55, 35)" className="text-primary">
           <use href="#tree" />
         </g>
@@ -77,6 +66,16 @@ export function LoginCarAnimation() {
         </g>
         <g transform="translate(340, 218)" className="text-primary">
           <use href="#tree" />
+        </g>
+
+        {/* Pistas: calzada (recta) + línea central discontinua siguiendo el path */}
+        <g className="text-primary">
+          <use href="#road-1" stroke="currentColor" strokeWidth="14" opacity="0.12" />
+          <use href="#road-1" stroke="currentColor" strokeWidth="2" strokeDasharray="8 6" opacity="0.35" />
+        </g>
+        <g className="text-primary">
+          <use href="#road-2" stroke="currentColor" strokeWidth="14" opacity="0.12" />
+          <use href="#road-2" stroke="currentColor" strokeWidth="2" strokeDasharray="8 6" opacity="0.35" />
         </g>
 
         {/* Semáforo 1 (camino 1, primera parada) */}
@@ -112,10 +111,7 @@ export function LoginCarAnimation() {
           <animate href="#tl4-green" attributeName="opacity" values="0.9;0.9;0.15;0.15" keyTimes="0;0.2;0.2;1" dur={`${dur2}s`} repeatCount="indefinite" />
         </g>
 
-        <use href="#road-1" className="text-primary" />
-        <use href="#road-2" className="text-primary" />
-
-        {/* Carritos camino 1 */}
+        {/* Carritos camino 1 (paran con rojo y avanzan con verde según keyTimes/values) */}
         <g fill="hsl(var(--primary))" className="text-primary">
           <use href="#car-sprite" />
           <animateMotion path={path1} dur={`${dur1}s`} repeatCount="indefinite" rotate="auto" keyTimes={keyTimes1} values={values1} calcMode="linear" />
@@ -138,30 +134,15 @@ export function LoginCarAnimation() {
           <animateMotion path={path2} dur={`${dur2}s`} repeatCount="indefinite" begin="4s" rotate="auto" keyTimes={keyTimes2} values={values2} calcMode="linear" />
         </g>
 
-        {/* Personas que a veces miran hacia ti */}
-        <g transform="translate(75, 100)" className="text-primary">
-          <g className="animate-person-side" style={{ animationDuration: '18s', animationDelay: '0s' }}>
-            <use href="#person-side" />
-          </g>
-          <g className="animate-person-front" style={{ animationDuration: '18s', animationDelay: '0s' }}>
-            <use href="#person-front" />
-          </g>
-        </g>
-        <g transform="translate(270, 96)" className="text-primary">
-          <g className="animate-person-side" style={{ animationDuration: '22s', animationDelay: '5s' }}>
-            <use href="#person-side" />
-          </g>
-          <g className="animate-person-front" style={{ animationDuration: '22s', animationDelay: '5s' }}>
-            <use href="#person-front" />
-          </g>
-        </g>
-        <g transform="translate(195, 208)" className="text-primary">
-          <g className="animate-person-side" style={{ animationDuration: '20s', animationDelay: '8s' }}>
-            <use href="#person-side" />
-          </g>
-          <g className="animate-person-front" style={{ animationDuration: '20s', animationDelay: '8s' }}>
-            <use href="#person-front" />
-          </g>
+        {/* Águila surcando el cielo en la parte superior */}
+        <g className="text-primary" fill="hsl(var(--primary))" transform="translate(0, 25)">
+          <use href="#eagle-sprite" />
+          <animateMotion
+            dur="26s"
+            repeatCount="indefinite"
+            rotate="auto"
+            path="M -60 -5 C 60 -20, 180 -10, 260 -18 S 420 -5, 560 -10"
+          />
         </g>
       </svg>
     </div>
