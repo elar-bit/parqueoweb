@@ -282,14 +282,23 @@ export function AdminDashboard() {
   const exportarExcel = () => {
     const titulo = 'Reporte de ingresos - Estacionamiento'
     const filtrosLinea = `Datos: ${leyendaDatos}. ${textoPeriodo}`
-    const headers = ['Fecha', 'Placa', 'Tipo', 'Total (S/)', 'Salida']
-    const rows = serviciosList.map((s) => [
-      s.salida ? new Date(s.salida).toLocaleDateString('es-PE') : '',
-      s.vehiculo?.placa || 'Sin placa',
-      s.vehiculo?.tipo === 'residente' ? 'Residente' : 'Visitante',
-      String(s.total_pagar ?? ''),
-      s.salida ? new Date(s.salida).toLocaleString('es-PE') : '',
-    ])
+    const headers = ['Fecha salida', 'Placa', 'Tipo', 'Nombre residente', 'Oficina/Depto', 'Entrada', 'Salida', 'Total (S/)', 'Ref. Yape']
+    const rows = serviciosList.map((s) => {
+      const nombreResidente = (s.vehiculo?.tipo === 'residente' && (s.vehiculo.nombre_propietario || s.vehiculo.apellido_propietario))
+        ? [s.vehiculo.nombre_propietario, s.vehiculo.apellido_propietario].filter(Boolean).join(' ')
+        : ''
+      return [
+        s.salida ? new Date(s.salida).toLocaleDateString('es-PE') : '',
+        s.vehiculo?.placa || 'Sin placa',
+        s.vehiculo?.tipo === 'residente' ? 'Residente' : 'Visitante',
+        nombreResidente,
+        s.vehiculo?.numero_oficina_dep ?? '',
+        s.entrada_real ? new Date(s.entrada_real).toLocaleString('es-PE') : '',
+        s.salida ? new Date(s.salida).toLocaleString('es-PE') : '',
+        String(s.total_pagar ?? ''),
+        s.ref_pago_yape ?? '',
+      ]
+    })
     const csv = [
       `"${titulo}"`,
       `"${filtrosLinea.replace(/"/g, '""')}"`,
@@ -329,17 +338,29 @@ export function AdminDashboard() {
           <p class="leyenda">Datos: ${leyendaDatos}. ${textoPeriodo}</p>
           <p class="fecha">Generado: ${new Date().toLocaleString('es-PE')}</p>
           <table>
-            <thead><tr><th>Fecha</th><th>Placa</th><th>Tipo</th><th>Total (S/)</th><th>Salida</th></tr></thead>
+            <thead><tr>
+              <th>Fecha salida</th><th>Placa</th><th>Tipo</th><th>Nombre residente</th><th>Oficina/Depto</th>
+              <th>Entrada</th><th>Salida</th><th>Total (S/)</th><th>Ref. Yape</th>
+            </tr></thead>
             <tbody>
-              ${serviciosList.map((s) => `
+              ${serviciosList.map((s) => {
+                const nombreResidente = (s.vehiculo?.tipo === 'residente' && (s.vehiculo.nombre_propietario || s.vehiculo.apellido_propietario))
+                  ? [s.vehiculo.nombre_propietario, s.vehiculo.apellido_propietario].filter(Boolean).join(' ')
+                  : ''
+                const esc = (v: string) => (v ?? '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+                return `
                 <tr>
                   <td>${s.salida ? new Date(s.salida).toLocaleDateString('es-PE') : ''}</td>
-                  <td>${(s.vehiculo?.placa || 'Sin placa').replace(/</g, '&lt;')}</td>
+                  <td>${esc(s.vehiculo?.placa || 'Sin placa')}</td>
                   <td>${s.vehiculo?.tipo === 'residente' ? 'Residente' : 'Visitante'}</td>
-                  <td>${s.total_pagar ?? ''}</td>
+                  <td>${esc(nombreResidente)}</td>
+                  <td>${esc(s.vehiculo?.numero_oficina_dep ?? '')}</td>
+                  <td>${s.entrada_real ? new Date(s.entrada_real).toLocaleString('es-PE') : ''}</td>
                   <td>${s.salida ? new Date(s.salida).toLocaleString('es-PE') : ''}</td>
+                  <td>${s.total_pagar ?? ''}</td>
+                  <td>${esc(s.ref_pago_yape ?? '')}</td>
                 </tr>
-              `).join('')}
+              `}).join('')}
             </tbody>
           </table>
           <p class="fecha" style="margin-top: 16px;">Total: S/ ${totalFiltrado.toFixed(2)} (${serviciosCount} servicios)</p>
