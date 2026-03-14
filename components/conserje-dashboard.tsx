@@ -490,7 +490,7 @@ export function ConserjeDashboard() {
                   if (!motivoTexto) return
                   const telefono = cancelandoAbono.telefono_contacto ? normalizarTelefonoWhatsApp(cancelandoAbono.telefono_contacto) : ''
                   await cancelarAbono(cancelandoAbono.id, motivoTexto)
-                  const mensajeCancelacion = 'Su suscripción como abonado fue cancelada. Puede reactivarla en cualquier momento acercándose al conserje del edificio.'
+                  const mensajeCancelacion = 'Su suscripción como abonado fue cancelada. Puede reactivarla en cualquier momento acercándose al conserje del edificio. Que tenga un excelente día. Esperamos tenerlo nuevamente pronto como suscriptor.'
                   const url = telefono ? `https://wa.me/${telefono}?text=${encodeURIComponent(mensajeCancelacion)}` : `https://wa.me/?text=${encodeURIComponent(mensajeCancelacion)}`
                   window.open(url, '_blank')
                   setCancelandoAbono(null)
