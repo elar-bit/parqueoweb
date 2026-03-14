@@ -809,10 +809,12 @@ export function ConserjeDashboard() {
                 </span>
                 <span className="text-muted-foreground">Total</span>
                 <span className="font-semibold">{formatCurrency(servicioDetalle.total_pagar ?? 0)}</span>
-                {servicioDetalle.ref_pago_yape && (
+                {(servicioDetalle.ref_pago_yape || servicioDetalle.vehiculo?.ref_pago_abono) && (
                   <>
-                    <span className="text-muted-foreground">Ref. Yape</span>
-                    <span className="font-mono text-xs break-all">{servicioDetalle.ref_pago_yape}</span>
+                    <span className="text-muted-foreground">Ref. pago / Transferencia</span>
+                    <span className="font-mono text-xs break-all">
+                      {servicioDetalle.ref_pago_yape ?? servicioDetalle.vehiculo?.ref_pago_abono ?? '—'}
+                    </span>
                   </>
                 )}
                 <span className="text-muted-foreground">Teléfono (WhatsApp)</span>
