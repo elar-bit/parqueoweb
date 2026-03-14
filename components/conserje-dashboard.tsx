@@ -488,7 +488,11 @@ export function ConserjeDashboard() {
                   if (!cancelandoAbono) return
                   const motivoTexto = motivoCancelacion === 'otro' ? motivoCancelacionOtro.trim() : (motivoCancelacion === 'no_respondio' ? 'El cliente no respondió' : motivoCancelacion === 'no_desea' ? 'No desea más la suscripción' : motivoCancelacion === 'pagar_horas' ? 'Desea pagar por horas' : motivoCancelacion)
                   if (!motivoTexto) return
+                  const telefono = cancelandoAbono.telefono_contacto ? normalizarTelefonoWhatsApp(cancelandoAbono.telefono_contacto) : ''
                   await cancelarAbono(cancelandoAbono.id, motivoTexto)
+                  const mensajeCancelacion = 'Su suscripción como abonado fue cancelada. Puede reactivarla en cualquier momento acercándose al conserje del edificio.'
+                  const url = telefono ? `https://wa.me/${telefono}?text=${encodeURIComponent(mensajeCancelacion)}` : `https://wa.me/?text=${encodeURIComponent(mensajeCancelacion)}`
+                  window.open(url, '_blank')
                   setCancelandoAbono(null)
                   setMotivoCancelacion('')
                   setMotivoCancelacionOtro('')
