@@ -138,6 +138,21 @@ export function ConserjeDashboard() {
     window.location.href = '/'
   }
 
+  const buildMensajeDespedidaAbonado = (v: { nombre_propietario?: string | null; apellido_propietario?: string | null }): string => {
+    const nombre = [v.nombre_propietario, v.apellido_propietario].filter(Boolean).join(' ').trim()
+    const saludo = nombre ? `Hola, ${nombre}.` : 'Hola.'
+    return `${saludo} Su suscripción como abonado fue cancelada. Puede reactivarla en cualquier momento acercándose al conserje del edificio. Que tenga un excelente día. Esperamos tenerlo nuevamente pronto como suscriptor.`
+  }
+
+  const handleEnviarMensajeDespedida = () => {
+    const v = servicioDetalle?.vehiculo
+    if (!v || v.tipo !== 'abonado' || !v.abono_cancelado) return
+    const texto = buildMensajeDespedidaAbonado(v)
+    const telefono = v.telefono_contacto ? normalizarTelefonoWhatsApp(v.telefono_contacto) : ''
+    const url = telefono ? `https://wa.me/${telefono}?text=${encodeURIComponent(texto)}` : `https://wa.me/?text=${encodeURIComponent(texto)}`
+    window.open(url, '_blank')
+  }
+
   const handleAbrirWhatsApp = () => {
     if (!servicioDetalle) return
     const guardado = servicioDetalle.vehiculo?.telefono_contacto?.trim()
@@ -490,7 +505,7 @@ export function ConserjeDashboard() {
                   if (!motivoTexto) return
                   const telefono = cancelandoAbono.telefono_contacto ? normalizarTelefonoWhatsApp(cancelandoAbono.telefono_contacto) : ''
                   await cancelarAbono(cancelandoAbono.id, motivoTexto)
-                  const mensajeCancelacion = 'Su suscripción como abonado fue cancelada. Puede reactivarla en cualquier momento acercándose al conserje del edificio. Que tenga un excelente día. Esperamos tenerlo nuevamente pronto como suscriptor.'
+                  const mensajeCancelacion = buildMensajeDespedidaAbonado(cancelandoAbono)
                   const url = telefono ? `https://wa.me/${telefono}?text=${encodeURIComponent(mensajeCancelacion)}` : `https://wa.me/?text=${encodeURIComponent(mensajeCancelacion)}`
                   window.open(url, '_blank')
                   setCancelandoAbono(null)
@@ -847,6 +862,11 @@ export function ConserjeDashboard() {
                 >
                   Enviar por WhatsApp
                 </Button>
+                {servicioDetalle.vehiculo?.tipo === 'abonado' && servicioDetalle.vehiculo?.abono_cancelado && (
+                  <Button variant="secondary" size="sm" onClick={handleEnviarMensajeDespedida}>
+                    Enviar mensaje de despedida
+                  </Button>
+                )}
               </DialogFooter>
             </div>
           )}
