@@ -461,10 +461,10 @@ export function ConserjeDashboard() {
         )}
 
         <Dialog open={!!cancelandoAbono} onOpenChange={(open) => { if (!open) { setCancelandoAbono(null); setMotivoCancelacion(''); setMotivoCancelacionOtro('') } }}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md overflow-hidden">
             <DialogHeader>
-              <DialogTitle>¿Cancelar suscripción?</DialogTitle>
-              <p className="text-sm text-muted-foreground">
+              <DialogTitle className="break-words">¿Cancelar suscripción?</DialogTitle>
+              <p className="text-sm text-muted-foreground break-words">
                 Este abonado ya no renovará. Se quitará de la lista de alertas pero el registro se conserva. Indique el motivo de cancelación (obligatorio).
               </p>
             </DialogHeader>
@@ -563,11 +563,11 @@ export function ConserjeDashboard() {
         {/* Servicios del mes (consulta por mes) */}
         <div className="space-y-3">
           <div className="flex flex-col gap-2">
-            <div className="flex flex-row items-center gap-2 flex-wrap">
-              <h2 className="text-lg font-semibold text-foreground">
+            <div className="flex flex-row items-center gap-2 flex-wrap min-w-0">
+              <h2 className="text-lg font-semibold text-foreground break-words min-w-0">
                 Servicios del mes ({serviciosHoyFiltrados.length}{serviciosHoy.length !== serviciosHoyFiltrados.length ? ` de ${serviciosHoy.length}` : ''})
               </h2>
-              <div className="flex items-center gap-3 text-xs text-muted-foreground shrink-0">
+              <div className="flex items-center gap-2 sm:gap-3 text-xs text-muted-foreground shrink-0 flex-wrap">
                 <span className="flex items-center gap-1.5">
                   <span className="h-2.5 w-2.5 rounded-full bg-amber-200" aria-hidden />
                   Visitantes
@@ -582,15 +582,15 @@ export function ConserjeDashboard() {
                 </span>
               </div>
             </div>
-            <div className="flex flex-row items-center gap-2 flex-wrap">
-              <div className="flex items-center gap-2">
-                <Label className="text-xs text-muted-foreground whitespace-nowrap">Mes</Label>
+            <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 overflow-hidden">
+              <div className="flex items-center gap-2 min-w-0 w-full sm:w-auto">
+                <Label className="text-xs text-muted-foreground whitespace-nowrap shrink-0">Mes</Label>
                 <Select
                   value={filtroMesServicios || (mesesDisponibles[0] ?? '__vacio__')}
                   onValueChange={(v) => v !== '__vacio__' && setFiltroMesServicios(v)}
                   disabled={mesesDisponibles.length === 0}
                 >
-                  <SelectTrigger className="w-[180px]">
+                  <SelectTrigger className="w-full min-w-0 sm:w-[180px]">
                     <SelectValue placeholder="Mes - Año" />
                   </SelectTrigger>
                   <SelectContent>
@@ -606,10 +606,10 @@ export function ConserjeDashboard() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex items-center gap-2">
-                <Label className="text-xs text-muted-foreground whitespace-nowrap">Tipo</Label>
+              <div className="flex items-center gap-2 min-w-0 w-full sm:w-auto">
+                <Label className="text-xs text-muted-foreground whitespace-nowrap shrink-0">Tipo</Label>
                 <Select value={filtroTipoServicios || 'todos'} onValueChange={(v) => { setFiltroTipoServicios(v === 'todos' ? '' : v as 'visitante' | 'residente' | 'abonado'); if (v !== 'abonado') setFiltroPeriodoServicios('') }}>
-                  <SelectTrigger className="w-[120px]">
+                  <SelectTrigger className="w-full min-w-0 sm:w-[120px]">
                     <SelectValue placeholder="Todos" />
                   </SelectTrigger>
                   <SelectContent>
@@ -621,10 +621,10 @@ export function ConserjeDashboard() {
                 </Select>
               </div>
               {filtroTipoServicios === 'abonado' && (
-                <div className="flex items-center gap-2">
-                  <Label className="text-xs text-muted-foreground whitespace-nowrap">Período</Label>
+                <div className="flex items-center gap-2 min-w-0 w-full sm:w-auto">
+                  <Label className="text-xs text-muted-foreground whitespace-nowrap shrink-0">Período</Label>
                   <Select value={filtroPeriodoServicios || 'todos'} onValueChange={(v) => setFiltroPeriodoServicios(v === 'todos' ? '' : v)}>
-                    <SelectTrigger className="w-[110px]">
+                    <SelectTrigger className="w-full min-w-0 sm:w-[110px]">
                       <SelectValue placeholder="Todos" />
                     </SelectTrigger>
                     <SelectContent>
@@ -636,14 +636,14 @@ export function ConserjeDashboard() {
                   </Select>
                 </div>
               )}
-              <div className="flex items-center gap-2">
-                <Label className="text-xs text-muted-foreground whitespace-nowrap">Filtrar</Label>
+              <div className="flex items-center gap-2 min-w-0 flex-1 sm:flex-initial w-full sm:w-auto">
+                <Label className="text-xs text-muted-foreground whitespace-nowrap shrink-0">Filtrar</Label>
                 <Input
                   type="text"
                   placeholder="Placa o apellido..."
                   value={filtroPlacaApellido}
                   onChange={(e) => setFiltroPlacaApellido(e.target.value)}
-                  className="w-[180px] sm:w-[200px]"
+                  className="w-full min-w-0 sm:w-[200px]"
                 />
               </div>
             </div>
@@ -747,7 +747,7 @@ export function ConserjeDashboard() {
 
       {/* Detalle de servicio pagado (ticket) */}
       <Dialog open={!!servicioDetalle} onOpenChange={(open) => !open && setServicioDetalle(null)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md overflow-hidden">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Car className="h-5 w-5" />
@@ -877,7 +877,7 @@ export function ConserjeDashboard() {
 
       {/* Diálogo: número para enviar ticket por WhatsApp */}
       <Dialog open={whatsappOpen} onOpenChange={(open) => !open && setWhatsappOpen(false)}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-sm overflow-hidden">
           <DialogHeader>
             <DialogTitle>Enviar ticket por WhatsApp</DialogTitle>
             <p className="text-sm text-muted-foreground">
@@ -945,7 +945,7 @@ export function ConserjeDashboard() {
 
       {/* Diálogo registrar pago abonado (meses 1-6) */}
       <Dialog open={!!renovarAbonoDialog} onOpenChange={(open) => !open && (setRenovarAbonoDialog(null), setRenovarCapturaFile(null))}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-sm overflow-hidden">
           <DialogHeader>
             <DialogTitle>Registrar pago de mensualidad</DialogTitle>
             <p className="text-sm text-muted-foreground">

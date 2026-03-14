@@ -895,7 +895,7 @@ export function AdminDashboard({ currentUserId }: AdminDashboardProps = {}) {
         )}
 
         <Dialog open={!!cancelandoAbono} onOpenChange={(open) => { if (!open) { setCancelandoAbono(null); setMotivoCancelacion(''); setMotivoCancelacionOtro('') } }}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md overflow-hidden">
             <DialogHeader>
               <DialogTitle>¿Cancelar suscripción?</DialogTitle>
               <p className="text-sm text-muted-foreground">
@@ -958,15 +958,15 @@ export function AdminDashboard({ currentUserId }: AdminDashboardProps = {}) {
         <Card className="border-border">
           <CardHeader>
             <CardTitle className="text-foreground">Servicios</CardTitle>
-            <div className="pt-2 flex flex-row flex-wrap items-center gap-3">
-              <div className="space-y-1">
+            <div className="pt-2 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-end gap-3 overflow-hidden">
+              <div className="space-y-1 min-w-0 w-full sm:w-auto">
                 <Label className="text-xs text-muted-foreground">Mes</Label>
                 <Select
                   value={filtroMesServicios || (mesesDisponibles[0] ?? '__vacio__')}
                   onValueChange={(v) => v !== '__vacio__' && setFiltroMesServicios(v)}
                   disabled={mesesDisponibles.length === 0}
                 >
-                  <SelectTrigger className="w-[180px]">
+                  <SelectTrigger className="w-full min-w-0 sm:w-[180px]">
                     <SelectValue placeholder="Mes - Año" />
                   </SelectTrigger>
                   <SelectContent>
@@ -982,10 +982,10 @@ export function AdminDashboard({ currentUserId }: AdminDashboardProps = {}) {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1 min-w-0 w-full sm:w-auto">
                 <Label className="text-xs text-muted-foreground">Tipo</Label>
                 <Select value={filtroTipoServicios || 'todos'} onValueChange={(v) => { setFiltroTipoServicios(v === 'todos' ? '' : v as 'visitante' | 'residente' | 'abonado'); if (v !== 'abonado') setFiltroPeriodoServicios('') }}>
-                  <SelectTrigger className="w-[130px]">
+                  <SelectTrigger className="w-full min-w-0 sm:w-[130px]">
                     <SelectValue placeholder="Todos" />
                   </SelectTrigger>
                   <SelectContent>
@@ -997,10 +997,10 @@ export function AdminDashboard({ currentUserId }: AdminDashboardProps = {}) {
                 </Select>
               </div>
               {filtroTipoServicios === 'abonado' && (
-                <div className="space-y-1">
+                <div className="space-y-1 min-w-0 w-full sm:w-auto">
                   <Label className="text-xs text-muted-foreground">Período</Label>
                   <Select value={filtroPeriodoServicios || 'todos'} onValueChange={(v) => setFiltroPeriodoServicios(v === 'todos' ? '' : v)}>
-                    <SelectTrigger className="w-[120px]">
+                    <SelectTrigger className="w-full min-w-0 sm:w-[120px]">
                       <SelectValue placeholder="Todos" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1012,19 +1012,19 @@ export function AdminDashboard({ currentUserId }: AdminDashboardProps = {}) {
                   </Select>
                 </div>
               )}
-              <div className="space-y-1">
+              <div className="space-y-1 min-w-0 flex-1 sm:flex-initial w-full sm:max-w-xs">
                 <Label className="text-xs text-muted-foreground">Filtrar por placa o apellido</Label>
                 <Input
                   type="text"
                   placeholder="Placa o apellido..."
                   value={filtroPlacaApellido}
                   onChange={(e) => setFiltroPlacaApellido(e.target.value)}
-                  className="max-w-xs"
+                  className="w-full min-w-0"
                 />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground block opacity-0 select-none pointer-events-none">Leyenda</Label>
-                <div className="flex items-center gap-4 text-xs text-muted-foreground shrink-0 h-9 items-center">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs text-muted-foreground shrink-0 h-9 items-center">
                   <span className="flex items-center gap-1.5">
                     <span className="h-2.5 w-2.5 rounded-full bg-amber-200" aria-hidden />
                     Visitantes
@@ -1280,7 +1280,7 @@ export function AdminDashboard({ currentUserId }: AdminDashboardProps = {}) {
 
                 {/* Editar usuario */}
                 <Dialog open={!!editingUser} onOpenChange={(open) => !open && setEditingUser(null)}>
-                  <DialogContent>
+                  <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md overflow-hidden">
                     <DialogHeader>
                       <DialogTitle>Editar usuario</DialogTitle>
                     </DialogHeader>
@@ -1324,7 +1324,7 @@ export function AdminDashboard({ currentUserId }: AdminDashboardProps = {}) {
 
                 {/* Resetear contraseña */}
                 <Dialog open={!!resetPasswordUser} onOpenChange={(open) => !open && setResetPasswordUser(null)}>
-                  <DialogContent>
+                  <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md overflow-hidden">
                     <DialogHeader>
                       <DialogTitle>Resetear contraseña</DialogTitle>
                       {resetPasswordUser && (
@@ -1347,10 +1347,10 @@ export function AdminDashboard({ currentUserId }: AdminDashboardProps = {}) {
 
                 {/* Confirmar eliminar usuario */}
                 <AlertDialog open={!!deletingUserId} onOpenChange={(open) => !open && setDeletingUserId(null)}>
-                  <AlertDialogContent>
+                  <AlertDialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg">
                     <AlertDialogHeader>
-                      <AlertDialogTitle>¿Eliminar usuario?</AlertDialogTitle>
-                      <AlertDialogDescription>
+                      <AlertDialogTitle className="break-words">¿Eliminar usuario?</AlertDialogTitle>
+                      <AlertDialogDescription className="break-words">
                         Esta acción es irreversible. El usuario perderá el acceso al sistema de forma permanente y será eliminado de la base de datos. No podrá volver a iniciar sesión. ¿Está seguro de que desea continuar?
                       </AlertDialogDescription>
                     </AlertDialogHeader>
@@ -1365,10 +1365,10 @@ export function AdminDashboard({ currentUserId }: AdminDashboardProps = {}) {
 
                 {/* Confirmar suspender usuario */}
                 <AlertDialog open={!!suspendingUser} onOpenChange={(open) => !open && setSuspendingUser(null)}>
-                  <AlertDialogContent>
+                  <AlertDialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg">
                     <AlertDialogHeader>
-                      <AlertDialogTitle>¿Suspender usuario?</AlertDialogTitle>
-                      <AlertDialogDescription>
+                      <AlertDialogTitle className="break-words">¿Suspender usuario?</AlertDialogTitle>
+                      <AlertDialogDescription className="break-words">
                         El usuario no podrá iniciar sesión hasta que un administrador lo reactive desde esta misma vista. El registro se conserva. ¿Continuar?
                       </AlertDialogDescription>
                     </AlertDialogHeader>
@@ -1463,31 +1463,31 @@ export function AdminDashboard({ currentUserId }: AdminDashboardProps = {}) {
 
         {/* 5. Gráficas y reportes (colapsado por defecto, filtros solo aquí) */}
         <Collapsible open={reportesExpandido} onOpenChange={setReportesExpandido}>
-          <Card className="border-border">
+          <Card className="border-border overflow-hidden">
             <CollapsibleTrigger asChild>
-              <CardHeader className="flex flex-row items-center justify-between cursor-pointer hover:bg-muted/50 rounded-t-lg">
-                <div className="flex items-center gap-2">
-                  {reportesExpandido ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
-                  <CardTitle className="text-foreground text-base sm:text-lg">Gráficas y reportes</CardTitle>
+              <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 cursor-pointer hover:bg-muted/50 rounded-t-lg">
+                <div className="flex items-center gap-2 min-w-0">
+                  {reportesExpandido ? <ChevronDown className="h-5 w-5 shrink-0" /> : <ChevronRight className="h-5 w-5 shrink-0" />}
+                  <CardTitle className="text-foreground text-base sm:text-lg break-words">Gráficas y reportes</CardTitle>
                 </div>
-                <p className="text-sm text-muted-foreground">Desplegar para ver. Filtros de fecha y tipo solo afectan esta sección.</p>
+                <p className="text-xs sm:text-sm text-muted-foreground break-words min-w-0">Desplegar para ver. Filtros de fecha y tipo solo afectan esta sección.</p>
               </CardHeader>
             </CollapsibleTrigger>
             <CollapsibleContent>
-              <CardContent className="pt-0 space-y-4">
-                <div className="flex flex-wrap gap-3 sm:gap-4 items-end">
-                  <div className="space-y-2">
+              <CardContent className="pt-0 space-y-4 overflow-hidden">
+                <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 items-stretch sm:items-end">
+                  <div className="space-y-2 min-w-0 flex-1 sm:flex-initial sm:w-auto">
                     <Label>Desde</Label>
-                    <Input type="date" value={filtroFechaDesde} onChange={(e) => setFiltroFechaDesde(e.target.value)} />
+                    <Input type="date" value={filtroFechaDesde} onChange={(e) => setFiltroFechaDesde(e.target.value)} className="w-full min-w-0" />
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-2 min-w-0 flex-1 sm:flex-initial sm:w-auto">
                     <Label>Hasta</Label>
-                    <Input type="date" value={filtroFechaHasta} onChange={(e) => setFiltroFechaHasta(e.target.value)} />
+                    <Input type="date" value={filtroFechaHasta} onChange={(e) => setFiltroFechaHasta(e.target.value)} className="w-full min-w-0" />
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-2 min-w-0 w-full sm:w-auto">
                     <Label>Tipo de usuario</Label>
                     <Select value={filtroTipo || 'todos'} onValueChange={(v) => { setFiltroTipo(v === 'todos' ? '' : (v as 'visitante' | 'residente' | 'abonado')); if (v !== 'abonado') setFiltroPeriodoReportes('') }}>
-                      <SelectTrigger className="w-[160px]"><SelectValue placeholder="Todos" /></SelectTrigger>
+                      <SelectTrigger className="w-full min-w-0 sm:w-[160px]"><SelectValue placeholder="Todos" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="todos">Todos</SelectItem>
                         <SelectItem value="visitante">Visitante</SelectItem>
@@ -1497,10 +1497,10 @@ export function AdminDashboard({ currentUserId }: AdminDashboardProps = {}) {
                     </Select>
                   </div>
                   {filtroTipo === 'abonado' && (
-                    <div className="space-y-2">
+                    <div className="space-y-2 min-w-0 w-full sm:w-auto">
                       <Label>Período abonado</Label>
                       <Select value={filtroPeriodoReportes || 'todos'} onValueChange={(v) => setFiltroPeriodoReportes(v === 'todos' ? '' : v)}>
-                        <SelectTrigger className="w-[140px]"><SelectValue placeholder="Todos" /></SelectTrigger>
+                        <SelectTrigger className="w-full min-w-0 sm:w-[140px]"><SelectValue placeholder="Todos" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="todos">Todos</SelectItem>
                           {[1, 2, 3, 4, 5, 6].map((n) => (
@@ -1510,7 +1510,7 @@ export function AdminDashboard({ currentUserId }: AdminDashboardProps = {}) {
                       </Select>
                     </div>
                   )}
-                  <Button variant="secondary" onClick={loadReportesData} disabled={loadingReportes}>Aplicar filtros</Button>
+                  <Button variant="secondary" onClick={loadReportesData} disabled={loadingReportes} className="w-full sm:w-auto shrink-0">Aplicar filtros</Button>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                   <Card className="border-border">
@@ -1625,7 +1625,7 @@ export function AdminDashboard({ currentUserId }: AdminDashboardProps = {}) {
 
         {/* Detalle del servicio */}
         <Dialog open={!!servicioDetalle} onOpenChange={(open) => !open && setServicioDetalle(null)}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md overflow-hidden">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Car className="h-5 w-5" />
@@ -1729,7 +1729,7 @@ export function AdminDashboard({ currentUserId }: AdminDashboardProps = {}) {
 
         {/* Diálogo: número para enviar ticket por WhatsApp */}
         <Dialog open={whatsappOpen} onOpenChange={(open) => !open && setWhatsappOpen(false)}>
-          <DialogContent className="max-w-sm">
+          <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-sm overflow-hidden">
             <DialogHeader>
               <DialogTitle>Enviar ticket por WhatsApp</DialogTitle>
               <p className="text-sm text-muted-foreground">
@@ -1797,7 +1797,7 @@ export function AdminDashboard({ currentUserId }: AdminDashboardProps = {}) {
 
         {/* Diálogo: registrar pago abono (meses + ref + captura opcional) */}
         <Dialog open={!!renovarAbonoDialog} onOpenChange={(open) => !open && (setRenovarAbonoDialog(null), setRenovarCapturaFile(null))}>
-          <DialogContent className="max-w-sm">
+          <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-sm overflow-hidden">
             <DialogHeader>
               <DialogTitle>Registrar pago de mensualidad</DialogTitle>
               <p className="text-sm text-muted-foreground">
@@ -1892,7 +1892,7 @@ export function AdminDashboard({ currentUserId }: AdminDashboardProps = {}) {
 
         {/* Vista previa captura del pago */}
         <Dialog open={!!verCapturaUrl} onOpenChange={(open) => !open && setVerCapturaUrl(null)}>
-          <DialogContent className="max-w-lg max-h-[90vh] overflow-auto">
+          <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg max-h-[90vh] overflow-auto">
             <DialogHeader>
               <DialogTitle>Captura del pago</DialogTitle>
             </DialogHeader>
@@ -1906,10 +1906,10 @@ export function AdminDashboard({ currentUserId }: AdminDashboardProps = {}) {
 
         {/* Confirmar eliminar servicio - siempre en DOM */}
         <AlertDialog open={!!deletingServicioId} onOpenChange={(open) => !open && setDeletingServicioId(null)}>
-          <AlertDialogContent>
+          <AlertDialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg">
             <AlertDialogHeader>
-              <AlertDialogTitle>¿Eliminar registro de servicio?</AlertDialogTitle>
-              <AlertDialogDescription>
+              <AlertDialogTitle className="break-words">¿Eliminar registro de servicio?</AlertDialogTitle>
+              <AlertDialogDescription className="break-words">
                 Esta acción es irreversible. El registro no podrá recuperarse y se eliminará de la base de datos de forma permanente. Tampoco volverá a aparecer en los reportes ni en ninguna consulta. ¿Está seguro de que desea continuar?
               </AlertDialogDescription>
             </AlertDialogHeader>
