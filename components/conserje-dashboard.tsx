@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { QuickRegister } from '@/components/quick-register'
 import { VehicleCard } from '@/components/vehicle-card'
 import { ValidationModal } from '@/components/validation-modal'
-import { getServiciosActivos, getConfiguracion, logoutAdmin, getAbonadosVencidos, getAbonadosPorVencer, renovarAbono, cancelarAbono, getServiciosPagadosFiltrados, getMesesConServicios } from '@/app/actions'
+import { getServiciosActivos, getConfiguracion, logoutAdmin, getAbonadosVencidos, getAbonadosPorVencer, renovarAbono, cancelarAbono, getServiciosPagadosFiltrados, getMesesConServicios, actualizarVehiculo } from '@/app/actions'
 import { abonoVigente, formatCurrency, formatMesAno, montoServicioParaMostrar, tiempoRestanteAbono } from '@/lib/billing'
 import type { ServicioConVehiculo, Configuracion, Vehiculo } from '@/lib/types'
 import { Car, RefreshCw, LogOut, AlertTriangle, Info, CalendarCheck, Loader2, Star, XCircle } from 'lucide-react'
@@ -48,6 +48,10 @@ export function ConserjeDashboard() {
   const [abonadosPorVencer, setAbonadosPorVencer] = useState<Vehiculo[]>([])
   const [serviciosHoy, setServiciosHoy] = useState<ServicioConVehiculo[]>([])
   const [servicioDetalle, setServicioDetalle] = useState<ServicioConVehiculo | null>(null)
+  const [whatsappOpen, setWhatsappOpen] = useState(false)
+  const [whatsappOpcion, setWhatsappOpcion] = useState<'guardado' | 'nuevo'>('guardado')
+  const [whatsappPhone, setWhatsappPhone] = useState('')
+  const [whatsappSaving, setWhatsappSaving] = useState(false)
   const [filtroPlacaApellido, setFiltroPlacaApellido] = useState('')
   const [filtroTipoServicios, setFiltroTipoServicios] = useState<'visitante' | 'residente' | 'abonado' | ''>('')
   const [filtroPeriodoServicios, setFiltroPeriodoServicios] = useState<string>('')
@@ -132,6 +136,41 @@ export function ConserjeDashboard() {
   const handleSalir = async () => {
     await logoutAdmin()
     window.location.href = '/'
+  }
+
+  const handleAbrirWhatsApp = () => {
+    if (!servicioDetalle) return
+    const guardado = servicioDetalle.vehiculo?.telefono_contacto?.trim()
+    if (guardado) {
+      setWhatsappOpcion('guardado')
+      setWhatsappPhone(guardado)
+    } else {
+      setWhatsappOpcion('nuevo')
+      setWhatsappPhone('')
+    }
+    setWhatsappOpen(true)
+  }
+
+  const handleEnviarWhatsAppServicio = async () => {
+    if (!servicioDetalle?.vehiculo) return
+    const numero = whatsappOpcion === 'guardado' && servicioDetalle.vehiculo.telefono_contacto
+      ? normalizarTelefonoWhatsApp(servicioDetalle.vehiculo.telefono_contacto)
+      : normalizarTelefonoWhatsApp(whatsappPhone)
+    setWhatsappSaving(true)
+    try {
+      if (numero && whatsappOpcion === 'nuevo') {
+        await actualizarVehiculo(servicioDetalle.vehiculo.id, { telefono_contacto: numero })
+      }
+      const texto = buildTicketTexto(servicioDetalle)
+      const url = numero
+        ? `https://wa.me/${numero}?text=${encodeURIComponent(texto)}`
+        : `https://wa.me/?text=${encodeURIComponent(texto)}`
+      window.open(url, '_blank')
+      setWhatsappOpen(false)
+      loadData()
+    } finally {
+      setWhatsappSaving(false)
+    }
   }
 
   const buildTicketTexto = (servicio: ServicioConVehiculo): string => {
@@ -800,22 +839,81 @@ export function ConserjeDashboard() {
                 <Button
                   variant="default"
                   size="sm"
-                  onClick={() => {
-                    const texto = buildTicketTexto(servicioDetalle)
-                    const telefono = servicioDetalle.vehiculo?.telefono_contacto
-                      ? normalizarTelefonoWhatsApp(servicioDetalle.vehiculo.telefono_contacto)
-                      : ''
-                    const url = telefono
-                      ? `https://wa.me/${telefono}?text=${encodeURIComponent(texto)}`
-                      : `https://wa.me/?text=${encodeURIComponent(texto)}`
-                    window.open(url, '_blank')
-                  }}
+                  onClick={handleAbrirWhatsApp}
                 >
                   Enviar por WhatsApp
                 </Button>
               </DialogFooter>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo: número para enviar ticket por WhatsApp */}
+      <Dialog open={whatsappOpen} onOpenChange={(open) => !open && setWhatsappOpen(false)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Enviar ticket por WhatsApp</DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              {servicioDetalle?.vehiculo?.telefono_contacto
+                ? 'Elija enviar al número ya registrado o ingrese uno nuevo (se guardará para futuras consultas).'
+                : 'Ingrese el número al que enviar el mensaje. Se guardará para futuras consultas y reportes.'}
+            </p>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            {servicioDetalle?.vehiculo?.telefono_contacto ? (
+              <>
+                <div className="space-y-2">
+                  <Label>Destino</Label>
+                  <Select value={whatsappOpcion} onValueChange={(v) => setWhatsappOpcion(v as 'guardado' | 'nuevo')} disabled={whatsappSaving}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="guardado">
+                        Enviar al número registrado ({servicioDetalle.vehiculo.telefono_contacto})
+                      </SelectItem>
+                      <SelectItem value="nuevo">Usar otro número</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {whatsappOpcion === 'nuevo' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="whatsapp-phone-conserje">Número (ej: 987 654 321)</Label>
+                    <Input
+                      id="whatsapp-phone-conserje"
+                      type="tel"
+                      value={whatsappPhone}
+                      onChange={(e) => setWhatsappPhone(e.target.value)}
+                      placeholder="987654321"
+                      disabled={whatsappSaving}
+                    />
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="whatsapp-phone-conserje">Número (ej: 987 654 321)</Label>
+                <Input
+                  id="whatsapp-phone-conserje"
+                  type="tel"
+                  value={whatsappPhone}
+                  onChange={(e) => setWhatsappPhone(e.target.value)}
+                  placeholder="987654321"
+                  disabled={whatsappSaving}
+                />
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setWhatsappOpen(false)} disabled={whatsappSaving}>
+              Cancelar
+            </Button>
+            <Button onClick={handleEnviarWhatsAppServicio} disabled={whatsappSaving}>
+              {whatsappSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Enviar
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
