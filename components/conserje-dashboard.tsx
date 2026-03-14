@@ -309,29 +309,29 @@ export function ConserjeDashboard() {
         {(abonadosVencidos.length > 0 || abonadosPorVencer.length > 0) && (
           <div
             id="abonados-alertas-conserje"
-            className="border border-amber-500/40 bg-amber-500/5 rounded-lg p-3 sm:p-4 space-y-2"
+            className="border border-amber-500/40 bg-amber-500/5 rounded-lg p-3 sm:p-4 space-y-2 overflow-hidden"
           >
-            <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
-              <AlertTriangle className="h-4 w-4" />
-              <p className="font-medium text-sm">Alertas de abonados (próximos a vencer o vencidos)</p>
+            <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 min-w-0">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <p className="font-medium text-sm break-words min-w-0">Alertas de abonados (próximos a vencer o vencidos)</p>
             </div>
             <ul className="space-y-1 text-sm">
               {abonadosPorVencer.map((v) => (
-                <li key={v.id} className="flex flex-wrap items-center gap-2 justify-between">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono font-medium">{v.placa || 'Sin placa'}</span>
+                <li key={v.id} className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-2 overflow-hidden py-1.5">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 flex-1">
+                    <span className="font-mono font-medium truncate max-w-[100px] sm:max-w-none">{v.placa || 'Sin placa'}</span>
                     {(v.nombre_propietario || v.apellido_propietario) && (
-                      <span className="text-muted-foreground">
+                      <span className="text-muted-foreground truncate min-w-0 max-w-[120px] sm:max-w-none">
                         {[v.nombre_propietario, v.apellido_propietario].filter(Boolean).join(' ')}
                       </span>
                     )}
                     {v.vigencia_abono_hasta && (
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
                         Vence: {v.vigencia_abono_hasta}
                       </span>
                     )}
                   </div>
-                  <div className="flex flex-wrap gap-1">
+                  <div className="flex flex-wrap gap-1 flex-shrink-0">
                     <Button
                       type="button"
                       variant="outline"
@@ -387,21 +387,21 @@ export function ConserjeDashboard() {
                 </li>
               ))}
               {abonadosVencidos.map((v) => (
-                <li key={v.id} className="flex flex-wrap items-center gap-2 justify-between">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono font-medium">{v.placa || 'Sin placa'}</span>
+                <li key={v.id} className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-2 overflow-hidden py-1.5">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 flex-1">
+                    <span className="font-mono font-medium truncate max-w-[100px] sm:max-w-none">{v.placa || 'Sin placa'}</span>
                     {(v.nombre_propietario || v.apellido_propietario) && (
-                      <span className="text-muted-foreground">
+                      <span className="text-muted-foreground truncate min-w-0 max-w-[120px] sm:max-w-none">
                         {[v.nombre_propietario, v.apellido_propietario].filter(Boolean).join(' ')}
                       </span>
                     )}
                     {v.vigencia_abono_hasta && (
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
                         Vencido desde: {v.vigencia_abono_hasta}
                       </span>
                     )}
                   </div>
-                  <div className="flex flex-wrap gap-1">
+                  <div className="flex flex-wrap gap-1 flex-shrink-0">
                     <Button
                       type="button"
                       variant="outline"

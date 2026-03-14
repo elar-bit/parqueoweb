@@ -740,32 +740,32 @@ export function AdminDashboard({ currentUserId }: AdminDashboardProps = {}) {
       <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-6">
         {/* 1. Alertas de abonados */}
         {(abonadosVencidos.length > 0 || abonadosPorVencer.length > 0) && (
-          <Card className="border-amber-500/50 bg-amber-500/5" id="abonados-alertas">
-            <CardHeader>
-              <CardTitle className="text-foreground flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-amber-600" />
-                Alertas de abonados
+          <Card className="border-amber-500/50 bg-amber-500/5 overflow-hidden" id="abonados-alertas">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-foreground flex items-center gap-2 text-base sm:text-lg">
+                <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600" />
+                <span className="break-words">Alertas de abonados</span>
               </CardTitle>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground break-words">
                 Abonados con mensualidad vencida o que vence en los próximos 7 días.
               </p>
             </CardHeader>
-            <CardContent>
+            <CardContent className="overflow-hidden px-3 sm:px-6">
               <ul className="space-y-2">
                 {abonadosPorVencer.map((v) => (
-                  <li key={v.id} className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-lg bg-background/80">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="font-mono font-medium">{v.placa || 'Sin placa'}</span>
+                  <li key={v.id} className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-2 p-2 rounded-lg bg-background/80 overflow-hidden">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 flex-1">
+                      <span className="font-mono font-medium truncate max-w-[120px] sm:max-w-none">{v.placa || 'Sin placa'}</span>
                       {(v.nombre_propietario || v.apellido_propietario) && (
-                        <span className="text-sm text-muted-foreground truncate">
+                        <span className="text-sm text-muted-foreground truncate min-w-0 max-w-[140px] sm:max-w-none">
                           {[v.nombre_propietario, v.apellido_propietario].filter(Boolean).join(' ')}
                         </span>
                       )}
                       {v.vigencia_abono_hasta && (
-                        <span className="text-xs text-muted-foreground">Vence: {v.vigencia_abono_hasta}</span>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">Vence: {v.vigencia_abono_hasta}</span>
                       )}
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
                       <Button
                         type="button"
                         size="sm"
@@ -819,24 +819,24 @@ export function AdminDashboard({ currentUserId }: AdminDashboardProps = {}) {
                   </li>
                 ))}
                 {abonadosVencidos.map((v) => (
-                  <li key={v.id} className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-lg bg-background/80">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="font-mono font-medium">{v.placa || 'Sin placa'}</span>
+                  <li key={v.id} className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-2 p-2 rounded-lg bg-background/80 overflow-hidden">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 flex-1">
+                      <span className="font-mono font-medium truncate max-w-[120px] sm:max-w-none">{v.placa || 'Sin placa'}</span>
                       {(v.nombre_propietario || v.apellido_propietario) && (
-                        <span className="text-sm text-muted-foreground truncate">
+                        <span className="text-sm text-muted-foreground truncate min-w-0 max-w-[140px] sm:max-w-none">
                           {[v.nombre_propietario, v.apellido_propietario].filter(Boolean).join(' ')}
                         </span>
                       )}
                       {v.vigencia_abono_hasta && (
-                        <span className="text-xs text-muted-foreground">Vencía: {v.vigencia_abono_hasta}</span>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">Vencía: {v.vigencia_abono_hasta}</span>
                       )}
                       {v.captura_pago_abono && (
-                        <Button type="button" variant="ghost" size="sm" className="h-7 text-xs text-primary" onClick={() => setVerCapturaUrl(v.captura_pago_abono ?? null)}>
+                        <Button type="button" variant="ghost" size="sm" className="h-7 text-xs text-primary shrink-0" onClick={() => setVerCapturaUrl(v.captura_pago_abono ?? null)}>
                           Ver captura
                         </Button>
                       )}
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
                       <Button
                         type="button"
                         size="sm"
