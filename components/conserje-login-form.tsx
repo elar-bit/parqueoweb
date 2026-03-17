@@ -14,6 +14,7 @@ import { LoginCarAnimation } from '@/components/login-car-animation'
 type ConserjeLoginFormProps = { slug?: string }
 
 export function ConserjeLoginForm({ slug }: ConserjeLoginFormProps) {
+  const [usuario, setUsuario] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -24,7 +25,7 @@ export function ConserjeLoginForm({ slug }: ConserjeLoginFormProps) {
     setError('')
     setLoading(true)
     try {
-      const result = await loginUsuario('conserje', password, { soloAdmin: false, ...(slug && { slug }) })
+      const result = await loginUsuario(usuario.trim(), password, { soloAdmin: false, ...(slug && { slug }) })
       if (result.ok) {
         router.refresh()
       } else {
@@ -59,9 +60,10 @@ export function ConserjeLoginForm({ slug }: ConserjeLoginFormProps) {
               <Input
                 id="usuario"
                 type="text"
-                value="conserje"
-                readOnly
-                className="bg-muted font-mono"
+                value={usuario}
+                onChange={(e) => setUsuario(e.target.value)}
+                placeholder="Su usuario de conserje"
+                autoComplete="username"
                 disabled={loading}
               />
             </div>
@@ -80,7 +82,7 @@ export function ConserjeLoginForm({ slug }: ConserjeLoginFormProps) {
             {error && (
               <p className="text-sm text-destructive">{error}</p>
             )}
-            <Button type="submit" className="w-full" disabled={loading || !password.trim()}>
+            <Button type="submit" className="w-full" disabled={loading || !usuario.trim() || !password.trim()}>
               {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Entrar
             </Button>
