@@ -1,12 +1,5 @@
-import { getAdminAuth, getSession } from '@/app/actions'
-import { AdminLoginForm } from '@/components/admin-login-form'
-import { AdminDashboard } from '@/components/admin-dashboard'
+import { redirect } from 'next/navigation'
 
-export default async function AdminPage() {
-  const autenticado = await getAdminAuth()
-  if (!autenticado) {
-    return <AdminLoginForm />
-  }
-  const session = await getSession()
-  return <AdminDashboard currentUserId={session?.userId ?? null} />
+export default function AdminPage() {
+  redirect('/default/admin')
 }

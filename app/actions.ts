@@ -6,6 +6,7 @@ import { cookies } from 'next/headers'
 import { createHmac } from 'crypto'
 import { hash, compare } from 'bcryptjs'
 import { calculateBilling, abonoVigente, calcularTotalAbonado, montoServicioParaMostrar } from '@/lib/billing'
+import { slugFromNombre, diasRestantesTrial, isCuentaActiva, type Cuenta } from '@/lib/tenant'
 import type { Configuracion, ServicioConVehiculo, Vehiculo } from '@/lib/types'
 
 const SESSION_COOKIE_NAME = 'parqueo_session'
@@ -13,20 +14,30 @@ const DEFAULT_ADMIN_USER = 'admin'
 const DEFAULT_ADMIN_PASS = 'admin'
 const DEFAULT_CONSERJE_USER = 'conserje'
 const DEFAULT_CONSERJE_PASS = 'conserje'
+/** Contraseña por defecto del admin creado en cada cuenta freemium y del superadmin. */
+const TENANT_DEFAULT_ADMIN_PASS = 'perucampeon'
+const SUPERADMIN_USER = 'admin'
+const SUPERADMIN_PASS = 'perucampeon'
 
-// Cambio mínimo sin impacto funcional para forzar diff en Git
+export type SessionPayload = {
+  userId: string
+  role: string
+  cuentaId?: string
+  slug?: string
+  isSuperadmin?: boolean
+}
 
-function signSession(payload: { userId: string; role: string }): string {
+function signSession(payload: SessionPayload): string {
   const secret = process.env.SESSION_SECRET || 'parqueo-secret-change-in-production'
   const data = JSON.stringify(payload)
   return createHmac('sha256', secret).update(data).digest('hex') + '.' + Buffer.from(data).toString('base64')
 }
 
-function verifySession(token: string): { userId: string; role: string } | null {
+function verifySession(token: string): SessionPayload | null {
   try {
     const [sig, dataB64] = token.split('.')
     if (!sig || !dataB64) return null
-    const payload = JSON.parse(Buffer.from(dataB64, 'base64').toString()) as { userId: string; role: string }
+    const payload = JSON.parse(Buffer.from(dataB64, 'base64').toString()) as SessionPayload
     const expected = signSession(payload)
     if (expected !== token) return null
     return payload
@@ -35,24 +46,60 @@ function verifySession(token: string): { userId: string; role: string } | null {
   }
 }
 
-export async function getAdminAuth(): Promise<boolean> {
-  const session = await getSession()
-  return session?.role === 'admin'
-}
-
-export async function getSession(): Promise<{ userId: string; role: string } | null> {
+export async function getSession(): Promise<SessionPayload | null> {
   const cookieStore = await cookies()
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value
   if (!token) return null
   return verifySession(token)
 }
 
+/** Devuelve el cuenta_id del tenant actual (null si es superadmin o no hay sesión tenant). */
+export async function getCuentaIdFromSession(): Promise<string | null> {
+  const session = await getSession()
+  return session?.cuentaId ?? null
+}
+
+/** Exige sesión con tenant; lanza si no hay cuentaId. Usar en acciones que deben ejecutarse en contexto tenant. */
+async function requireCuentaId(): Promise<string> {
+  const cuentaId = await getCuentaIdFromSession()
+  if (!cuentaId) throw new Error('No autorizado: se requiere sesión de cuenta')
+  return cuentaId
+}
+
+async function revalidateTenantPaths() {
+  const session = await getSession()
+  if (session?.slug) {
+    revalidatePath(`/${session.slug}/admin`)
+    revalidatePath(`/${session.slug}/conserje`)
+  } else {
+    revalidateTenantPaths()
+  }
+}
+
+export async function getAdminAuth(): Promise<boolean> {
+  const session = await getSession()
+  return session?.role === 'admin' && !session?.isSuperadmin
+}
+
+export async function getSuperadminAuth(): Promise<boolean> {
+  const session = await getSession()
+  return session?.isSuperadmin === true
+}
+
+async function getDefaultCuentaId(supabase: Awaited<ReturnType<typeof createClient>>): Promise<string | null> {
+  const { data } = await supabase.from('cuentas').select('id').eq('slug', 'default').limit(1).single()
+  return data?.id ?? null
+}
+
 async function ensureDefaultAdmin(supabase: Awaited<ReturnType<typeof createClient>>) {
   try {
-    const { data: existing } = await supabase.from('usuarios').select('id').eq('usuario', DEFAULT_ADMIN_USER).single()
+    const cuentaId = await getDefaultCuentaId(supabase)
+    if (!cuentaId) return
+    const { data: existing } = await supabase.from('usuarios').select('id').eq('cuenta_id', cuentaId).eq('usuario', DEFAULT_ADMIN_USER).single()
     if (existing) return
     const password_hash = await hash(DEFAULT_ADMIN_PASS, 10)
     await supabase.from('usuarios').insert({
+      cuenta_id: cuentaId,
       nombre: 'Admin',
       apellido: 'Sistema',
       usuario: DEFAULT_ADMIN_USER,
@@ -66,10 +113,13 @@ async function ensureDefaultAdmin(supabase: Awaited<ReturnType<typeof createClie
 
 async function ensureDefaultConserje(supabase: Awaited<ReturnType<typeof createClient>>) {
   try {
-    const { data: existing } = await supabase.from('usuarios').select('id, password_hash').eq('usuario', DEFAULT_CONSERJE_USER).single()
+    const cuentaId = await getDefaultCuentaId(supabase)
+    if (!cuentaId) return
+    const { data: existing } = await supabase.from('usuarios').select('id, password_hash').eq('cuenta_id', cuentaId).eq('usuario', DEFAULT_CONSERJE_USER).single()
     const newHash = await hash(DEFAULT_CONSERJE_PASS, 10)
     if (!existing) {
       await supabase.from('usuarios').insert({
+        cuenta_id: cuentaId,
         nombre: 'Conserje',
         apellido: 'Sistema',
         usuario: DEFAULT_CONSERJE_USER,
@@ -87,27 +137,206 @@ async function ensureDefaultConserje(supabase: Awaited<ReturnType<typeof createC
   }
 }
 
+/** Obtiene cuenta por slug (para validar URL y estado). Si la prueba venció, actualiza estado a suspendido. */
+export async function getCuentaBySlug(slug: string): Promise<Cuenta | null> {
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('cuentas')
+      .select('*')
+      .eq('slug', slug)
+      .single()
+    if (error || !data) return null
+    const cuenta = data as Cuenta
+    if (cuenta.estado === 'activo' && diasRestantesTrial(cuenta.fecha_creacion) < 0) {
+      await supabase.from('cuentas').update({ estado: 'suspendido' }).eq('id', cuenta.id)
+      cuenta.estado = 'suspendido'
+    }
+    return cuenta
+  } catch {
+    return null
+  }
+}
+
+/** Obtiene la cuenta actual del usuario en sesión (tenant). */
+export async function getCuentaActual(): Promise<Cuenta | null> {
+  const session = await getSession()
+  if (!session?.cuentaId) return null
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase.from('cuentas').select('*').eq('id', session.cuentaId).single()
+    if (error || !data) return null
+    return data as Cuenta
+  } catch {
+    return null
+  }
+}
+
+/** Lista todas las cuentas (solo superadmin). */
+export async function getCuentas(filtro?: 'activas' | 'suspendidas' | 'por_vencer' | 'vencidas'): Promise<Cuenta[]> {
+  const ok = await getSuperadminAuth()
+  if (!ok) return []
+  try {
+    const supabase = await createClient()
+    let q = supabase.from('cuentas').select('*').order('fecha_creacion', { ascending: false })
+    if (filtro === 'activas') q = q.eq('estado', 'activo')
+    if (filtro === 'suspendidas') q = q.eq('estado', 'suspendido')
+    const { data, error } = await q
+    if (error) return []
+    let list = (data || []) as Cuenta[]
+    if (filtro === 'por_vencer') list = list.filter((c) => c.estado === 'activo' && diasRestantesTrial(c.fecha_creacion) <= 2 && diasRestantesTrial(c.fecha_creacion) >= 1)
+    if (filtro === 'vencidas') list = list.filter((c) => diasRestantesTrial(c.fecha_creacion) < 0 || c.estado === 'suspendido')
+    return list
+  } catch {
+    return []
+  }
+}
+
+/** Actualiza estado de una cuenta (solo superadmin). */
+export async function updateCuentaEstado(cuentaId: string, estado: 'activo' | 'suspendido'): Promise<{ ok: boolean; error?: string }> {
+  if (!(await getSuperadminAuth())) return { ok: false, error: 'No autorizado' }
+  try {
+    const supabase = await createClient()
+    const { error } = await supabase.from('cuentas').update({ estado }).eq('id', cuentaId)
+    if (error) return { ok: false, error: error.message }
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: String(e) }
+  }
+}
+
+/** Crea cuenta freemium y usuario admin por defecto (admin/perucampeon). Devuelve slug para redirigir. */
+export async function crearCuentaFreemium(
+  nombreCuenta: string,
+  nombreAdmin: string,
+  apellidoAdmin: string
+): Promise<{ ok: boolean; slug?: string; error?: string }> {
+  const nombre = (nombreCuenta || '').trim()
+  const nom = (nombreAdmin || '').trim()
+  const ape = (apellidoAdmin || '').trim()
+  if (!nombre || !nom || !ape) return { ok: false, error: 'Complete todos los campos' }
+  let slug = slugFromNombre(nombre)
+  try {
+    const supabase = await createClient()
+    const { data: existSlug } = await supabase.from('cuentas').select('id').eq('slug', slug).maybeSingle()
+    if (existSlug) {
+      let i = 1
+      while (true) {
+        const candidate = `${slug}-${i}`
+        const { data: ex } = await supabase.from('cuentas').select('id').eq('slug', candidate).maybeSingle()
+        if (!ex) { slug = candidate; break }
+        i++
+      }
+    }
+    const { data: cuenta, error: errCuenta } = await supabase
+      .from('cuentas')
+      .insert({
+        nombre_cuenta: nombre,
+        slug,
+        nombre_admin: nom,
+        apellido_admin: ape,
+        estado: 'activo',
+      })
+      .select('id')
+      .single()
+    if (errCuenta || !cuenta) return { ok: false, error: errCuenta?.message || 'Error al crear la cuenta' }
+    const cuentaId = cuenta.id
+    const password_hash = await hash(TENANT_DEFAULT_ADMIN_PASS, 10)
+    const { error: errUser } = await supabase.from('usuarios').insert({
+      cuenta_id: cuentaId,
+      nombre: nom,
+      apellido: ape,
+      usuario: DEFAULT_ADMIN_USER,
+      password_hash,
+      rol: 'admin',
+    })
+    if (errUser) {
+      await supabase.from('cuentas').delete().eq('id', cuentaId)
+      return { ok: false, error: errUser.message }
+    }
+    await supabase.from('configuracion').insert([
+      { cuenta_id: cuentaId, tipo_usuario: 'visitante', precio_hora: 5 },
+      { cuenta_id: cuentaId, tipo_usuario: 'residente', precio_hora: 3 },
+      { cuenta_id: cuentaId, tipo_usuario: 'abonado', precio_hora: 100 },
+    ])
+    return { ok: true, slug }
+  } catch (e) {
+    return { ok: false, error: String(e) }
+  }
+}
+
+/** Login superadmin (solo en ruta /superadmin). Usuario y contraseña: admin / perucampeon. */
+export async function loginSuperadmin(usuario: string, password: string): Promise<{ ok: boolean; error?: string }> {
+  const u = (usuario || '').trim().toLowerCase()
+  const p = password || ''
+  if (u !== SUPERADMIN_USER || p !== SUPERADMIN_PASS) return { ok: false, error: 'Credenciales incorrectas' }
+  const token = signSession({ userId: 'superadmin', role: 'admin', isSuperadmin: true })
+  const cookieStore = await cookies()
+  cookieStore.set(SESSION_COOKIE_NAME, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 60 * 60 * 24,
+    path: '/',
+  })
+  return { ok: true }
+}
+
 export async function loginUsuario(
   usuario: string,
   password: string,
-  options?: { soloAdmin?: boolean }
+  options?: { soloAdmin?: boolean; slug?: string }
 ): Promise<{ ok: boolean; error?: string }> {
   const supabase = await createClient()
   const usuarioNorm = (usuario || '').trim().toLowerCase()
   const passwordNorm = password || ''
 
-  if (usuarioNorm === DEFAULT_ADMIN_USER && passwordNorm === DEFAULT_ADMIN_PASS) {
+  if (options?.slug) {
+    const cuenta = await getCuentaBySlug(options.slug)
+    if (!cuenta) return { ok: false, error: 'Cuenta no encontrada' }
+    if (!isCuentaActiva(cuenta)) return { ok: false, error: 'La cuenta está suspendida o la prueba ha vencido. Contacte al administrador del sistema.' }
+    const { data: user, error } = await supabase
+      .from('usuarios')
+      .select('id, usuario, password_hash, rol, suspendido, cuenta_id')
+      .eq('cuenta_id', cuenta.id)
+      .eq('usuario', usuarioNorm)
+      .single()
+    if (error || !user) return { ok: false, error: 'Usuario o contraseña incorrectos' }
+    if ((user as { suspendido?: boolean }).suspendido) return { ok: false, error: 'Usuario suspendido. Contacte al administrador.' }
+    const validPassword = await compare(passwordNorm, user.password_hash)
+    if (!validPassword) return { ok: false, error: 'Usuario o contraseña incorrectos' }
+    if (options?.soloAdmin && user.rol !== 'admin') return { ok: false, error: 'Solo los administradores pueden acceder al panel.' }
+    const token = signSession({
+      userId: user.id,
+      role: user.rol,
+      cuentaId: cuenta.id,
+      slug: cuenta.slug,
+    })
+    const cookieStore = await cookies()
+    cookieStore.set(SESSION_COOKIE_NAME, token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24,
+      path: '/',
+    })
+    return { ok: true }
+  }
+
+  const defaultCuentaId = await getDefaultCuentaId(supabase)
+  if (usuarioNorm === DEFAULT_ADMIN_USER && passwordNorm === DEFAULT_ADMIN_PASS && defaultCuentaId) {
     await ensureDefaultAdmin(supabase)
   }
-  if (usuarioNorm === DEFAULT_CONSERJE_USER && passwordNorm === DEFAULT_CONSERJE_PASS) {
+  if (usuarioNorm === DEFAULT_CONSERJE_USER && passwordNorm === DEFAULT_CONSERJE_PASS && defaultCuentaId) {
     await ensureDefaultConserje(supabase)
   }
 
-  const { data: user, error } = await supabase
+  const q = supabase
     .from('usuarios')
-    .select('id, usuario, password_hash, rol, suspendido')
+    .select('id, usuario, password_hash, rol, suspendido, cuenta_id')
     .eq('usuario', usuarioNorm)
-    .single()
+  if (defaultCuentaId) q.eq('cuenta_id', defaultCuentaId)
+  const { data: user, error } = await q.single()
 
   if (error || !user) {
     return { ok: false, error: 'Usuario o contraseña incorrectos' }
@@ -126,9 +355,15 @@ export async function loginUsuario(
     return { ok: false, error: 'Solo los administradores pueden acceder al panel.' }
   }
 
-  const token = signSession({ userId: user.id, role: user.rol })
+  const cuentaId = (user as { cuenta_id?: string }).cuenta_id
+  const finalPayload: SessionPayload = { userId: user.id, role: user.rol }
+  if (cuentaId) {
+    finalPayload.cuentaId = cuentaId
+    const { data: c } = await supabase.from('cuentas').select('slug').eq('id', cuentaId).single()
+    if (c) finalPayload.slug = (c as { slug: string }).slug
+  }
   const cookieStore = await cookies()
-  cookieStore.set(SESSION_COOKIE_NAME, token, {
+  cookieStore.set(SESSION_COOKIE_NAME, signSession(finalPayload), {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
@@ -157,10 +392,13 @@ export async function getUsuarios(): Promise<UsuarioRow[]> {
   const authed = await getAdminAuth()
   if (!authed) return []
   try {
+    const cuentaId = await getCuentaIdFromSession()
+    if (!cuentaId) return []
     const supabase = await createClient()
     const { data, error } = await supabase
       .from('usuarios')
       .select('id, nombre, apellido, usuario, rol, suspendido, created_at')
+      .eq('cuenta_id', cuentaId)
       .order('usuario')
     if (error) {
       console.error('getUsuarios error:', error)
@@ -199,12 +437,15 @@ export async function crearUsuario(
   }
 
   try {
+    const cuentaId = await getCuentaIdFromSession()
+    if (!cuentaId) return { ok: false, error: 'No autorizado' }
     const supabase = await createClient()
-    const { data: existing } = await supabase.from('usuarios').select('id').eq('usuario', usuarioTrim).single()
+    const { data: existing } = await supabase.from('usuarios').select('id').eq('cuenta_id', cuentaId).eq('usuario', usuarioTrim).single()
     if (existing) return { ok: false, error: 'El usuario ya existe' }
 
     const password_hash = await hash(passwordTrim, 10)
     const { error } = await supabase.from('usuarios').insert({
+      cuenta_id: cuentaId,
       nombre: nombreTrim,
       apellido: apellidoTrim,
       usuario: usuarioTrim,
@@ -215,7 +456,7 @@ export async function crearUsuario(
       console.error('crearUsuario error:', error)
       return { ok: false, error: error.message }
     }
-    revalidatePath('/admin')
+    revalidateTenantPaths()
     return { ok: true }
   } catch (e) {
     console.error('crearUsuario exception:', e)
@@ -237,16 +478,18 @@ export async function actualizarUsuario(
     if (data.usuario != null) updates.usuario = (data.usuario || '').trim().toLowerCase()
     if (data.rol != null) updates.rol = data.rol
     if (Object.keys(updates).length === 0) return { ok: true }
+    const cuentaId = await getCuentaIdFromSession()
+    if (!cuentaId) return { ok: false, error: 'No autorizado' }
     if (updates.usuario != null) {
-      const { data: existing } = await supabase.from('usuarios').select('id').eq('usuario', updates.usuario).neq('id', id).maybeSingle()
+      const { data: existing } = await supabase.from('usuarios').select('id').eq('cuenta_id', cuentaId).eq('usuario', updates.usuario).neq('id', id).maybeSingle()
       if (existing) return { ok: false, error: 'Ese usuario ya existe' }
     }
-    const { error } = await supabase.from('usuarios').update(updates).eq('id', id)
+    const { error } = await supabase.from('usuarios').update(updates).eq('id', id).eq('cuenta_id', cuentaId)
     if (error) {
       console.error('actualizarUsuario error:', error)
       return { ok: false, error: error.message }
     }
-    revalidatePath('/admin')
+    revalidateTenantPaths()
     return { ok: true }
   } catch (e) {
     console.error('actualizarUsuario exception:', e)
@@ -258,13 +501,15 @@ export async function eliminarUsuario(id: string): Promise<{ ok: boolean; error?
   const authed = await getAdminAuth()
   if (!authed) return { ok: false, error: 'No autorizado' }
   try {
+    const cuentaId = await getCuentaIdFromSession()
+    if (!cuentaId) return { ok: false, error: 'No autorizado' }
     const supabase = await createClient()
-    const { error } = await supabase.from('usuarios').delete().eq('id', id)
+    const { error } = await supabase.from('usuarios').delete().eq('id', id).eq('cuenta_id', cuentaId)
     if (error) {
       console.error('eliminarUsuario error:', error)
       return { ok: false, error: error.message }
     }
-    revalidatePath('/admin')
+    revalidateTenantPaths()
     return { ok: true }
   } catch (e) {
     console.error('eliminarUsuario exception:', e)
@@ -276,13 +521,15 @@ export async function suspenderUsuario(id: string): Promise<{ ok: boolean; error
   const authed = await getAdminAuth()
   if (!authed) return { ok: false, error: 'No autorizado' }
   try {
+    const cuentaId = await getCuentaIdFromSession()
+    if (!cuentaId) return { ok: false, error: 'No autorizado' }
     const supabase = await createClient()
-    const { error } = await supabase.from('usuarios').update({ suspendido: true }).eq('id', id)
+    const { error } = await supabase.from('usuarios').update({ suspendido: true }).eq('id', id).eq('cuenta_id', cuentaId)
     if (error) {
       console.error('suspenderUsuario error:', error)
       return { ok: false, error: error.message }
     }
-    revalidatePath('/admin')
+    revalidateTenantPaths()
     return { ok: true }
   } catch (e) {
     console.error('suspenderUsuario exception:', e)
@@ -294,13 +541,15 @@ export async function reactivarUsuario(id: string): Promise<{ ok: boolean; error
   const authed = await getAdminAuth()
   if (!authed) return { ok: false, error: 'No autorizado' }
   try {
+    const cuentaId = await getCuentaIdFromSession()
+    if (!cuentaId) return { ok: false, error: 'No autorizado' }
     const supabase = await createClient()
-    const { error } = await supabase.from('usuarios').update({ suspendido: false }).eq('id', id)
+    const { error } = await supabase.from('usuarios').update({ suspendido: false }).eq('id', id).eq('cuenta_id', cuentaId)
     if (error) {
       console.error('reactivarUsuario error:', error)
       return { ok: false, error: error.message }
     }
-    revalidatePath('/admin')
+    revalidateTenantPaths()
     return { ok: true }
   } catch (e) {
     console.error('reactivarUsuario exception:', e)
@@ -314,14 +563,16 @@ export async function resetearPasswordUsuario(id: string, nuevaPassword: string)
   const pass = (nuevaPassword || '').trim()
   if (pass.length < 4) return { ok: false, error: 'La contraseña debe tener al menos 4 caracteres' }
   try {
+    const cuentaId = await getCuentaIdFromSession()
+    if (!cuentaId) return { ok: false, error: 'No autorizado' }
     const supabase = await createClient()
     const password_hash = await hash(pass, 10)
-    const { error } = await supabase.from('usuarios').update({ password_hash }).eq('id', id)
+    const { error } = await supabase.from('usuarios').update({ password_hash }).eq('id', id).eq('cuenta_id', cuentaId)
     if (error) {
       console.error('resetearPasswordUsuario error:', error)
       return { ok: false, error: error.message }
     }
-    revalidatePath('/admin')
+    revalidateTenantPaths()
     return { ok: true }
   } catch (e) {
     console.error('resetearPasswordUsuario exception:', e)
@@ -333,14 +584,15 @@ export async function eliminarServicio(id: string): Promise<{ ok: boolean; error
   const authed = await getAdminAuth()
   if (!authed) return { ok: false, error: 'No autorizado' }
   try {
+    const cuentaId = await getCuentaIdFromSession()
+    if (!cuentaId) return { ok: false, error: 'No autorizado' }
     const supabase = await createClient()
-    const { error } = await supabase.from('servicios').delete().eq('id', id)
+    const { error } = await supabase.from('servicios').delete().eq('id', id).eq('cuenta_id', cuentaId)
     if (error) {
       console.error('eliminarServicio error:', error)
       return { ok: false, error: error.message }
     }
-    revalidatePath('/admin')
-    revalidatePath('/conserje')
+    revalidateTenantPaths()
     return { ok: true }
   } catch (e) {
     console.error('eliminarServicio exception:', e)
@@ -350,11 +602,13 @@ export async function eliminarServicio(id: string): Promise<{ ok: boolean; error
 
 export async function getConfiguracion(): Promise<Configuracion[]> {
   try {
+    const cuentaId = await getCuentaIdFromSession()
+    if (!cuentaId) return []
     const supabase = await createClient()
     const { data, error } = await supabase
       .from('configuracion')
       .select('*')
-    
+      .eq('cuenta_id', cuentaId)
     if (error) {
       console.error('[v0] getConfiguracion error:', error)
       return []
@@ -368,6 +622,8 @@ export async function getConfiguracion(): Promise<Configuracion[]> {
 
 export async function getServiciosActivos(): Promise<ServicioConVehiculo[]> {
   try {
+    const cuentaId = await getCuentaIdFromSession()
+    if (!cuentaId) return []
     const supabase = await createClient()
     const { data, error } = await supabase
       .from('servicios')
@@ -375,9 +631,9 @@ export async function getServiciosActivos(): Promise<ServicioConVehiculo[]> {
         *,
         vehiculo:vehiculos(*)
       `)
+      .eq('cuenta_id', cuentaId)
       .eq('estado', 'activo')
       .order('entrada_real', { ascending: false })
-    
     if (error) {
       console.error('[v0] getServiciosActivos error:', error)
       return []
@@ -401,10 +657,13 @@ export type AbonadoOption = ResidenteOption
 
 export async function getPlacasAbonados(): Promise<AbonadoOption[]> {
   try {
+    const cuentaId = await getCuentaIdFromSession()
+    if (!cuentaId) return []
     const supabase = await createClient()
     const { data, error } = await supabase
       .from('vehiculos')
       .select('id, placa, nombre_propietario, apellido_propietario')
+      .eq('cuenta_id', cuentaId)
       .eq('tipo', 'abonado')
       .not('placa', 'is', null)
       .order('placa')
@@ -431,10 +690,13 @@ export async function getPlacasAbonados(): Promise<AbonadoOption[]> {
 
 export async function getPlacasResidentes(): Promise<ResidenteOption[]> {
   try {
+    const cuentaId = await getCuentaIdFromSession()
+    if (!cuentaId) return []
     const supabase = await createClient()
     const { data, error } = await supabase
       .from('vehiculos')
       .select('id, placa, nombre_propietario, apellido_propietario')
+      .eq('cuenta_id', cuentaId)
       .eq('tipo', 'residente')
       .not('placa', 'is', null)
       .order('placa')
@@ -462,10 +724,13 @@ export async function getPlacasResidentes(): Promise<ResidenteOption[]> {
 /** Indica si el vehículo ya tiene una entrada activa (evitar duplicar). */
 export async function tieneEntradaActiva(vehiculoId: string): Promise<boolean> {
   try {
+    const cuentaId = await getCuentaIdFromSession()
+    if (!cuentaId) return false
     const supabase = await createClient()
     const { data, error } = await supabase
       .from('servicios')
       .select('id')
+      .eq('cuenta_id', cuentaId)
       .eq('vehiculo_id', vehiculoId)
       .eq('estado', 'activo')
       .limit(1)
@@ -509,6 +774,8 @@ export async function registrarEntrada(
   vehiculo: Vehiculo
   servicio: { id: string }
 }> {
+  const cuentaId = await getCuentaIdFromSession()
+  if (!cuentaId) throw new Error('No autorizado')
   const supabase = await createClient()
   let vehiculo: Vehiculo
   const tipoReuso = tipo === 'residente' ? 'residente' : tipo === 'abonado' ? 'abonado' : null
@@ -518,6 +785,7 @@ export async function registrarEntrada(
       .from('vehiculos')
       .select('*')
       .eq('id', vehiculoIdExistente)
+      .eq('cuenta_id', cuentaId)
       .eq('tipo', tipoReuso)
       .single()
     if (fetchError || !existing) throw new Error(tipoReuso === 'abonado' ? 'Vehículo abonado no encontrado' : 'Vehículo residente no encontrado')
@@ -542,6 +810,7 @@ export async function registrarEntrada(
     }
   } else {
     const insertPayload: Record<string, unknown> = {
+      cuenta_id: cuentaId,
       tipo,
       placa: placa?.trim() || null,
     }
@@ -587,6 +856,7 @@ export async function registrarEntrada(
 
   const ahoraIso = new Date().toISOString()
   const baseServicio: Record<string, unknown> = {
+    cuenta_id: cuentaId,
     vehiculo_id: vehiculo.id,
     entrada_real: ahoraIso,
   }
@@ -608,7 +878,7 @@ export async function registrarEntrada(
     .single()
 
   if (servicioError) throw servicioError
-  revalidatePath('/conserje')
+  revalidateTenantPaths()
   return { vehiculo, servicio }
 }
 
@@ -626,16 +896,17 @@ export async function actualizarVehiculo(
     captura_pago_abono?: string | null
   }
 ): Promise<void> {
+  const cuentaId = await getCuentaIdFromSession()
+  if (!cuentaId) throw new Error('No autorizado')
   const supabase = await createClient()
-  
   const { error } = await supabase
     .from('vehiculos')
     .update(data)
     .eq('id', vehiculoId)
+    .eq('cuenta_id', cuentaId)
   
   if (error) throw error
-  revalidatePath('/conserje')
-  revalidatePath('/admin')
+  revalidateTenantPaths()
 }
 
 /** Registra pago de mensualidad: extiende vigencia N meses desde fin del periodo anterior (o desde hoy si ya venció). */
@@ -647,11 +918,14 @@ export async function renovarAbono(
     capturaPagoAbono?: string | null
   }
 ): Promise<void> {
+  const cuentaId = await getCuentaIdFromSession()
+  if (!cuentaId) throw new Error('No autorizado')
   const supabase = await createClient()
   const { data: v, error: fetchErr } = await supabase
     .from('vehiculos')
     .select('vigencia_abono_hasta')
     .eq('id', vehiculoId)
+    .eq('cuenta_id', cuentaId)
     .eq('tipo', 'abonado')
     .single()
   if (fetchErr || !v) throw new Error('Vehículo abonado no encontrado')
@@ -685,31 +959,36 @@ export async function renovarAbono(
     .from('vehiculos')
     .update(updatePayload)
     .eq('id', vehiculoId)
+    .eq('cuenta_id', cuentaId)
   if (error) throw error
-  revalidatePath('/conserje')
-  revalidatePath('/admin')
+  revalidateTenantPaths()
 }
 
 /** Cancela la suscripción del abonado: deja de mostrarse en alertas pero se conserva el registro. motivo se muestra en tarjeta y reportes. */
 export async function cancelarAbono(vehiculoId: string, motivo: string): Promise<void> {
+  const cuentaId = await getCuentaIdFromSession()
+  if (!cuentaId) throw new Error('No autorizado')
   const supabase = await createClient()
   const { error } = await supabase
     .from('vehiculos')
     .update({ abono_cancelado: true, motivo_cancelacion_abono: motivo?.trim() || null })
     .eq('id', vehiculoId)
+    .eq('cuenta_id', cuentaId)
     .eq('tipo', 'abonado')
   if (error) throw error
-  revalidatePath('/conserje')
-  revalidatePath('/admin')
+  revalidateTenantPaths()
 }
 
 /** Lista abonados con mensualidad vencida o sin pagar (para alertas). Excluye los que cancelaron suscripción. */
 export async function getAbonadosVencidos(): Promise<Vehiculo[]> {
   try {
+    const cuentaId = await getCuentaIdFromSession()
+    if (!cuentaId) return []
     const supabase = await createClient()
     const { data, error } = await supabase
       .from('vehiculos')
       .select('*')
+      .eq('cuenta_id', cuentaId)
       .eq('tipo', 'abonado')
     if (error) return []
     const hoy = new Date()
@@ -728,10 +1007,13 @@ export async function getAbonadosVencidos(): Promise<Vehiculo[]> {
 /** Lista abonados cuyo abono vence en los próximos `dias` días (por defecto 7). Excluye los que cancelaron suscripción. */
 export async function getAbonadosPorVencer(dias: number = 7): Promise<Vehiculo[]> {
   try {
+    const cuentaId = await getCuentaIdFromSession()
+    if (!cuentaId) return []
     const supabase = await createClient()
     const { data, error } = await supabase
       .from('vehiculos')
       .select('*')
+      .eq('cuenta_id', cuentaId)
       .eq('tipo', 'abonado')
     if (error) return []
     const hoy = new Date()
@@ -759,12 +1041,14 @@ export async function registrarSalida(
   tarifaAplicada: number,
   refPagoYape?: string
 ): Promise<void> {
+  const cuentaId = await getCuentaIdFromSession()
+  if (!cuentaId) throw new Error('No autorizado')
   const supabase = await createClient()
-
   const { data: servicio, error: fetchError } = await supabase
     .from('servicios')
     .select('entrada_real, vehiculo:vehiculos(tipo, vigencia_abono_hasta, monto_ultimo_pago_abono)')
     .eq('id', servicioId)
+    .eq('cuenta_id', cuentaId)
     .eq('estado', 'activo')
     .single()
 
@@ -800,12 +1084,13 @@ export async function registrarSalida(
     .eq('id', servicioId)
 
   if (error) throw error
-  revalidatePath('/conserje')
-  revalidatePath('/admin')
+  revalidateTenantPaths()
 }
 
 export async function getServiciosPagadosHoy(): Promise<ServicioConVehiculo[]> {
   try {
+    const cuentaId = await getCuentaIdFromSession()
+    if (!cuentaId) return []
     const supabase = await createClient()
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -815,6 +1100,7 @@ export async function getServiciosPagadosHoy(): Promise<ServicioConVehiculo[]> {
         *,
         vehiculo:vehiculos(*)
       `)
+      .eq('cuenta_id', cuentaId)
       .eq('estado', 'pagado')
       .gte('salida', today.toISOString())
       .order('salida', { ascending: false })
@@ -838,10 +1124,13 @@ export type FiltrosAdmin = {
 /** Devuelve los meses (YYYY-MM) que tienen al menos un servicio pagado, ordenados descendente (más reciente primero). */
 export async function getMesesConServicios(): Promise<string[]> {
   try {
+    const cuentaId = await getCuentaIdFromSession()
+    if (!cuentaId) return []
     const supabase = await createClient()
     const { data, error } = await supabase
       .from('servicios')
       .select('salida')
+      .eq('cuenta_id', cuentaId)
       .eq('estado', 'pagado')
       .not('salida', 'is', null)
     if (error) {
@@ -866,6 +1155,8 @@ export async function getMesesConServicios(): Promise<string[]> {
 
 export async function getServiciosPagadosFiltrados(filtros: FiltrosAdmin): Promise<ServicioConVehiculo[]> {
   try {
+    const cuentaId = await getCuentaIdFromSession()
+    if (!cuentaId) return []
     const supabase = await createClient()
     let q = supabase
       .from('servicios')
@@ -873,6 +1164,7 @@ export async function getServiciosPagadosFiltrados(filtros: FiltrosAdmin): Promi
         *,
         vehiculo:vehiculos(*)
       `)
+      .eq('cuenta_id', cuentaId)
       .eq('estado', 'pagado')
       .not('salida', 'is', null)
     if (filtros.fechaDesde) {
@@ -953,17 +1245,21 @@ export async function updateConfiguracion(
   precioHora: number
 ): Promise<{ ok: boolean; error?: string }> {
   try {
+    const cuentaId = await getCuentaIdFromSession()
+    if (!cuentaId) return { ok: false, error: 'No autorizado' }
     const supabase = await createClient()
     if (tipoUsuario === 'abonado') {
       const { data: existing } = await supabase
         .from('configuracion')
         .select('id')
+        .eq('cuenta_id', cuentaId)
         .eq('tipo_usuario', 'abonado')
         .maybeSingle()
       if (existing) {
         const { error } = await supabase
           .from('configuracion')
           .update({ precio_hora: precioHora })
+          .eq('cuenta_id', cuentaId)
           .eq('tipo_usuario', 'abonado')
         if (error) {
           console.error('updateConfiguracion error:', error)
@@ -972,7 +1268,7 @@ export async function updateConfiguracion(
       } else {
         const { error } = await supabase
           .from('configuracion')
-          .insert({ tipo_usuario: 'abonado', precio_hora: precioHora })
+          .insert({ cuenta_id: cuentaId, tipo_usuario: 'abonado', precio_hora: precioHora })
         if (error) {
           console.error('updateConfiguracion insert abonado error:', error)
           return { ok: false, error: error.message }
@@ -982,14 +1278,14 @@ export async function updateConfiguracion(
       const { error } = await supabase
         .from('configuracion')
         .update({ precio_hora: precioHora })
+        .eq('cuenta_id', cuentaId)
         .eq('tipo_usuario', tipoUsuario)
       if (error) {
         console.error('updateConfiguracion error:', error)
         return { ok: false, error: error.message }
       }
     }
-    revalidatePath('/admin')
-    revalidatePath('/conserje')
+    revalidateTenantPaths()
     return { ok: true }
   } catch (e) {
     console.error('updateConfiguracion exception:', e)
@@ -1002,15 +1298,16 @@ export async function getIngresosDiarios(dias: number = 7): Promise<{
   total: number
 }[]> {
   try {
+    const cuentaId = await getCuentaIdFromSession()
+    if (!cuentaId) return []
     const supabase = await createClient()
-    
     const startDate = new Date()
     startDate.setDate(startDate.getDate() - dias)
     startDate.setHours(0, 0, 0, 0)
-    
     const { data, error } = await supabase
       .from('servicios')
       .select('salida, total_pagar')
+      .eq('cuenta_id', cuentaId)
       .eq('estado', 'pagado')
       .gte('salida', startDate.toISOString())
       .not('total_pagar', 'is', null)

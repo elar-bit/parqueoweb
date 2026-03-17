@@ -1,8 +1,9 @@
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Car, BarChart3, User } from 'lucide-react'
+import { Car, BarChart3, User, PlusCircle, LogIn } from 'lucide-react'
 import { LoginCarAnimation } from '@/components/login-car-animation'
+import { AccederCuentaForm } from '@/components/acceder-cuenta-form'
 
 export default function HomePage() {
   return (
@@ -17,7 +18,7 @@ export default function HomePage() {
             Sistema de Control de Estacionamiento
           </h1>
           <p className="text-sm sm:text-base text-muted-foreground">
-            ¿Qué tipo de usuario eres?
+            Prueba 5 días gratis. Cree su cuenta o acceda a la existente.
           </p>
         </div>
 
@@ -25,17 +26,49 @@ export default function HomePage() {
           <Card className="border-border hover:border-primary/50 transition-colors">
             <CardHeader>
               <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-2">
+                <PlusCircle className="h-6 w-6 text-primary" />
+              </div>
+              <CardTitle className="text-foreground">Crear cuenta</CardTitle>
+              <CardDescription>
+                Prueba freemium 5 días. Nombre de cuenta y datos del administrador.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild className="w-full" variant="default">
+                <Link href="/registro">Registrarme</Link>
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border hover:border-primary/50 transition-colors">
+            <CardHeader>
+              <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-2">
+                <LogIn className="h-6 w-6 text-primary" />
+              </div>
+              <CardTitle className="text-foreground">Acceder a mi cuenta</CardTitle>
+              <CardDescription>
+                Ingrese el nombre de su cuenta (ej: mi-edificio) para entrar.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <AccederCuentaForm />
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 pt-2">
+          <Card className="border-border hover:border-primary/50 transition-colors">
+            <CardHeader>
+              <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-2">
                 <BarChart3 className="h-6 w-6 text-primary" />
               </div>
               <CardTitle className="text-foreground">Administrador</CardTitle>
               <CardDescription>
-                Acceso con usuario y contraseña
+                Panel admin (usuarios, tarifas, reportes)
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button asChild className="w-full" variant="outline">
-                <Link href="/admin">Entrar</Link>
-              </Button>
+              <p className="text-xs text-muted-foreground mb-2">Acceda desde la opción &quot;Acceder a mi cuenta&quot; arriba.</p>
             </CardContent>
           </Card>
 
@@ -50,12 +83,13 @@ export default function HomePage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button asChild className="w-full">
-                <Link href="/conserje">Entrar</Link>
-              </Button>
+              <p className="text-xs text-muted-foreground mb-2">Acceda desde la opción &quot;Acceder a mi cuenta&quot; arriba.</p>
             </CardContent>
           </Card>
         </div>
+        <p className="text-center text-xs text-muted-foreground pt-4">
+          <Link href="/superadmin" className="hover:underline">Admin del sistema (SaaS)</Link>
+        </p>
       </div>
     </div>
   )

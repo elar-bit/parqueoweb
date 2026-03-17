@@ -10,7 +10,9 @@ import { loginUsuario } from '@/app/actions'
 import { Lock, Loader2, Home } from 'lucide-react'
 import { LoginCarAnimation } from '@/components/login-car-animation'
 
-export function AdminLoginForm() {
+type AdminLoginFormProps = { slug?: string }
+
+export function AdminLoginForm({ slug }: AdminLoginFormProps) {
   const [usuario, setUsuario] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -21,7 +23,7 @@ export function AdminLoginForm() {
     setError('')
     setLoading(true)
     try {
-      const result = await loginUsuario(usuario, password, { soloAdmin: true })
+      const result = await loginUsuario(usuario, password, { soloAdmin: true, ...(slug && { slug }) })
       if (result.ok) {
         window.location.reload()
       } else {

@@ -63,9 +63,9 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 
-type AdminDashboardProps = { currentUserId?: string | null }
+type AdminDashboardProps = { currentUserId?: string | null; trialDiasRestantes?: number; slug?: string }
 
-export function AdminDashboard({ currentUserId }: AdminDashboardProps = {}) {
+export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: AdminDashboardProps = {}) {
   const [activeCount, setActiveCount] = useState(0)
   const [chartData, setChartData] = useState<{ fecha: string; total: number }[]>([])
   const [chartDataConTipo, setChartDataConTipo] = useState<{ fecha: string; visitantes: number; residentes: number }[]>([])
@@ -726,7 +726,7 @@ export function AdminDashboard({ currentUserId }: AdminDashboardProps = {}) {
                 <span className="hidden sm:inline">Actualizar</span>
               </Button>
               <Button variant="ghost" size="sm" asChild className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0">
-                <Link href="/conserje">Conserje</Link>
+                <Link href={slug ? `/${slug}/conserje` : '/conserje'}>Conserje</Link>
               </Button>
               <Button variant="ghost" size="sm" onClick={handleLogout} className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0">
                 <LogOut className="h-4 w-4 sm:mr-2" />
@@ -736,6 +736,17 @@ export function AdminDashboard({ currentUserId }: AdminDashboardProps = {}) {
           </div>
         </div>
       </header>
+
+      {trialDiasRestantes !== undefined && trialDiasRestantes >= 1 && trialDiasRestantes <= 2 && (
+        <div className="container mx-auto px-3 sm:px-4 pt-3">
+          <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 px-4 py-3 flex items-center gap-3">
+            <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600" />
+            <p className="text-sm text-amber-800 dark:text-amber-200">
+              Su prueba gratuita vence en {trialDiasRestantes} día{trialDiasRestantes !== 1 ? 's' : ''}. Contacte al administrador del sistema para activar su suscripción.
+            </p>
+          </div>
+        </div>
+      )}
 
       <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-6">
         {/* 1. Alertas de abonados */}
