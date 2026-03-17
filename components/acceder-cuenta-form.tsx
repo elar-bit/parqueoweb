@@ -44,27 +44,18 @@ export function AccederCuentaForm() {
     >
       <div className="space-y-2">
         <Label htmlFor="slug">Nombre de la cuenta</Label>
-        <Tooltip open={!!error}>
-          <TooltipTrigger asChild>
-            <Input
-              id="slug"
-              type="text"
-              value={slug}
-              onChange={(e) => {
-                setSlug(e.target.value)
-                if (error) setError('')
-              }}
-              placeholder="mi-edificio"
-              aria-invalid={!!error}
-              required
-            />
-          </TooltipTrigger>
-          {error && (
-            <TooltipContent side="top" className="max-w-[240px]">
-              {error}
-            </TooltipContent>
-          )}
-        </Tooltip>
+        <Input
+          id="slug"
+          type="text"
+          value={slug}
+          onChange={(e) => {
+            setSlug(e.target.value)
+            if (error) setError('')
+          }}
+          placeholder="mi-edificio"
+          aria-invalid={!!error}
+          required
+        />
         <p className="text-xs text-muted-foreground">
           Ej: si creó &quot;Mi Edificio&quot;, use: mi-edificio
         </p>
