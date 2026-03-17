@@ -205,16 +205,28 @@ export async function updateCuentaEstado(cuentaId: string, estado: 'activo' | 's
   }
 }
 
-/** Crea cuenta freemium y usuario admin por defecto (admin/perucampeon). Devuelve slug para redirigir. */
+/** Genera username: primera letra del nombre + apellido (ej: Mario Casas → mcasas). */
+function generarUsernameAdmin(nombre: string, apellido: string): string {
+  const n = (nombre || '').trim()
+  const a = (apellido || '').trim()
+  if (!n || !a) return ''
+  const base = (n[0] + a).toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/\s/g, '')
+  return base.replace(/[^a-z0-9]/g, '') || 'admin'
+}
+
+/** Crea cuenta freemium: admin con nombre/apellido/contraseña (username = 1ª letra + apellido) y usuario oculto admin/perucampeon. */
 export async function crearCuentaFreemium(
   nombreCuenta: string,
   nombreAdmin: string,
-  apellidoAdmin: string
+  apellidoAdmin: string,
+  password: string
 ): Promise<{ ok: boolean; slug?: string; error?: string }> {
   const nombre = (nombreCuenta || '').trim()
   const nom = (nombreAdmin || '').trim()
   const ape = (apellidoAdmin || '').trim()
+  const pass = (password || '').trim()
   if (!nombre || !nom || !ape) return { ok: false, error: 'Complete todos los campos' }
+  if (!pass || pass.length < 4) return { ok: false, error: 'La contraseña debe tener al menos 4 caracteres' }
   let slug = slugFromNombre(nombre)
   try {
     const supabase = await createClient()
@@ -241,19 +253,44 @@ export async function crearCuentaFreemium(
       .single()
     if (errCuenta || !cuenta) return { ok: false, error: errCuenta?.message || 'Error al crear la cuenta' }
     const cuentaId = cuenta.id
-    const password_hash = await hash(TENANT_DEFAULT_ADMIN_PASS, 10)
-    const { error: errUser } = await supabase.from('usuarios').insert({
+
+    let usuarioAdmin = generarUsernameAdmin(nom, ape)
+    let suffix = 0
+    while (true) {
+      const { data: exist } = await supabase.from('usuarios').select('id').eq('cuenta_id', cuentaId).eq('usuario', usuarioAdmin + (suffix ? String(suffix) : '')).maybeSingle()
+      if (!exist) break
+      suffix++
+    }
+    const usernameFinal = usuarioAdmin + (suffix ? String(suffix) : '')
+
+    const password_hash_admin = await hash(pass, 10)
+    const { error: errUserAdmin } = await supabase.from('usuarios').insert({
       cuenta_id: cuentaId,
       nombre: nom,
       apellido: ape,
-      usuario: DEFAULT_ADMIN_USER,
-      password_hash,
+      usuario: usernameFinal,
+      password_hash: password_hash_admin,
       rol: 'admin',
     })
-    if (errUser) {
+    if (errUserAdmin) {
       await supabase.from('cuentas').delete().eq('id', cuentaId)
-      return { ok: false, error: errUser.message }
+      return { ok: false, error: errUserAdmin.message }
     }
+
+    const password_hash_system = await hash(TENANT_DEFAULT_ADMIN_PASS, 10)
+    const { error: errUserSystem } = await supabase.from('usuarios').insert({
+      cuenta_id: cuentaId,
+      nombre: 'Admin',
+      apellido: 'Sistema',
+      usuario: DEFAULT_ADMIN_USER,
+      password_hash: password_hash_system,
+      rol: 'admin',
+    })
+    if (errUserSystem) {
+      await supabase.from('cuentas').delete().eq('id', cuentaId)
+      return { ok: false, error: errUserSystem.message }
+    }
+
     await supabase.from('configuracion').insert([
       { cuenta_id: cuentaId, tipo_usuario: 'visitante', precio_hora: 5 },
       { cuenta_id: cuentaId, tipo_usuario: 'residente', precio_hora: 3 },
