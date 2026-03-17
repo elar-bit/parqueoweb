@@ -50,7 +50,6 @@ export function AccederCuentaForm() {
           }}
           placeholder="mi-edificio"
           aria-invalid={!!error}
-          required
         />
         <p className="text-xs text-muted-foreground">
           Ej: si creó &quot;Mi Edificio&quot;, use: mi-edificio
