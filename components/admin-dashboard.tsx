@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useMemo, useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -42,6 +42,7 @@ import { formatCurrency, formatMesAno, montoServicioParaMostrar, tiempoRestanteA
 import { Car, DollarSign, RefreshCw, BarChart3, LogOut, Settings, Loader2, Users, UserPlus, Pencil, Trash2, Key, FileSpreadsheet, FileText, Info, CalendarCheck, AlertTriangle, Star, XCircle, UserX, UserCheck } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { IncomeChart } from '@/components/income-chart'
 import {
   Dialog,
@@ -66,6 +67,10 @@ import { ChevronDown, ChevronRight } from 'lucide-react'
 type AdminDashboardProps = { currentUserId?: string | null; trialDiasRestantes?: number; slug?: string }
 
 export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: AdminDashboardProps = {}) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+
   const [activeCount, setActiveCount] = useState(0)
   const [chartData, setChartData] = useState<{ fecha: string; total: number }[]>([])
   const [chartDataConTipo, setChartDataConTipo] = useState<{ fecha: string; visitantes: number; residentes: number }[]>([])
@@ -134,6 +139,35 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
   const [whatsappOpcion, setWhatsappOpcion] = useState<'guardado' | 'nuevo'>('guardado')
   const [whatsappPhone, setWhatsappPhone] = useState('')
   const [whatsappSaving, setWhatsappSaving] = useState(false)
+
+  const hasConserjeActivo = useMemo(() => {
+    return usuarios.some((u) => u.rol === 'conserje' && !u.suspendido)
+  }, [usuarios])
+
+  const esRegistroReciente = searchParams.get('registrado') === '1'
+  const [onboardingConserjeOpen, setOnboardingConserjeOpen] = useState(false)
+
+  useEffect(() => {
+    if (esRegistroReciente && !hasConserjeActivo) {
+      setOnboardingConserjeOpen(true)
+    }
+  }, [esRegistroReciente, hasConserjeActivo])
+
+  useEffect(() => {
+    if (hasConserjeActivo && onboardingConserjeOpen) {
+      setOnboardingConserjeOpen(false)
+    }
+  }, [hasConserjeActivo, onboardingConserjeOpen])
+
+  const scrollToUsuarios = () => {
+    const el = document.getElementById('usuarios-section')
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  const closeOnboarding = () => {
+    setOnboardingConserjeOpen(false)
+    router.replace(pathname)
+  }
 
   const buildTicketTexto = (servicio: ServicioConVehiculo): string => {
     const esResidente = servicio.vehiculo?.tipo === 'residente'
@@ -689,7 +723,49 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative overflow-x-hidden">
+      {onboardingConserjeOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-lg rounded-xl border border-border bg-background shadow-lg p-4 sm:p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <Users className="h-5 w-5 text-primary" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-base sm:text-lg font-semibold text-foreground break-words">
+                  Configuración inicial
+                </h2>
+                <p className="text-sm text-muted-foreground break-words">
+                  Para empezar a registrar entradas de vehículos, primero debes crear al menos un usuario <strong>Conserje</strong>.
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+              <p className="text-sm font-medium text-foreground">Paso a paso</p>
+              <ol className="text-sm text-muted-foreground list-decimal pl-5 space-y-1">
+                <li>Crea un usuario con rol <strong>Conserje</strong> en “Gestión de usuarios”.</li>
+                <li>Luego haz clic en <strong>Conserje</strong> (arriba a la derecha) e inicia sesión con ese usuario.</li>
+              </ol>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2 sm:justify-end">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  closeOnboarding()
+                  scrollToUsuarios()
+                }}
+              >
+                Ir a Gestión de usuarios
+              </Button>
+              <Button onClick={closeOnboarding}>Entendido</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className={onboardingConserjeOpen ? 'pointer-events-none select-none grayscale opacity-40' : ''}>
       <header className="border-b border-border bg-card">
         <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -725,7 +801,7 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
                 <RefreshCw className={`h-4 w-4 sm:mr-2 ${loading ? 'animate-spin' : ''}`} />
                 <span className="hidden sm:inline">Actualizar</span>
               </Button>
-              <Button variant="ghost" size="sm" asChild className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0">
+              <Button variant="ghost" size="sm" asChild className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0" id="admin-link-conserje">
                 <Link href={slug ? `/${slug}/conserje` : '/conserje'}>Conserje</Link>
               </Button>
               <Button variant="ghost" size="sm" onClick={handleLogout} className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0">
@@ -744,6 +820,32 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
             <p className="text-sm text-amber-800 dark:text-amber-200">
               Su prueba gratuita vence en {trialDiasRestantes} día{trialDiasRestantes !== 1 ? 's' : ''}. Contacte al administrador del sistema para activar su suscripción.
             </p>
+          </div>
+        </div>
+      )}
+
+      {!hasConserjeActivo && (
+        <div className="container mx-auto px-3 sm:px-4 pt-3">
+          <div className="rounded-lg border border-blue-500/40 bg-blue-500/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 overflow-hidden">
+            <div className="flex items-start gap-3 min-w-0 flex-1">
+              <Users className="h-5 w-5 shrink-0 text-blue-600" />
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-blue-900 dark:text-blue-100 break-words">
+                  No hay conserje activo en esta cuenta.
+                </p>
+                <p className="text-sm text-blue-900/80 dark:text-blue-100/80 break-words">
+                  Para registrar entradas de vehículos necesitas crear (o reactivar) un usuario con rol <strong>Conserje</strong>.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
+              <Button variant="outline" onClick={scrollToUsuarios} className="border-blue-600/40 text-blue-700 hover:bg-blue-500/10">
+                Crear conserje
+              </Button>
+              <Button variant="ghost" asChild className="text-blue-700">
+                <Link href={slug ? `/${slug}/conserje` : '/conserje'}>Ir a login Conserje</Link>
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -1152,7 +1254,7 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
         </Card>
 
         {/* 3. Gestión de usuarios */}
-        <Card className="border-border">
+        <Card className="border-border" id="usuarios-section">
           <CardHeader>
             <CardTitle className="text-foreground flex items-center gap-2">
               <Users className="h-5 w-5" />
@@ -1955,6 +2057,7 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
           </AlertDialogContent>
         </AlertDialog>
       </main>
+      </div>
     </div>
   )
 }
