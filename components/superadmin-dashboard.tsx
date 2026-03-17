@@ -222,7 +222,7 @@ export function SuperadminDashboard() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={eliminando}>
+            <AlertDialogCancel disabled={eliminando} className="bg-muted text-foreground hover:bg-muted/80 border border-border">
               Cancelar
             </AlertDialogCancel>
             <AlertDialogAction
