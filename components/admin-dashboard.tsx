@@ -1263,31 +1263,45 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
                           </td>
                           <td className="p-3 text-right">
                             <div className="flex justify-end gap-1">
-                              <Button variant="ghost" size="sm" onClick={() => openEditUser(u)} title="Editar">
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="sm" onClick={() => openResetPassword(u)} title="Resetear contraseña">
-                                <Key className="h-4 w-4" />
-                              </Button>
-                              {u.suspendido ? (
-                                <Button variant="ghost" size="sm" onClick={async () => { const r = await reactivarUsuario(u.id); if (r.ok) { const users = await getUsuarios(); setUsuarios(users) } else { setUsuarioMsg(r.error || 'Error') } }} title="Reactivar usuario">
-                                  <UserCheck className="h-4 w-4 text-green-600" />
-                                </Button>
-                              ) : currentUserId !== u.id ? (
-                                <Button variant="ghost" size="sm" onClick={() => setSuspendingUser(u)} title="Suspender usuario" className="text-amber-600 hover:text-amber-600">
-                                  <UserX className="h-4 w-4" />
-                                </Button>
-                              ) : null}
-                              {u.usuario === 'admin' || currentUserId === u.id ? null : (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setDeletingUserId(u.id)}
-                                  title="Eliminar"
-                                  className="text-destructive hover:text-destructive"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
+                              {u.usuario === 'admin' && currentUserId !== u.id ? (
+                                <span className="text-xs text-muted-foreground">Solo editable por el propio usuario</span>
+                              ) : (
+                                <>
+                                  {(u.usuario !== 'admin' || currentUserId === u.id) && (
+                                    <>
+                                      <Button variant="ghost" size="sm" onClick={() => openEditUser(u)} title="Editar">
+                                        <Pencil className="h-4 w-4" />
+                                      </Button>
+                                      <Button variant="ghost" size="sm" onClick={() => openResetPassword(u)} title="Resetear contraseña">
+                                        <Key className="h-4 w-4" />
+                                      </Button>
+                                    </>
+                                  )}
+                                  {u.usuario !== 'admin' && (
+                                    <>
+                                      {u.suspendido ? (
+                                        <Button variant="ghost" size="sm" onClick={async () => { const r = await reactivarUsuario(u.id); if (r.ok) { const users = await getUsuarios(); setUsuarios(users) } else { setUsuarioMsg(r.error || 'Error') } }} title="Reactivar usuario">
+                                          <UserCheck className="h-4 w-4 text-green-600" />
+                                        </Button>
+                                      ) : currentUserId !== u.id ? (
+                                        <Button variant="ghost" size="sm" onClick={() => setSuspendingUser(u)} title="Suspender usuario" className="text-amber-600 hover:text-amber-600">
+                                          <UserX className="h-4 w-4" />
+                                        </Button>
+                                      ) : null}
+                                      {currentUserId !== u.id && (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => setDeletingUserId(u.id)}
+                                          title="Eliminar"
+                                          className="text-destructive hover:text-destructive"
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                      )}
+                                    </>
+                                  )}
+                                </>
                               )}
                             </div>
                           </td>
