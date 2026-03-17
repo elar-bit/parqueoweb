@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Car, PlusCircle, LogIn, Shield } from 'lucide-react'
+import { Car, PlusCircle, LogIn } from 'lucide-react'
 import { LoginCarAnimation } from '@/components/login-car-animation'
 import { AccederCuentaForm } from '@/components/acceder-cuenta-form'
 
@@ -9,14 +9,6 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4 sm:p-6 relative overflow-hidden">
       <LoginCarAnimation />
-      <Link
-        href="/superadmin"
-        className="absolute top-4 right-4 z-20 flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-700 hover:bg-amber-500/20 dark:text-amber-300 dark:hover:bg-amber-500/20"
-        title="Acceso administrador del sistema (todos los tenants)"
-      >
-        <Shield className="h-4 w-4 shrink-0" />
-        <span className="hidden sm:inline">Admin sistema</span>
-      </Link>
       <div className="w-full max-w-2xl relative z-10 flex flex-col items-center">
         <div className="text-center space-y-2 mb-6 sm:mb-8 w-full max-w-xl">
           <div className="h-12 w-12 sm:h-14 sm:w-14 md:h-16 md:w-16 mx-auto rounded-2xl bg-primary flex items-center justify-center mb-2 sm:mb-4 shrink-0">
