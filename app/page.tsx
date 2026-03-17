@@ -32,7 +32,7 @@ export default function HomePage() {
                 Crear cuenta
               </CardTitle>
               <CardDescription className="text-xs sm:text-sm break-words">
-                Prueba freemium 5 días. Nombre de cuenta y datos del administrador.
+                Prueba totalmente gratis por 5 días. Gestiona el parqueo de tu edificio con una herramienta completa: tienes acceso a todas las funcionalidades para que aproveches al máximo.
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-0">
