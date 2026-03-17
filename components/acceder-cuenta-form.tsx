@@ -13,15 +13,26 @@ const DESCRIPCION_CONSERJE = 'Registro de entradas y salidas de vehículos.'
 export function AccederCuentaForm() {
   const router = useRouter()
   const [slug, setSlug] = useState('')
+  const [error, setError] = useState('')
 
   const normalizarSlug = () =>
-    slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/^-|-$/g, '') || 'default'
+    slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/^-|-$/g, '')
+
+  const go = (dest: 'admin' | 'conserje') => {
+    const s = normalizarSlug()
+    if (!s) {
+      setError('Ingrese el nombre de la cuenta para continuar.')
+      return
+    }
+    setError('')
+    router.push(`/${s}/${dest}`)
+  }
 
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault()
-        router.push(`/${normalizarSlug()}/admin`)
+        go('admin')
       }}
       className="space-y-3"
     >
@@ -31,7 +42,10 @@ export function AccederCuentaForm() {
           id="slug"
           type="text"
           value={slug}
-          onChange={(e) => setSlug(e.target.value)}
+          onChange={(e) => {
+            setSlug(e.target.value)
+            if (error) setError('')
+          }}
           placeholder="mi-edificio"
           required
         />
@@ -39,11 +53,12 @@ export function AccederCuentaForm() {
           Ej: si creó &quot;Mi Edificio&quot;, use: mi-edificio
         </p>
       </div>
+      {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="flex flex-col sm:flex-row gap-2">
         <Tooltip>
           <TooltipTrigger asChild>
             <Button type="submit" className="flex-1 min-w-0">
-              Entrar como admin
+              Admin
             </Button>
           </TooltipTrigger>
           <TooltipContent side="top" className="max-w-[220px]">
@@ -55,10 +70,10 @@ export function AccederCuentaForm() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => router.push(`/${normalizarSlug()}/conserje`)}
+              onClick={() => go('conserje')}
               className="flex-1 min-w-0"
             >
-              Entrar como conserje
+              Conserje
             </Button>
           </TooltipTrigger>
           <TooltipContent side="top" className="max-w-[220px]">
