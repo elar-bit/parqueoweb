@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { existeCuentaSlug } from '@/app/actions'
 
 const DESCRIPCION_ADMIN = 'Panel admin: usuarios, tarifas, reportes y gráficas.'
 const DESCRIPCION_CONSERJE = 'Registro de entradas y salidas de vehículos.'
@@ -18,10 +19,15 @@ export function AccederCuentaForm() {
   const normalizarSlug = () =>
     slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/^-|-$/g, '')
 
-  const go = (dest: 'admin' | 'conserje') => {
+  const go = async (dest: 'admin' | 'conserje') => {
     const s = normalizarSlug()
     if (!s) {
       setError('Ingrese el nombre de la cuenta para continuar.')
+      return
+    }
+    const existe = await existeCuentaSlug(s)
+    if (!existe) {
+      setError('No existe una cuenta con ese nombre.')
       return
     }
     setError('')
@@ -32,23 +38,33 @@ export function AccederCuentaForm() {
     <form
       onSubmit={(e) => {
         e.preventDefault()
-        go('admin')
+        void go('admin')
       }}
       className="space-y-3"
     >
       <div className="space-y-2">
         <Label htmlFor="slug">Nombre de la cuenta</Label>
-        <Input
-          id="slug"
-          type="text"
-          value={slug}
-          onChange={(e) => {
-            setSlug(e.target.value)
-            if (error) setError('')
-          }}
-          placeholder="mi-edificio"
-          required
-        />
+        <Tooltip open={!!error}>
+          <TooltipTrigger asChild>
+            <Input
+              id="slug"
+              type="text"
+              value={slug}
+              onChange={(e) => {
+                setSlug(e.target.value)
+                if (error) setError('')
+              }}
+              placeholder="mi-edificio"
+              aria-invalid={!!error}
+              required
+            />
+          </TooltipTrigger>
+          {error && (
+            <TooltipContent side="top" className="max-w-[240px]">
+              {error}
+            </TooltipContent>
+          )}
+        </Tooltip>
         <p className="text-xs text-muted-foreground">
           Ej: si creó &quot;Mi Edificio&quot;, use: mi-edificio
         </p>
@@ -70,7 +86,7 @@ export function AccederCuentaForm() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => go('conserje')}
+              onClick={() => void go('conserje')}
               className="flex-1 min-w-0"
             >
               Conserje

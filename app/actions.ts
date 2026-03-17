@@ -158,6 +158,14 @@ export async function getCuentaBySlug(slug: string): Promise<Cuenta | null> {
   }
 }
 
+/** Devuelve true si existe una cuenta con ese slug (sin importar estado). Útil para validar en el login. */
+export async function existeCuentaSlug(slug: string): Promise<boolean> {
+  const limpio = (slug || '').trim().toLowerCase()
+  if (!limpio) return false
+  const cuenta = await getCuentaBySlug(limpio)
+  return !!cuenta
+}
+
 /** Obtiene la cuenta actual del usuario en sesión (tenant). */
 export async function getCuentaActual(): Promise<Cuenta | null> {
   const session = await getSession()
