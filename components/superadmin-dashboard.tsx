@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getCuentas, updateCuentaEstado, logoutAdmin } from '@/app/actions'
+import { getCuentas, updateCuentaEstado, eliminarCuenta, logoutAdmin } from '@/app/actions'
 import type { Cuenta } from '@/lib/tenant'
 import { diasRestantesTrial } from '@/lib/tenant'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -14,13 +14,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { LogOut, Building2, Calendar, AlertTriangle, CheckCircle, XCircle } from 'lucide-react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { LogOut, Building2, Calendar, AlertTriangle, CheckCircle, XCircle, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 
 export function SuperadminDashboard() {
   const [cuentas, setCuentas] = useState<Cuenta[]>([])
   const [filtro, setFiltro] = useState<string>('todas')
   const [loading, setLoading] = useState(true)
+  const [cuentaAEliminar, setCuentaAEliminar] = useState<Cuenta | null>(null)
+  const [eliminando, setEliminando] = useState(false)
 
   const loadCuentas = async () => {
     setLoading(true)
@@ -43,6 +55,21 @@ export function SuperadminDashboard() {
   const handleCambiarEstado = async (id: string, estado: 'activo' | 'suspendido') => {
     const r = await updateCuentaEstado(id, estado)
     if (r.ok) loadCuentas()
+  }
+
+  const handleConfirmarEliminar = async () => {
+    if (!cuentaAEliminar) return
+    setEliminando(true)
+    const r = await eliminarCuenta(cuentaAEliminar.id)
+    setEliminando(false)
+    setCuentaAEliminar(null)
+    if (r.ok) {
+      loadCuentas()
+    } else {
+      // En un dashboard interno, un alert simple es suficiente
+      // eslint-disable-next-line no-alert
+      alert(r.error || 'No se pudo eliminar la cuenta')
+    }
   }
 
   return (
@@ -158,6 +185,15 @@ export function SuperadminDashboard() {
                             Reactivar
                           </Button>
                         )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-destructive border-destructive/40"
+                          onClick={() => setCuentaAEliminar(c)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Borrar
+                        </Button>
                       </div>
                     </li>
                   )
@@ -167,6 +203,38 @@ export function SuperadminDashboard() {
           </CardContent>
         </Card>
       </main>
+
+      <AlertDialog open={!!cuentaAEliminar} onOpenChange={(open) => !open && !eliminando && setCuentaAEliminar(null)}>
+        <AlertDialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="break-words">
+              ¿Eliminar cuenta freemium?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="break-words">
+              Esta acción eliminará de forma permanente la cuenta{' '}
+              <span className="font-semibold">{cuentaAEliminar?.nombre_cuenta}</span> (<span className="font-mono">/{cuentaAEliminar?.slug}</span>){' '}
+              y <span className="font-semibold">toda su partición</span>: usuarios, vehículos, servicios, reportes y configuraciones asociadas.
+              <br />
+              <br />
+              <span className="font-semibold text-destructive">
+                No se podrá recuperar ningún dato de este tenant y no afectará a las demás cuentas.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={eliminando}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmarEliminar}
+              disabled={eliminando}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {eliminando ? 'Eliminando...' : 'Sí, borrar todo'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

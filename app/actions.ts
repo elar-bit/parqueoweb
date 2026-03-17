@@ -213,6 +213,19 @@ export async function updateCuentaEstado(cuentaId: string, estado: 'activo' | 's
   }
 }
 
+/** Elimina una cuenta y toda su partición (usuarios, vehículos, servicios, configuración). Solo superadmin. */
+export async function eliminarCuenta(cuentaId: string): Promise<{ ok: boolean; error?: string }> {
+  if (!(await getSuperadminAuth())) return { ok: false, error: 'No autorizado' }
+  try {
+    const supabase = await createClient()
+    const { error } = await supabase.from('cuentas').delete().eq('id', cuentaId)
+    if (error) return { ok: false, error: error.message }
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: String(e) }
+  }
+}
+
 /** Genera username: primera letra del nombre + apellido (ej: Mario Casas → mcasas). */
 function generarUsernameAdmin(nombre: string, apellido: string): string {
   const n = (nombre || '').trim()
