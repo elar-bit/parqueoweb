@@ -5,11 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { existeCuentaSlug } from '@/app/actions'
-
-const DESCRIPCION_ADMIN = 'Panel admin: usuarios, tarifas, reportes y gráficas.'
-const DESCRIPCION_CONSERJE = 'Registro de entradas y salidas de vehículos.'
 
 export function AccederCuentaForm() {
   const router = useRouter()
@@ -62,31 +58,17 @@ export function AccederCuentaForm() {
       </div>
       {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="flex flex-col sm:flex-row gap-2">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button type="submit" className="flex-1 min-w-0">
-              Admin
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="top" className="max-w-[220px]">
-            {DESCRIPCION_ADMIN}
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => void go('conserje')}
-              className="flex-1 min-w-0"
-            >
-              Conserje
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="top" className="max-w-[220px]">
-            {DESCRIPCION_CONSERJE}
-          </TooltipContent>
-        </Tooltip>
+        <Button type="submit" className="flex-1 min-w-0">
+          Admin
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => void go('conserje')}
+          className="flex-1 min-w-0"
+        >
+          Conserje
+        </Button>
       </div>
     </form>
   )
