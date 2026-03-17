@@ -1278,9 +1278,17 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
                                   <UserX className="h-4 w-4" />
                                 </Button>
                               ) : null}
-                              <Button variant="ghost" size="sm" onClick={() => setDeletingUserId(u.id)} title="Eliminar" className="text-destructive hover:text-destructive">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                              {u.usuario === 'admin' || currentUserId === u.id ? null : (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setDeletingUserId(u.id)}
+                                  title="Eliminar"
+                                  className="text-destructive hover:text-destructive"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
                             </div>
                           </td>
                         </tr>

@@ -228,7 +228,7 @@ export function SuperadminDashboard() {
             <AlertDialogAction
               onClick={handleConfirmarEliminar}
               disabled={eliminando}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-destructive text-white hover:bg-destructive/90"
             >
               {eliminando ? 'Eliminando...' : 'Sí, borrar todo'}
             </AlertDialogAction>
