@@ -73,14 +73,14 @@ export function SuperadminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       <header className="border-b border-border bg-card">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Building2 className="h-6 w-6 text-amber-600" />
-            <h1 className="text-lg font-semibold">Panel Global (SaaS)</h1>
+        <div className="container mx-auto px-3 sm:px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <Building2 className="h-6 w-6 text-amber-600 shrink-0" />
+            <h1 className="text-base sm:text-lg font-semibold truncate">Panel Global (SaaS)</h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <Button variant="outline" size="sm" asChild>
               <Link href="/">Inicio</Link>
             </Button>
@@ -92,16 +92,16 @@ export function SuperadminDashboard() {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-6 space-y-4">
-        <Card className="border-amber-500/30">
+      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 overflow-hidden">
+        <Card className="border-amber-500/30 overflow-hidden">
           <CardHeader>
-            <CardTitle>Cuentas</CardTitle>
-            <p className="text-sm text-muted-foreground">
+            <CardTitle className="break-words">Cuentas</CardTitle>
+            <p className="text-sm text-muted-foreground break-words">
               Gestión de cuentas. Prueba freemium 5 días. Solo el administrador global puede reactivar tras el pago.
             </p>
             <div className="pt-2">
               <Select value={filtro} onValueChange={setFiltro}>
-                <SelectTrigger className="w-[200px]">
+                <SelectTrigger className="w-full min-w-0 sm:w-[200px]">
                   <SelectValue placeholder="Filtrar" />
                 </SelectTrigger>
                 <SelectContent>
@@ -128,11 +128,11 @@ export function SuperadminDashboard() {
                   return (
                     <li
                       key={c.id}
-                      className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-lg border border-border bg-background/50"
+                      className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center justify-between gap-2 p-3 rounded-lg border border-border bg-background/50"
                     >
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-medium">{c.nombre_cuenta}</span>
+                          <span className="font-medium break-words">{c.nombre_cuenta}</span>
                           <Badge variant="outline" className="font-mono text-xs">
                             /{c.slug}
                           </Badge>
@@ -151,11 +151,11 @@ export function SuperadminDashboard() {
                             <Badge variant="destructive">Prueba vencida</Badge>
                           )}
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1">
+                        <p className="text-xs text-muted-foreground mt-1 break-words">
                           Admin: {c.nombre_admin} {c.apellido_admin} · Creada: {new Date(c.fecha_creacion).toLocaleDateString('es-PE')}
                         </p>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
                         <a
                           href={`/${c.slug}/admin`}
                           target="_blank"

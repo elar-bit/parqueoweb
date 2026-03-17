@@ -18,43 +18,43 @@ export default function HomePage() {
             Sistema de Control de Estacionamiento
           </h1>
           <p className="text-xs sm:text-sm md:text-base text-muted-foreground break-words">
-            Prueba 5 días gratis. Cree su cuenta o acceda a la existente.
+            Prueba gratis 5 días. Crea tu cuenta demo o accede a la que ya tienes.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 w-full max-w-2xl">
-          <Card className="border-border hover:border-primary/50 transition-colors overflow-hidden min-w-0">
-            <CardHeader className="pb-2 sm:pb-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 w-full max-w-2xl items-stretch">
+          <Card className="border-border hover:border-primary/50 transition-colors overflow-hidden min-w-0 flex flex-col h-full">
+            <CardHeader className="pb-2 sm:pb-3 flex-1 flex flex-col">
               <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-2 shrink-0">
                 <PlusCircle className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
               </div>
               <CardTitle className="text-base sm:text-lg text-foreground break-words">
                 Crear cuenta
               </CardTitle>
-              <CardDescription className="text-xs sm:text-sm break-words">
+              <CardDescription className="text-xs sm:text-sm break-words flex-1">
                 ¡Usa nuestro sistema totalmente gratis por 5 días! 🎉 Gestiona el parqueo de tu edificio con una herramienta completa: tienes acceso a todas las funcionalidades para que aproveches al máximo tu periodo de prueba. ✨
               </CardDescription>
             </CardHeader>
-            <CardContent className="pt-0">
+            <CardContent className="pt-0 flex-shrink-0">
               <Button asChild className="w-full min-w-0" variant="default">
                 <Link href="/registro">Registrarme</Link>
               </Button>
             </CardContent>
           </Card>
 
-          <Card className="border-border hover:border-primary/50 transition-colors overflow-hidden min-w-0">
-            <CardHeader className="pb-2 sm:pb-3">
+          <Card className="border-border hover:border-primary/50 transition-colors overflow-hidden min-w-0 flex flex-col h-full">
+            <CardHeader className="pb-2 sm:pb-3 flex-1 flex flex-col">
               <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-2 shrink-0">
                 <LogIn className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
               </div>
               <CardTitle className="text-base sm:text-lg text-foreground break-words">
                 Acceder a mi cuenta
               </CardTitle>
-              <CardDescription className="text-xs sm:text-sm break-words">
+              <CardDescription className="text-xs sm:text-sm break-words flex-1">
                 Ingrese el nombre de su cuenta (ej: mi-edificio) y elija tipo de acceso.
               </CardDescription>
             </CardHeader>
-            <CardContent className="pt-0">
+            <CardContent className="pt-0 flex-shrink-0">
               <AccederCuentaForm />
             </CardContent>
           </Card>

@@ -40,7 +40,7 @@ export function ConserjeLoginForm({ slug }: ConserjeLoginFormProps) {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4 sm:p-6 relative">
       <LoginCarAnimation />
-      <Card className="w-full max-w-sm border-border relative z-10">
+      <Card className="w-full max-w-sm border-border relative z-10 min-w-0 overflow-hidden">
         <CardHeader>
           <div className="flex justify-center mb-2">
             <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">

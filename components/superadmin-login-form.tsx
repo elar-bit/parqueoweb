@@ -35,7 +35,7 @@ export function SuperadminLoginForm() {
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4 sm:p-6">
-      <Card className="w-full max-w-sm border-amber-500/30">
+      <Card className="w-full max-w-sm border-amber-500/30 min-w-0 overflow-hidden">
         <CardHeader>
           <div className="flex justify-center mb-2">
             <div className="h-12 w-12 rounded-full bg-amber-500/10 flex items-center justify-center">
