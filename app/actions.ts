@@ -137,22 +137,32 @@ async function ensureDefaultConserje(supabase: Awaited<ReturnType<typeof createC
   }
 }
 
-/** Obtiene cuenta por slug (para validar URL y estado). Si la prueba venció, actualiza estado a suspendido. */
+/** Marca como suspendidas todas las cuentas activas cuya prueba ya venció (5 días). Se llama al listar o al acceder a una cuenta para que el estado no dependa del login. */
+async function aplicarSuspensionCuentasVencidas(supabase: Awaited<ReturnType<typeof createClient>>) {
+  try {
+    const { data: activas } = await supabase.from('cuentas').select('id, fecha_creacion').eq('estado', 'activo')
+    if (!activas?.length) return
+    const vencidas = (activas as { id: string; fecha_creacion: string }[]).filter((c) => diasRestantesTrial(c.fecha_creacion) < 0)
+    if (vencidas.length === 0) return
+    const ids = vencidas.map((c) => c.id)
+    await supabase.from('cuentas').update({ estado: 'suspendido' }).in('id', ids)
+  } catch (e) {
+    console.error('aplicarSuspensionCuentasVencidas:', e)
+  }
+}
+
+/** Obtiene cuenta por slug (para validar URL y estado). Antes aplica suspensión de cuentas vencidas. */
 export async function getCuentaBySlug(slug: string): Promise<Cuenta | null> {
   try {
     const supabase = await createClient()
+    await aplicarSuspensionCuentasVencidas(supabase)
     const { data, error } = await supabase
       .from('cuentas')
       .select('*')
       .eq('slug', slug)
       .single()
     if (error || !data) return null
-    const cuenta = data as Cuenta
-    if (cuenta.estado === 'activo' && diasRestantesTrial(cuenta.fecha_creacion) < 0) {
-      await supabase.from('cuentas').update({ estado: 'suspendido' }).eq('id', cuenta.id)
-      cuenta.estado = 'suspendido'
-    }
-    return cuenta
+    return data as Cuenta
   } catch {
     return null
   }
@@ -180,12 +190,13 @@ export async function getCuentaActual(): Promise<Cuenta | null> {
   }
 }
 
-/** Lista todas las cuentas (solo superadmin). */
+/** Lista todas las cuentas (solo superadmin). Antes aplica suspensión automática de cuentas con prueba vencida. */
 export async function getCuentas(filtro?: 'activas' | 'suspendidas' | 'por_vencer' | 'vencidas'): Promise<Cuenta[]> {
   const ok = await getSuperadminAuth()
   if (!ok) return []
   try {
     const supabase = await createClient()
+    await aplicarSuspensionCuentasVencidas(supabase)
     let q = supabase.from('cuentas').select('*').order('fecha_creacion', { ascending: false })
     if (filtro === 'activas') q = q.eq('estado', 'activo')
     if (filtro === 'suspendidas') q = q.eq('estado', 'suspendido')
