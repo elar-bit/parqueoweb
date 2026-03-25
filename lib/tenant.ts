@@ -10,6 +10,8 @@ export interface Cuenta {
   slug: string
   fecha_creacion: string
   estado: 'activo' | 'suspendido'
+  /** Si es true, el tenant puede operar fuera del período de prueba (p. ej. reactivado por superadmin). */
+  acceso_pagado?: boolean | null
   nombre_admin?: string | null
   apellido_admin?: string | null
   created_at?: string
@@ -38,9 +40,10 @@ export function diasRestantesTrial(fechaCreacion: string): number {
   return diff
 }
 
-/** La cuenta está activa si estado === 'activo' y no está vencida la prueba (o superadmin reactivó). */
+/** La cuenta está activa si estado === 'activo' y (prueba vigente o acceso autorizado tras pago/reactivación). */
 export function isCuentaActiva(cuenta: Cuenta): boolean {
   if (cuenta.estado !== 'activo') return false
+  if (cuenta.acceso_pagado) return true
   const dias = diasRestantesTrial(cuenta.fecha_creacion)
   return dias >= 0
 }

@@ -140,9 +140,14 @@ async function ensureDefaultConserje(supabase: Awaited<ReturnType<typeof createC
 /** Marca como suspendidas todas las cuentas activas cuya prueba ya venció (5 días). Se llama al listar o al acceder a una cuenta para que el estado no dependa del login. */
 async function aplicarSuspensionCuentasVencidas(supabase: Awaited<ReturnType<typeof createClient>>) {
   try {
-    const { data: activas } = await supabase.from('cuentas').select('id, fecha_creacion').eq('estado', 'activo')
+    const { data: activas } = await supabase
+      .from('cuentas')
+      .select('id, fecha_creacion, acceso_pagado')
+      .eq('estado', 'activo')
     if (!activas?.length) return
-    const vencidas = (activas as { id: string; fecha_creacion: string }[]).filter((c) => diasRestantesTrial(c.fecha_creacion) < 0)
+    const vencidas = (
+      activas as { id: string; fecha_creacion: string; acceso_pagado?: boolean | null }[]
+    ).filter((c) => diasRestantesTrial(c.fecha_creacion) < 0 && !c.acceso_pagado)
     if (vencidas.length === 0) return
     const ids = vencidas.map((c) => c.id)
     await supabase.from('cuentas').update({ estado: 'suspendido' }).in('id', ids)
@@ -216,7 +221,12 @@ export async function updateCuentaEstado(cuentaId: string, estado: 'activo' | 's
   if (!(await getSuperadminAuth())) return { ok: false, error: 'No autorizado' }
   try {
     const supabase = await createClient()
-    const { error } = await supabase.from('cuentas').update({ estado }).eq('id', cuentaId)
+    // Al reactivar desde superadmin, marcar acceso autorizado para que la suspensión automática por prueba vencida no revierta el cambio al refrescar la lista.
+    const payload =
+      estado === 'activo'
+        ? { estado, acceso_pagado: true as const }
+        : { estado }
+    const { error } = await supabase.from('cuentas').update(payload).eq('id', cuentaId)
     if (error) return { ok: false, error: error.message }
     return { ok: true }
   } catch (e) {

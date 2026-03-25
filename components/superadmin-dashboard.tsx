@@ -54,7 +54,12 @@ export function SuperadminDashboard() {
 
   const handleCambiarEstado = async (id: string, estado: 'activo' | 'suspendido') => {
     const r = await updateCuentaEstado(id, estado)
-    if (r.ok) loadCuentas()
+    if (r.ok) {
+      loadCuentas()
+    } else {
+      // eslint-disable-next-line no-alert
+      alert(r.error || 'No se pudo actualizar el estado de la cuenta')
+    }
   }
 
   const handleConfirmarEliminar = async () => {
