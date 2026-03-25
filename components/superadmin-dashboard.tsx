@@ -130,6 +130,8 @@ export function SuperadminDashboard() {
                   const dias = diasRestantesTrial(c.fecha_creacion)
                   const vencido = dias < 0
                   const porVencer = dias >= 0 && dias <= 2
+                  const accesoAutorizado = !!c.acceso_pagado
+                  const cuentaActiva = c.estado === 'activo'
                   return (
                     <li
                       key={c.id}
@@ -141,18 +143,23 @@ export function SuperadminDashboard() {
                           <Badge variant="outline" className="font-mono text-xs">
                             /{c.slug}
                           </Badge>
-                          {c.estado === 'activo' ? (
+                          {cuentaActiva ? (
                             <Badge className="bg-green-600">Activa</Badge>
                           ) : (
                             <Badge variant="destructive">Suspendida</Badge>
                           )}
-                          {porVencer && c.estado === 'activo' && (
+                          {accesoAutorizado && cuentaActiva && (
+                            <Badge variant="secondary" className="bg-emerald-500/15 text-emerald-800 dark:text-emerald-200 border border-emerald-500/30">
+                              Acceso autorizado
+                            </Badge>
+                          )}
+                          {porVencer && cuentaActiva && !accesoAutorizado && (
                             <Badge variant="secondary" className="bg-amber-500/20 text-amber-700">
                               <AlertTriangle className="h-3 w-3 mr-1" />
                               Vence en {dias} día{dias !== 1 ? 's' : ''}
                             </Badge>
                           )}
-                          {vencido && c.estado === 'activo' && (
+                          {vencido && cuentaActiva && !accesoAutorizado && (
                             <Badge variant="destructive">Prueba vencida</Badge>
                           )}
                         </div>
@@ -169,7 +176,7 @@ export function SuperadminDashboard() {
                         >
                           Abrir admin
                         </a>
-                        {c.estado === 'activo' ? (
+                        {cuentaActiva ? (
                           <Button
                             size="sm"
                             variant="outline"

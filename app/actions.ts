@@ -228,6 +228,7 @@ export async function updateCuentaEstado(cuentaId: string, estado: 'activo' | 's
         : { estado }
     const { error } = await supabase.from('cuentas').update(payload).eq('id', cuentaId)
     if (error) return { ok: false, error: error.message }
+    revalidatePath('/superadmin')
     return { ok: true }
   } catch (e) {
     return { ok: false, error: String(e) }
