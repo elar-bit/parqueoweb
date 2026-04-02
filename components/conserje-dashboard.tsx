@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { QuickRegister } from '@/components/quick-register'
 import { VehicleCard } from '@/components/vehicle-card'
 import { ValidationModal } from '@/components/validation-modal'
-import { getServiciosActivos, getConfiguracion, logoutAdmin, getAbonadosVencidos, getAbonadosPorVencer, renovarAbono, cancelarAbono, getServiciosPagadosFiltrados, getMesesConServicios, actualizarVehiculo } from '@/app/actions'
+import { getServiciosActivos, getConfiguracion, logoutAdmin, getAbonadosVencidos, getAbonadosPorVencer, renovarAbono, cancelarAbono, getServiciosPagadosFiltrados, getMesesConServicios, actualizarVehiculo, getEstacionamientos } from '@/app/actions'
 import { abonoVigente, formatCurrency, formatMesAno, montoServicioParaMostrar, tiempoRestanteAbono } from '@/lib/billing'
 import { etiquetaPlazaServicio } from '@/lib/plaza'
 import type { ServicioConVehiculo, Configuracion, Vehiculo } from '@/lib/types'
@@ -70,6 +70,8 @@ export function ConserjeDashboard({ trialDiasRestantes, slug }: ConserjeDashboar
   const [filtroMesServicios, setFiltroMesServicios] = useState<string>('')
   const [mesesDisponibles, setMesesDisponibles] = useState<string[]>([])
   const [mapaPlazasOpen, setMapaPlazasOpen] = useState(false)
+  /** null = aún no cargado; evita mostrar el aviso antes de saber el estado real */
+  const [tienePlazasConfiguradas, setTienePlazasConfiguradas] = useState<boolean | null>(null)
 
   const normalizarTelefonoWhatsApp = (valor: string): string => {
     const digits = valor.replace(/\D/g, '')
@@ -111,18 +113,20 @@ export function ConserjeDashboard({ trialDiasRestantes, slug }: ConserjeDashboar
       const serviciosDelMesPromise = rangoMesServicios.fechaDesde
         ? getServiciosPagadosFiltrados({ fechaDesde: rangoMesServicios.fechaDesde, fechaHasta: rangoMesServicios.fechaHasta })
         : Promise.resolve([])
-      const [serviciosData, configData, vencidos, porVencer, serviciosDelMes] = await Promise.all([
+      const [serviciosData, configData, vencidos, porVencer, serviciosDelMes, plazas] = await Promise.all([
         getServiciosActivos(),
         getConfiguracion(),
         getAbonadosVencidos(),
         getAbonadosPorVencer(7),
         serviciosDelMesPromise,
+        getEstacionamientos(),
       ])
       setServicios(serviciosData)
       setConfiguracion(configData)
       setAbonadosVencidos(vencidos)
       setAbonadosPorVencer(porVencer)
       setServiciosHoy(serviciosDelMes)
+      setTienePlazasConfiguradas(plazas.length > 0)
     } catch (error) {
       console.error('Error loading data:', error)
     } finally {
@@ -333,6 +337,17 @@ export function ConserjeDashboard({ trialDiasRestantes, slug }: ConserjeDashboar
             <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600" />
             <p className="text-sm text-amber-800 dark:text-amber-200">
               Su prueba gratuita vence en {trialDiasRestantes} día{trialDiasRestantes !== 1 ? 's' : ''}. Contacte al administrador del sistema para activar su suscripción.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {tienePlazasConfiguradas === false && (
+        <div className="container mx-auto px-3 sm:px-4 pt-3">
+          <div className="rounded-lg border border-muted-foreground/25 bg-muted/40 px-4 py-3 flex items-start gap-3">
+            <Info className="h-5 w-5 shrink-0 text-muted-foreground mt-0.5" />
+            <p className="text-sm text-muted-foreground">
+              Aún no hay plazas de estacionamiento definidas en el sistema. Solo el <strong className="text-foreground font-medium">administrador</strong> puede indicar cuántas plazas se gestionan. Comuníquese con el administrador de su edificio para que configure las plazas desde su panel; así usted podrá asignarlas al registrar entradas.
             </p>
           </div>
         </div>
