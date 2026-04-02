@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -10,6 +9,7 @@ import { loginUsuario } from '@/app/actions'
 import { User, Loader2, Home } from 'lucide-react'
 import Link from 'next/link'
 import { LoginCarAnimation } from '@/components/login-car-animation'
+import { LoginLoadingOverlay } from '@/components/login-loading-overlay'
 
 type ConserjeLoginFormProps = { slug?: string }
 
@@ -18,23 +18,25 @@ export function ConserjeLoginForm({ slug }: ConserjeLoginFormProps) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setLoading(true)
+    let navegando = false
     try {
       const result = await loginUsuario(usuario.trim(), password, { soloAdmin: false, ...(slug && { slug }) })
       if (result.ok) {
-        router.refresh()
-      } else {
-        setError(result.error || 'Error al entrar')
+        navegando = true
+        const path = slug ? `/${slug}/conserje` : '/default/conserje'
+        window.location.assign(path)
+        return
       }
+      setError(result.error || 'Error al entrar')
     } catch {
       setError('Error de conexión')
     } finally {
-      setLoading(false)
+      if (!navegando) setLoading(false)
     }
   }
 
@@ -42,6 +44,7 @@ export function ConserjeLoginForm({ slug }: ConserjeLoginFormProps) {
     <div className="min-h-screen bg-background flex items-center justify-center p-4 sm:p-6 relative">
       <LoginCarAnimation />
       <Card className="w-full max-w-sm border-border relative z-10 min-w-0 overflow-hidden">
+        <LoginLoadingOverlay show={loading} label="Iniciando sesión…" />
         <CardHeader>
           <div className="flex justify-center mb-2">
             <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
@@ -82,9 +85,13 @@ export function ConserjeLoginForm({ slug }: ConserjeLoginFormProps) {
             {error && (
               <p className="text-sm text-destructive">{error}</p>
             )}
-            <Button type="submit" className="w-full" disabled={loading || !usuario.trim() || !password.trim()}>
-              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Entrar
+            <Button
+              type="submit"
+              className="w-full inline-flex items-center justify-center gap-2"
+              disabled={loading || !usuario.trim() || !password.trim()}
+            >
+              {loading ? <Loader2 className="h-4 w-4 animate-spin shrink-0" /> : null}
+              {loading ? 'Entrando…' : 'Entrar'}
             </Button>
             <Button variant="ghost" className="w-full mt-2" asChild>
               <Link href="/">

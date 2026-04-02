@@ -1,12 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { crearCuentaFreemium } from '@/app/actions'
 import { Loader2 } from 'lucide-react'
+import { LoginLoadingOverlay } from '@/components/login-loading-overlay'
 
 function mensajeErrorRed(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err)
@@ -33,7 +33,6 @@ function generarUsernamePreview(nombre: string, apellido: string): string {
 }
 
 export function RegistroCuentaForm() {
-  const router = useRouter()
   const [nombreCuenta, setNombreCuenta] = useState('')
   const [nombreAdmin, setNombreAdmin] = useState('')
   const [apellidoAdmin, setApellidoAdmin] = useState('')
@@ -45,6 +44,7 @@ export function RegistroCuentaForm() {
     e.preventDefault()
     setError('')
     setLoading(true)
+    let navegando = false
     try {
       const result = await crearCuentaFreemium(
         nombreCuenta.trim(),
@@ -53,19 +53,21 @@ export function RegistroCuentaForm() {
         password
       )
       if (result.ok && result.slug) {
-        router.push(`/${result.slug}/admin?registrado=1`)
+        navegando = true
+        window.location.assign(`/${result.slug}/admin?registrado=1`)
         return
       }
       setError(result.error || 'Error al crear la cuenta')
     } catch (e) {
       setError(mensajeErrorRed(e))
     } finally {
-      setLoading(false)
+      if (!navegando) setLoading(false)
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 min-w-0">
+    <form onSubmit={handleSubmit} className="space-y-4 min-w-0 relative">
+      <LoginLoadingOverlay show={loading} label="Creando su cuenta…" />
       <div className="space-y-2">
         <Label htmlFor="nombre-cuenta">Nombre de la cuenta</Label>
         <Input
@@ -124,9 +126,9 @@ export function RegistroCuentaForm() {
         />
       </div>
       {error && <p className="text-sm text-destructive">{error}</p>}
-      <Button type="submit" className="w-full" disabled={loading}>
-        {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-        Crear cuenta (prueba 5 días)
+      <Button type="submit" className="w-full inline-flex items-center justify-center gap-2" disabled={loading}>
+        {loading ? <Loader2 className="h-4 w-4 animate-spin shrink-0" /> : null}
+        {loading ? 'Creando cuenta…' : 'Crear cuenta (prueba 5 días)'}
       </Button>
     </form>
   )

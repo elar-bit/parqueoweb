@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
 import { loginSuperadmin } from '@/app/actions'
 import { Lock, Loader2, Home } from 'lucide-react'
+import { LoginLoadingOverlay } from '@/components/login-loading-overlay'
 
 export function SuperadminLoginForm() {
   const [usuario, setUsuario] = useState('')
@@ -19,23 +20,26 @@ export function SuperadminLoginForm() {
     e.preventDefault()
     setError('')
     setLoading(true)
+    let navegando = false
     try {
       const result = await loginSuperadmin(usuario, password)
       if (result.ok) {
+        navegando = true
         window.location.reload()
-      } else {
-        setError(result.error || 'Credenciales incorrectas')
+        return
       }
+      setError(result.error || 'Credenciales incorrectas')
     } catch {
       setError('Error de conexión')
     } finally {
-      setLoading(false)
+      if (!navegando) setLoading(false)
     }
   }
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4 sm:p-6">
-      <Card className="w-full max-w-sm border-amber-500/30 min-w-0 overflow-hidden">
+      <Card className="w-full max-w-sm border-amber-500/30 min-w-0 overflow-hidden relative">
+        <LoginLoadingOverlay show={loading} label="Iniciando sesión…" />
         <CardHeader>
           <div className="flex justify-center mb-2">
             <div className="h-12 w-12 rounded-full bg-amber-500/10 flex items-center justify-center">
@@ -74,9 +78,9 @@ export function SuperadminLoginForm() {
               />
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Entrar
+            <Button type="submit" className="w-full inline-flex items-center justify-center gap-2" disabled={loading}>
+              {loading ? <Loader2 className="h-4 w-4 animate-spin shrink-0" /> : null}
+              {loading ? 'Entrando…' : 'Entrar'}
             </Button>
             <Button variant="ghost" className="w-full mt-2" asChild>
               <Link href="/">
