@@ -68,6 +68,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { EstacionamientoMapaDialog } from '@/components/estacionamiento-mapa-dialog'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 
 /** Precarga modo correlativo vs manual según la lista guardada (1..N vs etiquetas libres). */
@@ -168,6 +169,7 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
   const [whatsappOpcion, setWhatsappOpcion] = useState<'guardado' | 'nuevo'>('guardado')
   const [whatsappPhone, setWhatsappPhone] = useState('')
   const [whatsappSaving, setWhatsappSaving] = useState(false)
+  const [mapaPlazasOpen, setMapaPlazasOpen] = useState(false)
 
   const hasConserjeActivo = useMemo(() => {
     return usuarios.some((u) => u.rol === 'conserje' && !u.suspendido)
@@ -899,6 +901,16 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
               <Button variant="outline" size="sm" onClick={loadData} disabled={loading} className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0">
                 <RefreshCw className={`h-4 w-4 sm:mr-2 ${loading ? 'animate-spin' : ''}`} />
                 <span className="hidden sm:inline">Actualizar</span>
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0"
+                onClick={() => setMapaPlazasOpen(true)}
+              >
+                <MapPin className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Plazas</span>
               </Button>
               <Button variant="ghost" size="sm" asChild className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0" id="admin-link-conserje">
                 <Link href={slug ? `/${slug}/conserje` : '/conserje'}>Conserje</Link>
@@ -2314,6 +2326,12 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        <EstacionamientoMapaDialog
+          open={mapaPlazasOpen}
+          onOpenChange={setMapaPlazasOpen}
+          soloConsulta
+        />
       </main>
       </div>
     </div>
