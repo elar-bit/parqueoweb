@@ -176,27 +176,46 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
   }, [usuarios])
 
   const esRegistroReciente = searchParams.get('registrado') === '1'
-  const [onboardingConserjeOpen, setOnboardingConserjeOpen] = useState(false)
+  const [onboardingInicialOpen, setOnboardingInicialOpen] = useState(false)
 
   useEffect(() => {
-    if (esRegistroReciente && !hasConserjeActivo) {
-      setOnboardingConserjeOpen(true)
+    if (
+      esRegistroReciente &&
+      (!hasConserjeActivo || listaEstacionamientos.length === 0)
+    ) {
+      setOnboardingInicialOpen(true)
     }
-  }, [esRegistroReciente, hasConserjeActivo])
+  }, [esRegistroReciente, hasConserjeActivo, listaEstacionamientos.length])
 
   useEffect(() => {
-    if (hasConserjeActivo && onboardingConserjeOpen) {
-      setOnboardingConserjeOpen(false)
+    if (
+      onboardingInicialOpen &&
+      hasConserjeActivo &&
+      listaEstacionamientos.length > 0
+    ) {
+      setOnboardingInicialOpen(false)
+      router.replace(pathname)
     }
-  }, [hasConserjeActivo, onboardingConserjeOpen])
+  }, [
+    onboardingInicialOpen,
+    hasConserjeActivo,
+    listaEstacionamientos.length,
+    router,
+    pathname,
+  ])
 
   const scrollToUsuarios = () => {
     const el = document.getElementById('usuarios-section')
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
+  const scrollToEstacionamientos = () => {
+    const el = document.getElementById('estacionamientos-section')
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   const closeOnboarding = () => {
-    setOnboardingConserjeOpen(false)
+    setOnboardingInicialOpen(false)
     router.replace(pathname)
   }
 
@@ -825,48 +844,104 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
 
   return (
     <div className="min-h-screen bg-background relative overflow-x-hidden">
-      {onboardingConserjeOpen && (
+      {onboardingInicialOpen && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-lg rounded-xl border border-border bg-background shadow-lg p-4 sm:p-6 space-y-4">
-            <div className="flex items-start gap-3">
-              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                <Users className="h-5 w-5 text-primary" />
-              </div>
-              <div className="min-w-0">
-                <h2 className="text-base sm:text-lg font-semibold text-foreground break-words">
-                  Configuración inicial
-                </h2>
-                <p className="text-sm text-muted-foreground break-words">
-                  Para empezar a registrar entradas de vehículos, primero debes crear al menos un usuario <strong>Conserje</strong>.
-                </p>
-              </div>
-            </div>
+            {!hasConserjeActivo ? (
+              <>
+                <div className="flex items-start gap-3">
+                  <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                    <Users className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      Paso 1 de 2
+                    </p>
+                    <h2 className="text-base sm:text-lg font-semibold text-foreground break-words">
+                      Configuración inicial — Conserje
+                    </h2>
+                    <p className="text-sm text-muted-foreground break-words mt-1">
+                      Para empezar a registrar entradas de vehículos, primero debes crear al menos un usuario{' '}
+                      <strong>Conserje</strong>.
+                    </p>
+                  </div>
+                </div>
 
-            <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
-              <p className="text-sm font-medium text-foreground">Paso a paso</p>
-              <ol className="text-sm text-muted-foreground list-decimal pl-5 space-y-1">
-                <li>Crea un usuario con rol <strong>Conserje</strong> en “Gestión de usuarios”.</li>
-                <li>Luego haz clic en <strong>Conserje</strong> (arriba a la derecha) e inicia sesión con ese usuario.</li>
-              </ol>
-            </div>
+                <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+                  <p className="text-sm font-medium text-foreground">Paso a paso</p>
+                  <ol className="text-sm text-muted-foreground list-decimal pl-5 space-y-1">
+                    <li>Crea un usuario con rol <strong>Conserje</strong> en “Gestión de usuarios”.</li>
+                    <li>Luego haz clic en <strong>Conserje</strong> (arriba a la derecha) e inicia sesión con ese usuario.</li>
+                  </ol>
+                </div>
 
-            <div className="flex flex-col sm:flex-row gap-2 sm:justify-end">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  closeOnboarding()
-                  scrollToUsuarios()
-                }}
-              >
-                Ir a Gestión de usuarios
-              </Button>
-              <Button onClick={closeOnboarding}>Entendido</Button>
-            </div>
+                <div className="flex flex-col sm:flex-row gap-2 sm:justify-end">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      closeOnboarding()
+                      scrollToUsuarios()
+                    }}
+                  >
+                    Ir a Gestión de usuarios
+                  </Button>
+                  <Button onClick={closeOnboarding}>Entendido</Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-start gap-3">
+                  <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                    <MapPin className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      Paso 2 de 2
+                    </p>
+                    <h2 className="text-base sm:text-lg font-semibold text-foreground break-words">
+                      Plazas de estacionamiento
+                    </h2>
+                    <p className="text-sm text-muted-foreground break-words mt-1">
+                      Indica cuántas plazas (o cómo se llaman) para que el conserje pueda asignar una{' '}
+                      <strong>libre</strong> al registrar cada entrada. Sin plazas configuradas no tendrás mapa ni
+                      asignación ordenada por estacionamiento.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+                  <p className="text-sm font-medium text-foreground">Paso a paso</p>
+                  <ol className="text-sm text-muted-foreground list-decimal pl-5 space-y-1">
+                    <li>
+                      En la sección <strong>Estacionamientos</strong> (más abajo en este panel), define la cantidad con
+                      numeración 1, 2, 3… o escribe etiquetas manualmente (A-1, Sótano 2…).
+                    </li>
+                    <li>
+                      Pulsa <strong>Guardar</strong>. Este aviso se cerrará solo cuando haya al menos una plaza
+                      guardada.
+                    </li>
+                  </ol>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2 sm:justify-end">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      closeOnboarding()
+                      scrollToEstacionamientos()
+                    }}
+                  >
+                    Ir a Estacionamientos
+                  </Button>
+                  <Button onClick={closeOnboarding}>Entendido</Button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
 
-      <div className={onboardingConserjeOpen ? 'pointer-events-none select-none grayscale opacity-40' : ''}>
+      <div className={onboardingInicialOpen ? 'pointer-events-none select-none grayscale opacity-40' : ''}>
       <header className="border-b border-border bg-card">
         <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -957,6 +1032,28 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
                 <Link href={slug ? `/${slug}/conserje` : '/conserje'}>Ir a login Conserje</Link>
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {hasConserjeActivo && listaEstacionamientos.length === 0 && (
+        <div className="container mx-auto px-3 sm:px-4 pt-3">
+          <div className="rounded-lg border border-blue-500/40 bg-blue-500/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 overflow-hidden">
+            <div className="flex items-start gap-3 min-w-0 flex-1">
+              <MapPin className="h-5 w-5 shrink-0 text-blue-600" />
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-blue-900 dark:text-blue-100 break-words">
+                  Aún no hay plazas de estacionamiento configuradas.
+                </p>
+                <p className="text-sm text-blue-900/80 dark:text-blue-100/80 break-words">
+                  Define la cantidad o las etiquetas de tus plazas en <strong>Estacionamientos</strong> para que el conserje
+                  asigne una libre al registrar cada vehículo.
+                </p>
+              </div>
+            </div>
+            <Button variant="outline" onClick={scrollToEstacionamientos} className="border-blue-600/40 text-blue-700 hover:bg-blue-500/10 flex-shrink-0">
+              Ir a Estacionamientos
+            </Button>
           </div>
         </div>
       )}
