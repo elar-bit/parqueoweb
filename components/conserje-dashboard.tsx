@@ -331,8 +331,6 @@ export function ConserjeDashboard({ trialDiasRestantes, slug }: ConserjeDashboar
       )}
 
       <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-6">
-        <QuickRegister onRegistered={loadData} configuracion={configuracion} />
-
         {(abonadosVencidos.length > 0 || abonadosPorVencer.length > 0) && (
           <div
             id="abonados-alertas-conserje"
@@ -486,6 +484,8 @@ export function ConserjeDashboard({ trialDiasRestantes, slug }: ConserjeDashboar
             </ul>
           </div>
         )}
+
+        <QuickRegister onRegistered={loadData} configuracion={configuracion} />
 
         <Dialog open={!!cancelandoAbono} onOpenChange={(open) => { if (!open) { setCancelandoAbono(null); setMotivoCancelacion(''); setMotivoCancelacionOtro('') } }}>
           <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md overflow-hidden">
