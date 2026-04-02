@@ -94,7 +94,7 @@ export function EstacionamientoMapaDialog({
               const baseClass = `
                     min-h-[44px] rounded-lg border text-sm font-medium transition-colors px-1 flex items-center justify-center
                     ${ocupado
-                      ? 'bg-destructive/90 text-destructive-foreground border-destructive'
+                      ? 'bg-destructive/90 text-white border-destructive'
                       : seleccionado
                         ? 'bg-primary text-primary-foreground border-primary ring-2 ring-primary/30'
                         : 'bg-emerald-500/15 text-emerald-900 dark:text-emerald-100 border-emerald-500/40'}
