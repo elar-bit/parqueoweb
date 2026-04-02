@@ -4,6 +4,10 @@ import { Car } from 'lucide-react'
 import Link from 'next/link'
 import { LoginCarAnimation } from '@/components/login-car-animation'
 
+/** Evita timeouts en Vercel al crear cuenta (bcrypt + varias consultas a Supabase). */
+export const maxDuration = 60
+export const dynamic = 'force-dynamic'
+
 export default function RegistroPage() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4 sm:p-6 relative overflow-hidden">

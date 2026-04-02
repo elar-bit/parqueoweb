@@ -270,6 +270,13 @@ export async function crearCuentaFreemium(
   const pass = (password || '').trim()
   if (!nombre || !nom || !ape) return { ok: false, error: 'Complete todos los campos' }
   if (!pass || pass.length < 4) return { ok: false, error: 'La contraseña debe tener al menos 4 caracteres' }
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()) {
+    return {
+      ok: false,
+      error:
+        'Falta configuración de Supabase en el servidor (NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY).',
+    }
+  }
   let slug = slugFromNombre(nombre)
   try {
     const supabase = await createClient()
@@ -334,11 +341,15 @@ export async function crearCuentaFreemium(
       return { ok: false, error: errUserSystem.message }
     }
 
-    await supabase.from('configuracion').insert([
+    const { error: errConfig } = await supabase.from('configuracion').insert([
       { cuenta_id: cuentaId, tipo_usuario: 'visitante', precio_hora: 5 },
       { cuenta_id: cuentaId, tipo_usuario: 'residente', precio_hora: 3 },
       { cuenta_id: cuentaId, tipo_usuario: 'abonado', precio_hora: 100 },
     ])
+    if (errConfig) {
+      await supabase.from('cuentas').delete().eq('id', cuentaId)
+      return { ok: false, error: errConfig.message }
+    }
     return { ok: true, slug }
   } catch (e) {
     return { ok: false, error: String(e) }

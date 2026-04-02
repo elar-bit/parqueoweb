@@ -8,6 +8,21 @@ import { Label } from '@/components/ui/label'
 import { crearCuentaFreemium } from '@/app/actions'
 import { Loader2 } from 'lucide-react'
 
+function mensajeErrorRed(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err)
+  const m = msg.toLowerCase()
+  if (
+    m.includes('failed to fetch') ||
+    m.includes('fetch failed') ||
+    m.includes('networkerror') ||
+    m.includes('load failed') ||
+    m.includes('network request failed')
+  ) {
+    return 'No se pudo contactar al servidor (fallo de red). Compruebe su conexión a internet. Si ocurre en el sitio publicado, verifique en Vercel u otro hosting que estén definidas NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY y que el despliegue se haya hecho después de guardarlas.'
+  }
+  return msg || 'Error inesperado'
+}
+
 function generarUsernamePreview(nombre: string, apellido: string): string {
   const n = (nombre || '').trim()
   const a = (apellido || '').trim()
@@ -42,8 +57,8 @@ export function RegistroCuentaForm() {
         return
       }
       setError(result.error || 'Error al crear la cuenta')
-    } catch {
-      setError('Error de conexión')
+    } catch (e) {
+      setError(mensajeErrorRed(e))
     } finally {
       setLoading(false)
     }
