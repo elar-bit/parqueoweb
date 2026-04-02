@@ -61,9 +61,17 @@ export function EstacionamientoMapaDialog({
       <DialogContent className="max-w-[min(100vw-2rem,560px)] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{soloConsulta ? 'Mapa de estacionamientos' : 'Elegir estacionamiento'}</DialogTitle>
-          <p className="text-sm text-muted-foreground">
-            Verde = libre · Rojo = ocupado. Se actualiza al abrir y cada 8 s.
-          </p>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500 ring-2 ring-emerald-500/30" aria-hidden />
+              Libre
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-red-500 ring-2 ring-red-500/30" aria-hidden />
+              Ocupado
+            </span>
+            <span className="text-xs w-full sm:w-auto sm:ml-auto">Se actualiza al abrir y cada 8 s.</span>
+          </div>
         </DialogHeader>
         <div className="flex items-center gap-2">
           <Button type="button" variant="outline" size="sm" onClick={() => void refresh()} disabled={loading}>
