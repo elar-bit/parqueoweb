@@ -1734,7 +1734,9 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
               </>
             )}
             <p className="text-xs text-muted-foreground">
-              No se puede cambiar la lista mientras haya entradas activas usando una plaza. Los números guardados en tickets y reportes se conservan aunque elimine una fila de plaza.
+              Puede ampliar el número de plazas o el listado en cualquier momento. Si reduce plazas y alguna de las que
+              quedaría fuera sigue ocupada, deberá finalizar ese servicio antes. Los tickets y reportes antiguos conservan la
+              etiqueta registrada en su momento.
             </p>
             {plazaMsg && (
               <p className={`text-sm ${plazaMsg.includes('guardad') ? 'text-green-600' : 'text-destructive'}`}>{plazaMsg}</p>
@@ -1750,9 +1752,9 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
                         quitar plazas según lo que indique).
                       </p>
                       <p>
-                        Si hay vehículos dentro con una plaza asignada, el sistema puede impedir el cambio hasta que esas
-                        entradas finalicen. Los tickets y reportes antiguos siguen mostrando la etiqueta que tenían al
-                        momento del servicio.
+                        Solo si intenta bajar el número de plazas (o quitar etiquetas del listado manual) por debajo de
+                        plazas que sigan ocupadas, el sistema pedirá finalizar esos servicios primero. Puede aumentar plazas
+                        con normalidad aunque haya ocupación.
                       </p>
                     </div>
                   </AlertDialogDescription>

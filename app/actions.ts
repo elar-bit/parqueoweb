@@ -769,17 +769,23 @@ export async function getEstacionamientosOcupacion(): Promise<{ id: string; etiq
   }
 }
 
-async function hayEntradasActivasConPlaza(cuentaId: string, supabase: Awaited<ReturnType<typeof createClient>>): Promise<boolean> {
-  const { count } = await supabase
+type SupabaseServer = Awaited<ReturnType<typeof createClient>>
+
+/** IDs de plaza con un servicio activo asignado (no se pueden eliminar esas filas). */
+async function getEstacionamientoIdsOcupadosActivos(
+  cuentaId: string,
+  supabase: SupabaseServer,
+): Promise<Set<string>> {
+  const { data } = await supabase
     .from('servicios')
-    .select('*', { count: 'exact', head: true })
+    .select('estacionamiento_id')
     .eq('cuenta_id', cuentaId)
     .eq('estado', 'activo')
     .not('estacionamiento_id', 'is', null)
-  return (count ?? 0) > 0
+  return new Set((data || []).map((r: { estacionamiento_id: string }) => r.estacionamiento_id))
 }
 
-/** Reemplaza todas las plazas por números 1..N (solo admin). */
+/** Ajusta plazas a 1..N: agrega las que falten; quita solo las que no estén ocupadas. */
 export async function guardarEstacionamientosCorrelativo(cantidad: number): Promise<{ ok: boolean; error?: string }> {
   if (!(await getAdminAuth())) return { ok: false, error: 'No autorizado' }
   const cuentaId = await getCuentaIdFromSession()
@@ -788,21 +794,66 @@ export async function guardarEstacionamientosCorrelativo(cantidad: number): Prom
   if (n < 1 || n > 500) return { ok: false, error: 'Indique entre 1 y 500 plazas' }
   try {
     const supabase = await createClient()
-    if (await hayEntradasActivasConPlaza(cuentaId, supabase)) {
+    const { data: actuales, error: e1 } = await supabase
+      .from('estacionamientos')
+      .select('id, etiqueta, orden')
+      .eq('cuenta_id', cuentaId)
+    if (e1) return { ok: false, error: e1.message }
+    const ocupados = await getEstacionamientoIdsOcupadosActivos(cuentaId, supabase)
+
+    const targetSet = new Set(Array.from({ length: n }, (_, i) => String(i + 1)))
+    const rows = (actuales || []) as { id: string; etiqueta: string; orden: number }[]
+    const toRemove = rows.filter((r) => !targetSet.has(r.etiqueta.trim()))
+    const bloqueados = toRemove.filter((r) => ocupados.has(r.id))
+    if (bloqueados.length > 0) {
+      const lista = bloqueados.map((r) => r.etiqueta).join(', ')
       return {
         ok: false,
-        error: 'Hay entradas activas usando plazas. Registre las salidas antes de reconfigurar.',
+        error: `No puede dejar menos de ${n} plazas mientras haya ocupación en: ${lista}. Finalice esos servicios antes de reducir el número de estacionamientos.`,
       }
     }
-    const { error: delErr } = await supabase.from('estacionamientos').delete().eq('cuenta_id', cuentaId)
-    if (delErr) return { ok: false, error: delErr.message }
-    const rows = Array.from({ length: n }, (_, i) => ({
-      cuenta_id: cuentaId,
-      etiqueta: String(i + 1),
-      orden: i,
-    }))
-    const { error: insErr } = await supabase.from('estacionamientos').insert(rows)
-    if (insErr) return { ok: false, error: insErr.message }
+
+    if (toRemove.length > 0) {
+      const delIds = toRemove.map((r) => r.id)
+      const { error: delErr } = await supabase.from('estacionamientos').delete().in('id', delIds)
+      if (delErr) return { ok: false, error: delErr.message }
+    }
+
+    const { data: despuesDel, error: e2 } = await supabase
+      .from('estacionamientos')
+      .select('id, etiqueta, orden')
+      .eq('cuenta_id', cuentaId)
+    if (e2) return { ok: false, error: e2.message }
+    const have = new Set((despuesDel || []).map((r: { etiqueta: string }) => r.etiqueta.trim()))
+
+    for (let i = 1; i <= n; i++) {
+      const lab = String(i)
+      if (!have.has(lab)) {
+        const { error: insErr } = await supabase
+          .from('estacionamientos')
+          .insert({ cuenta_id: cuentaId, etiqueta: lab, orden: i - 1 })
+        if (insErr) return { ok: false, error: insErr.message }
+        have.add(lab)
+      }
+    }
+
+    const { data: finalRows, error: e3 } = await supabase
+      .from('estacionamientos')
+      .select('id, etiqueta')
+      .eq('cuenta_id', cuentaId)
+    if (e3) return { ok: false, error: e3.message }
+    for (let i = 1; i <= n; i++) {
+      const lab = String(i)
+      const row = (finalRows || []).find((r: { etiqueta: string }) => r.etiqueta.trim() === lab)
+      if (row) {
+        const { error: upErr } = await supabase
+          .from('estacionamientos')
+          .update({ orden: i - 1 })
+          .eq('id', row.id)
+        if (upErr) return { ok: false, error: upErr.message }
+      }
+    }
+
     revalidateTenantPaths()
     return { ok: true }
   } catch (e) {
@@ -810,7 +861,7 @@ export async function guardarEstacionamientosCorrelativo(cantidad: number): Prom
   }
 }
 
-/** Reemplaza todas las plazas por etiquetas manuales (solo admin). */
+/** Ajusta plazas al listado manual: agrega nuevas; quita solo las que no estén ocupadas. */
 export async function guardarEstacionamientosManuales(etiquetas: string[]): Promise<{ ok: boolean; error?: string }> {
   if (!(await getAdminAuth())) return { ok: false, error: 'No autorizado' }
   const cuentaId = await getCuentaIdFromSession()
@@ -820,17 +871,56 @@ export async function guardarEstacionamientosManuales(etiquetas: string[]): Prom
   if (limpias.length > 500) return { ok: false, error: 'Máximo 500 plazas' }
   try {
     const supabase = await createClient()
-    if (await hayEntradasActivasConPlaza(cuentaId, supabase)) {
+    const { data: actuales, error: e1 } = await supabase
+      .from('estacionamientos')
+      .select('id, etiqueta, orden')
+      .eq('cuenta_id', cuentaId)
+    if (e1) return { ok: false, error: e1.message }
+    const ocupados = await getEstacionamientoIdsOcupadosActivos(cuentaId, supabase)
+
+    const targetSet = new Set(limpias)
+    const rows = (actuales || []) as { id: string; etiqueta: string; orden: number }[]
+    const toRemove = rows.filter((r) => !targetSet.has(r.etiqueta.trim()))
+    const bloqueados = toRemove.filter((r) => ocupados.has(r.id))
+    if (bloqueados.length > 0) {
+      const lista = bloqueados.map((r) => r.etiqueta).join(', ')
       return {
         ok: false,
-        error: 'Hay entradas activas usando plazas. Registre las salidas antes de reconfigurar.',
+        error: `No puede quitar del listado las plazas que siguen ocupadas: ${lista}. Finalice esos servicios antes de reducir la lista.`,
       }
     }
-    const { error: delErr } = await supabase.from('estacionamientos').delete().eq('cuenta_id', cuentaId)
-    if (delErr) return { ok: false, error: delErr.message }
-    const rows = limpias.map((etiqueta, i) => ({ cuenta_id: cuentaId, etiqueta, orden: i }))
-    const { error: insErr } = await supabase.from('estacionamientos').insert(rows)
-    if (insErr) return { ok: false, error: insErr.message }
+
+    if (toRemove.length > 0) {
+      const delIds = toRemove.map((r) => r.id)
+      const { error: delErr } = await supabase.from('estacionamientos').delete().in('id', delIds)
+      if (delErr) return { ok: false, error: delErr.message }
+    }
+
+    const { data: despuesDel, error: e2 } = await supabase
+      .from('estacionamientos')
+      .select('id, etiqueta, orden')
+      .eq('cuenta_id', cuentaId)
+    if (e2) return { ok: false, error: e2.message }
+    const byEtiqueta = new Map(
+      (despuesDel || []).map((r: { id: string; etiqueta: string; orden: number }) => [r.etiqueta.trim(), r]),
+    )
+
+    for (let i = 0; i < limpias.length; i++) {
+      const lab = limpias[i]
+      const ex = byEtiqueta.get(lab)
+      if (ex) {
+        if (ex.orden !== i) {
+          const { error: upErr } = await supabase.from('estacionamientos').update({ orden: i }).eq('id', ex.id)
+          if (upErr) return { ok: false, error: upErr.message }
+        }
+      } else {
+        const { error: insErr } = await supabase
+          .from('estacionamientos')
+          .insert({ cuenta_id: cuentaId, etiqueta: lab, orden: i })
+        if (insErr) return { ok: false, error: insErr.message }
+      }
+    }
+
     revalidateTenantPaths()
     return { ok: true }
   } catch (e) {
