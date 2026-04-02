@@ -368,8 +368,9 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
     })
   }, [])
 
-  const loadData = useCallback(async () => {
-    setLoading(true)
+  const loadData = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true
+    if (!silent) setLoading(true)
     try {
       const serviciosPromise = rangoMesServicios.fechaDesde
         ? getServiciosPagadosFiltrados({ fechaDesde: rangoMesServicios.fechaDesde, fechaHasta: rangoMesServicios.fechaHasta })
@@ -399,7 +400,7 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
     } catch (error) {
       console.error('Error loading admin data:', error)
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }, [rangoMesServicios.fechaDesde, rangoMesServicios.fechaHasta])
 
@@ -449,6 +450,13 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
 
   useEffect(() => {
     loadData()
+  }, [loadData])
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      void loadData({ silent: true })
+    }, 60_000)
+    return () => clearInterval(id)
   }, [loadData])
 
   useEffect(() => {
@@ -946,13 +954,29 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
         {(abonadosVencidos.length > 0 || abonadosPorVencer.length > 0) && (
           <Card className="border-amber-500/50 bg-amber-500/5 overflow-hidden" id="abonados-alertas">
             <CardHeader className="pb-2">
-              <CardTitle className="text-foreground flex items-center gap-2 text-base sm:text-lg">
-                <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600" />
-                <span className="break-words">Alertas de abonados</span>
-              </CardTitle>
-              <p className="text-sm text-muted-foreground break-words">
-                Abonados con mensualidad vencida o que vence en los próximos 7 días.
-              </p>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <CardTitle className="text-foreground flex items-center gap-2 text-base sm:text-lg">
+                    <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600" />
+                    <span className="break-words">Alertas de abonados</span>
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground break-words mt-1">
+                    Abonados con mensualidad vencida o que vence en los próximos 7 días.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={() => void loadData()}
+                  disabled={loading}
+                  title="Actualizar alertas y datos del panel"
+                >
+                  <RefreshCw className={`h-4 w-4 sm:mr-1.5 ${loading ? 'animate-spin' : ''}`} />
+                  <span className="hidden sm:inline">Actualizar</span>
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="overflow-hidden px-3 sm:px-6">
               <ul className="space-y-2">

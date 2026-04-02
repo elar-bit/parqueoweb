@@ -12,6 +12,9 @@ import { Button } from '@/components/ui/button'
 import { getEstacionamientosOcupacion } from '@/app/actions'
 import { RefreshCw } from 'lucide-react'
 
+/** Auto-actualización del mapa (mismo ritmo que el panel conserje/admin). */
+const INTERVALO_MAPA_MS = 60_000
+
 type Plaza = { id: string; etiqueta: string; ocupado: boolean }
 
 type EstacionamientoMapaDialogProps = {
@@ -49,7 +52,7 @@ export function EstacionamientoMapaDialog({
 
   useEffect(() => {
     if (!open) return
-    const t = setInterval(() => void refresh(), 8000)
+    const t = setInterval(() => void refresh(), INTERVALO_MAPA_MS)
     return () => clearInterval(t)
   }, [open, refresh])
 
@@ -70,7 +73,7 @@ export function EstacionamientoMapaDialog({
               <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-red-500 ring-2 ring-red-500/30" aria-hidden />
               Ocupado
             </span>
-            <span className="text-xs w-full sm:w-auto sm:ml-auto">Se actualiza al abrir y cada 8 s.</span>
+            <span className="text-xs w-full sm:w-auto sm:ml-auto">Se actualiza al abrir, cada 1 minuto o con «Actualizar».</span>
           </div>
         </DialogHeader>
         <div className="flex items-center gap-2">

@@ -104,8 +104,9 @@ export function ConserjeDashboard({ trialDiasRestantes, slug }: ConserjeDashboar
     })
   }, [])
 
-  const loadData = useCallback(async () => {
-    setLoading(true)
+  const loadData = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true
+    if (!silent) setLoading(true)
     try {
       const serviciosDelMesPromise = rangoMesServicios.fechaDesde
         ? getServiciosPagadosFiltrados({ fechaDesde: rangoMesServicios.fechaDesde, fechaHasta: rangoMesServicios.fechaHasta })
@@ -125,12 +126,19 @@ export function ConserjeDashboard({ trialDiasRestantes, slug }: ConserjeDashboar
     } catch (error) {
       console.error('Error loading data:', error)
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }, [rangoMesServicios.fechaDesde, rangoMesServicios.fechaHasta])
 
   useEffect(() => {
     loadData()
+  }, [loadData])
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      void loadData({ silent: true })
+    }, 60_000)
+    return () => clearInterval(id)
   }, [loadData])
 
   const handleValidate = (servicio: ServicioConVehiculo) => {
@@ -336,9 +344,22 @@ export function ConserjeDashboard({ trialDiasRestantes, slug }: ConserjeDashboar
             id="abonados-alertas-conserje"
             className="border border-amber-500/40 bg-amber-500/5 rounded-lg p-3 sm:p-4 space-y-2 overflow-hidden"
           >
-            <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 min-w-0">
-              <AlertTriangle className="h-4 w-4 shrink-0" />
-              <p className="font-medium text-sm break-words min-w-0">Alertas de abonados (próximos a vencer o vencidos)</p>
+            <div className="flex items-center justify-between gap-2 text-amber-700 dark:text-amber-400 min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <p className="font-medium text-sm break-words min-w-0">Alertas de abonados (próximos a vencer o vencidos)</p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="shrink-0 h-8 w-8 border-amber-600/40 text-amber-900 dark:text-amber-100"
+                onClick={() => void loadData()}
+                disabled={loading}
+                title="Actualizar alertas y vehículos dentro"
+              >
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              </Button>
             </div>
             <ul className="space-y-1 text-sm">
               {abonadosPorVencer.map((v) => (
