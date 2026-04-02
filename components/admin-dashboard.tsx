@@ -45,7 +45,7 @@ import {
 import type { ServicioConVehiculo, Configuracion, Vehiculo } from '@/lib/types'
 import { formatCurrency, formatMesAno, montoServicioParaMostrar, tiempoRestanteAbono } from '@/lib/billing'
 import { etiquetaPlazaServicio } from '@/lib/plaza'
-import { Car, DollarSign, RefreshCw, BarChart3, LogOut, Settings, Loader2, Users, UserPlus, Pencil, Trash2, Key, FileSpreadsheet, FileText, Info, CalendarCheck, AlertTriangle, Star, XCircle, UserX, UserCheck, MapPin } from 'lucide-react'
+import { Car, DollarSign, RefreshCw, BarChart3, LogOut, Settings, Loader2, Users, UserPlus, Pencil, Trash2, Key, FileSpreadsheet, FileText, Info, CalendarCheck, AlertTriangle, Star, XCircle, UserX, UserCheck, MapPin, Lock } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
@@ -69,6 +69,21 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { ChevronDown, ChevronRight } from 'lucide-react'
+
+/** Precarga modo correlativo vs manual según la lista guardada (1..N vs etiquetas libres). */
+function valoresFormularioDesdeLista(lista: EstacionamientoRow[]): {
+  modo: 'correlativo' | 'manual'
+  cantidad: string
+  textoManual: string
+} {
+  const sorted = [...lista].sort((a, b) => a.orden - b.orden || a.etiqueta.localeCompare(b.etiqueta))
+  const n = sorted.length
+  const esCorrelativo = n > 0 && sorted.every((row, i) => row.etiqueta.trim() === String(i + 1))
+  if (esCorrelativo) {
+    return { modo: 'correlativo', cantidad: String(n), textoManual: '' }
+  }
+  return { modo: 'manual', cantidad: '20', textoManual: sorted.map((r) => r.etiqueta).join('\n') }
+}
 
 type AdminDashboardProps = { currentUserId?: string | null; trialDiasRestantes?: number; slug?: string }
 
@@ -118,6 +133,8 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
   const [textoPlazasManual, setTextoPlazasManual] = useState('')
   const [savingPlazas, setSavingPlazas] = useState(false)
   const [plazaMsg, setPlazaMsg] = useState('')
+  const [editandoPlazas, setEditandoPlazas] = useState(false)
+  const [alertaModificarPlazasOpen, setAlertaModificarPlazasOpen] = useState(false)
   const [filtroMesServicios, setFiltroMesServicios] = useState<string>('')
   const [mesesDisponibles, setMesesDisponibles] = useState<string[]>([])
   const [loadingReportes, setLoadingReportes] = useState(false)
@@ -529,6 +546,7 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
       const r = await guardarEstacionamientosCorrelativo(n)
       if (r.ok) {
         setPlazaMsg('Estacionamientos guardados (numeración 1, 2, 3…).')
+        setEditandoPlazas(false)
         loadData()
       } else setPlazaMsg(r.error || 'Error')
     } finally {
@@ -545,11 +563,32 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
       if (r.ok) {
         setPlazaMsg('Estacionamientos guardados.')
         setTextoPlazasManual('')
+        setEditandoPlazas(false)
         loadData()
       } else setPlazaMsg(r.error || 'Error')
     } finally {
       setSavingPlazas(false)
     }
+  }
+
+  const aplicarListaAFormularioPlazas = useCallback(() => {
+    const v = valoresFormularioDesdeLista(listaEstacionamientos)
+    setModoPlazas(v.modo)
+    setCantidadPlazasCorr(v.cantidad)
+    setTextoPlazasManual(v.textoManual)
+  }, [listaEstacionamientos])
+
+  const confirmarModificarPlazas = () => {
+    aplicarListaAFormularioPlazas()
+    setEditandoPlazas(true)
+    setAlertaModificarPlazasOpen(false)
+    setPlazaMsg('')
+  }
+
+  const cancelarEdicionPlazas = () => {
+    aplicarListaAFormularioPlazas()
+    setEditandoPlazas(false)
+    setPlazaMsg('')
   }
 
   const handleLogout = async () => {
@@ -1605,57 +1644,94 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
             </p>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant={modoPlazas === 'correlativo' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setModoPlazas('correlativo')}
-              >
-                Correlativos
-              </Button>
-              <Button
-                type="button"
-                variant={modoPlazas === 'manual' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setModoPlazas('manual')}
-              >
-                Manual
-              </Button>
-            </div>
-            {modoPlazas === 'correlativo' ? (
-              <div className="flex flex-wrap items-end gap-3">
-                <div className="space-y-2">
-                  <Label>Cantidad de plazas</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={500}
-                    className="w-28"
-                    value={cantidadPlazasCorr}
-                    onChange={(e) => setCantidadPlazasCorr(e.target.value)}
-                  />
+            {listaEstacionamientos.length > 0 && !editandoPlazas ? (
+              <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
+                <div className="flex flex-wrap items-center gap-2 text-sm font-medium text-foreground">
+                  <Lock className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                  <span>Configuración fijada</span>
+                  <Badge variant="secondary" className="font-normal">
+                    {valoresFormularioDesdeLista(listaEstacionamientos).modo === 'correlativo'
+                      ? 'Correlativos 1…N'
+                      : 'Etiquetas manuales'}
+                  </Badge>
                 </div>
-                <Button type="button" onClick={handleGuardarPlazasCorrelativo} disabled={savingPlazas}>
-                  {savingPlazas ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  Guardar correlativos
+                <p className="text-sm text-muted-foreground">
+                  Vista previa:{' '}
+                  <span className="font-mono text-foreground">
+                    {[...listaEstacionamientos]
+                      .sort((a, b) => a.orden - b.orden || a.etiqueta.localeCompare(b.etiqueta))
+                      .slice(0, 15)
+                      .map((r) => r.etiqueta)
+                      .join(', ')}
+                    {listaEstacionamientos.length > 15 ? '…' : ''}
+                  </span>
+                </p>
+                <Button type="button" variant="outline" onClick={() => setAlertaModificarPlazasOpen(true)}>
+                  Modificar plazas
                 </Button>
               </div>
             ) : (
-              <div className="space-y-2">
-                <Label>Una etiqueta por línea o separadas por coma (ej. A-1, A-2, B1)</Label>
-                <Textarea
-                  value={textoPlazasManual}
-                  onChange={(e) => setTextoPlazasManual(e.target.value)}
-                  placeholder={'A-1\nA-2\nB1'}
-                  rows={5}
-                  className="font-mono text-sm"
-                />
-                <Button type="button" onClick={handleGuardarPlazasManual} disabled={savingPlazas}>
-                  {savingPlazas ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  Guardar manual
-                </Button>
-              </div>
+              <>
+                <div className="flex flex-wrap items-center gap-2">
+                  {listaEstacionamientos.length > 0 && editandoPlazas && (
+                    <Button type="button" variant="ghost" size="sm" onClick={cancelarEdicionPlazas}>
+                      Cancelar edición
+                    </Button>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant={modoPlazas === 'correlativo' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setModoPlazas('correlativo')}
+                  >
+                    Correlativos
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={modoPlazas === 'manual' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setModoPlazas('manual')}
+                  >
+                    Manual
+                  </Button>
+                </div>
+                {modoPlazas === 'correlativo' ? (
+                  <div className="flex flex-wrap items-end gap-3">
+                    <div className="space-y-2">
+                      <Label>Cantidad de plazas</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={500}
+                        className="w-28"
+                        value={cantidadPlazasCorr}
+                        onChange={(e) => setCantidadPlazasCorr(e.target.value)}
+                      />
+                    </div>
+                    <Button type="button" onClick={handleGuardarPlazasCorrelativo} disabled={savingPlazas}>
+                      {savingPlazas ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                      Guardar correlativos
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label>Una etiqueta por línea o separadas por coma (ej. A-1, A-2, B1)</Label>
+                    <Textarea
+                      value={textoPlazasManual}
+                      onChange={(e) => setTextoPlazasManual(e.target.value)}
+                      placeholder={'A-1\nA-2\nB1'}
+                      rows={5}
+                      className="font-mono text-sm"
+                    />
+                    <Button type="button" onClick={handleGuardarPlazasManual} disabled={savingPlazas}>
+                      {savingPlazas ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                      Guardar manual
+                    </Button>
+                  </div>
+                )}
+              </>
             )}
             <p className="text-xs text-muted-foreground">
               No se puede cambiar la lista mientras haya entradas activas usando una plaza. Los números guardados en tickets y reportes se conservan aunque elimine una fila de plaza.
@@ -1663,6 +1739,30 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
             {plazaMsg && (
               <p className={`text-sm ${plazaMsg.includes('guardad') ? 'text-green-600' : 'text-destructive'}`}>{plazaMsg}</p>
             )}
+            <AlertDialog open={alertaModificarPlazasOpen} onOpenChange={setAlertaModificarPlazasOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>¿Modificar las plazas?</AlertDialogTitle>
+                  <AlertDialogDescription asChild>
+                    <div className="space-y-2 text-sm text-muted-foreground">
+                      <p>
+                        Al guardar de nuevo, la lista de estacionamientos se reemplaza por la nueva configuración (agregar o
+                        quitar plazas según lo que indique).
+                      </p>
+                      <p>
+                        Si hay vehículos dentro con una plaza asignada, el sistema puede impedir el cambio hasta que esas
+                        entradas finalicen. Los tickets y reportes antiguos siguen mostrando la etiqueta que tenían al
+                        momento del servicio.
+                      </p>
+                    </div>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Volver</AlertDialogCancel>
+                  <AlertDialogAction onClick={confirmarModificarPlazas}>Entiendo, continuar</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </CardContent>
         </Card>
 
