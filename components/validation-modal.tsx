@@ -23,20 +23,22 @@ import { calculateBilling, formatCurrency, formatDuration } from '@/lib/billing'
 import { actualizarVehiculo, registrarSalida } from '@/app/actions'
 import { abonoVigente } from '@/lib/billing'
 import type { ServicioConVehiculo, Configuracion } from '@/lib/types'
+import { etiquetaPlazaServicio } from '@/lib/plaza'
 import { Printer, Check, Loader2 } from 'lucide-react'
 
 // Cambio mínimo para registrar diff sin cambiar la lógica
 
 function buildTicketTextoWhatsApp(opts: {
   placa: string
-  tipo: 'visitante' | 'residente'
+  plazaEtiqueta: string
+  tipo: 'visitante' | 'residente' | 'abonado'
   nombreResidente: string | null
   entrada: Date
   salida: Date
   total: number
   refYape: string
 }): string {
-  const { placa, tipo, nombreResidente, entrada, salida, total, refYape } = opts
+  const { placa, plazaEtiqueta, tipo, nombreResidente, entrada, salida, total, refYape } = opts
   const saludoBase = nombreResidente
     ? `Hola, ${nombreResidente}`
     : 'Hola'
@@ -45,6 +47,7 @@ function buildTicketTextoWhatsApp(opts: {
     'Compartimos contigo tu ticket generado el día de hoy en nuestra playa de estacionamiento.',
     '',
     `Placa: ${placa || 'N/A'}`,
+    `Plaza: ${plazaEtiqueta || '—'}`,
     `Tipo: ${tipo === 'residente' ? 'Residente' : tipo === 'abonado' ? 'Abonado' : 'Visitante'}`,
     `Entrada: ${entrada.toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })}`,
     `Salida: ${salida.toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })}`,
@@ -219,6 +222,7 @@ export function ValidationModal({
       const salida = salidaTicket ?? new Date()
       const texto = buildTicketTextoWhatsApp({
         placa,
+        plazaEtiqueta: etiquetaPlazaServicio(servicio),
         tipo,
         nombreResidente,
         entrada: new Date(servicio.entrada_real),
@@ -307,6 +311,10 @@ export function ValidationModal({
               
               <div className="bg-muted rounded-lg p-4 space-y-2">
                 <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Plaza:</span>
+                  <span className="font-mono font-medium">{etiquetaPlazaServicio(servicio)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Entrada:</span>
                   <span>{entradaReal.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
@@ -370,6 +378,10 @@ export function ValidationModal({
                 <div className="row flex justify-between">
                   <span>Placa:</span>
                   <span className="font-bold">{placa || 'N/A'}</span>
+                </div>
+                <div className="row flex justify-between">
+                  <span>Plaza:</span>
+                  <span className="font-bold">{etiquetaPlazaServicio(servicio)}</span>
                 </div>
                 <div className="row flex justify-between">
                   <span>Tipo:</span>
