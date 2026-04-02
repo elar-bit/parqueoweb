@@ -18,7 +18,15 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command'
-import { registrarEntrada, getPlacasResidentes, getPlacasAbonados, tieneEntradaActiva } from '@/app/actions'
+import {
+  registrarEntrada,
+  getPlacasResidentes,
+  getPlacasAbonados,
+  tieneEntradaActiva,
+  getEstacionamientos,
+  type EstacionamientoRow,
+} from '@/app/actions'
+import { EstacionamientoMapaDialog } from '@/components/estacionamiento-mapa-dialog'
 import type { ResidenteOption, AbonadoOption } from '@/app/actions'
 import type { Configuracion } from '@/lib/types'
 import { formatCurrency, calcularTotalAbonado } from '@/lib/billing'
@@ -74,8 +82,17 @@ export function QuickRegister({ onRegistered, configuracion = [] }: QuickRegiste
   const [refPagoAbono, setRefPagoAbono] = useState('')
   const [capturaPagoFile, setCapturaPagoFile] = useState<File | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [plazas, setPlazas] = useState<EstacionamientoRow[]>([])
+  const [estacionamientoId, setEstacionamientoId] = useState<string | null>(null)
+  const [estacionamientoEtiqueta, setEstacionamientoEtiqueta] = useState<string | null>(null)
+  const [mapaOpen, setMapaOpen] = useState(false)
 
   const precioMensualAbonado = configuracion.find((c) => c.tipo_usuario === 'abonado')?.precio_hora ?? 0
+  const requierePlaza = plazas.length > 0
+
+  useEffect(() => {
+    getEstacionamientos().then(setPlazas)
+  }, [])
 
   const cargarResidentes = async () => {
     const list = await getPlacasResidentes()
@@ -102,6 +119,8 @@ export function QuickRegister({ onRegistered, configuracion = [] }: QuickRegiste
     setTipo(t)
     setPaso('placa')
     setPlaca('')
+    setEstacionamientoId(null)
+    setEstacionamientoEtiqueta(null)
     setResidenteSeleccionado(null)
     setAbonadoSeleccionado(null)
     setNombreResidente('')
@@ -142,20 +161,32 @@ export function QuickRegister({ onRegistered, configuracion = [] }: QuickRegiste
 
   const handleRegistrar = async () => {
     if (!tipo) return
+    if (requierePlaza && !estacionamientoId) {
+      setErrorMsg('Seleccione un estacionamiento libre en el mapa.')
+      return
+    }
     setLoading(true)
     setErrorMsg(null)
+    const estId = estacionamientoId
     try {
       if (tipo === 'residente' && residenteSeleccionado) {
-        await registrarEntrada('residente', null, residenteSeleccionado)
+        await registrarEntrada('residente', null, residenteSeleccionado, undefined, undefined, estId)
       } else if (tipo === 'residente' && placa.trim()) {
-        await registrarEntrada('residente', placa.trim(), null, {
-          nombre: nombreResidente.trim() || null,
-          apellido: apellidoResidente.trim() || null,
-          numero_oficina_dep: numeroOficinaDep.trim() || null,
-          telefono_contacto: telefonoResidente.trim() || null,
-        })
+        await registrarEntrada(
+          'residente',
+          placa.trim(),
+          null,
+          {
+            nombre: nombreResidente.trim() || null,
+            apellido: apellidoResidente.trim() || null,
+            numero_oficina_dep: numeroOficinaDep.trim() || null,
+            telefono_contacto: telefonoResidente.trim() || null,
+          },
+          undefined,
+          estId
+        )
       } else if (tipo === 'abonado' && abonadoSeleccionado) {
-        await registrarEntrada('abonado', null, abonadoSeleccionado, undefined, undefined)
+        await registrarEntrada('abonado', null, abonadoSeleccionado, undefined, undefined, estId)
       } else if (tipo === 'abonado' && placa.trim()) {
         let capturaDataUrl: string | null = null
         if (capturaPagoFile) {
@@ -166,23 +197,30 @@ export function QuickRegister({ onRegistered, configuracion = [] }: QuickRegiste
             r.readAsDataURL(capturaPagoFile)
           })
         }
-        await registrarEntrada('abonado', placa.trim(), null, {
-          nombre: nombreResidente.trim() || null,
-          apellido: apellidoResidente.trim() || null,
-          numero_oficina_dep: numeroOficinaDep.trim() || null,
-          telefono_contacto: telefonoResidente.trim() || null,
-        }, {
-          nombre: nombreResidente.trim() || null,
-          apellido: apellidoResidente.trim() || null,
-          numero_oficina_dep: numeroOficinaDep.trim() || null,
-          telefono_contacto: telefonoResidente.trim() || null,
-          yaPagoMensualidad,
-          numeroMeses: yaPagoMensualidad ? numeroMesesAbono : undefined,
-          refPagoAbono: refPagoAbono.trim() || null,
-          capturaPagoAbono: capturaDataUrl,
-        })
+        await registrarEntrada(
+          'abonado',
+          placa.trim(),
+          null,
+          {
+            nombre: nombreResidente.trim() || null,
+            apellido: apellidoResidente.trim() || null,
+            numero_oficina_dep: numeroOficinaDep.trim() || null,
+            telefono_contacto: telefonoResidente.trim() || null,
+          },
+          {
+            nombre: nombreResidente.trim() || null,
+            apellido: apellidoResidente.trim() || null,
+            numero_oficina_dep: numeroOficinaDep.trim() || null,
+            telefono_contacto: telefonoResidente.trim() || null,
+            yaPagoMensualidad,
+            numeroMeses: yaPagoMensualidad ? numeroMesesAbono : undefined,
+            refPagoAbono: refPagoAbono.trim() || null,
+            capturaPagoAbono: capturaDataUrl,
+          },
+          estId
+        )
       } else {
-        await registrarEntrada(tipo!, placa.trim() || null, null)
+        await registrarEntrada(tipo!, placa.trim() || null, null, undefined, undefined, estId)
       }
       setPaso('tipo')
       setTipo(null)
@@ -198,10 +236,14 @@ export function QuickRegister({ onRegistered, configuracion = [] }: QuickRegiste
       setRefPagoAbono('')
       setCapturaPagoFile(null)
       setComboboxSearch('')
+      setEstacionamientoId(null)
+      setEstacionamientoEtiqueta(null)
       onRegistered()
     } catch (error) {
       console.error('Error registering entry:', error)
-      setErrorMsg('No se pudo registrar la entrada. Verifique los datos e inténtelo nuevamente.')
+      setErrorMsg(
+        error instanceof Error ? error.message : 'No se pudo registrar la entrada. Verifique los datos e inténtelo nuevamente.'
+      )
     } finally {
       setLoading(false)
     }
@@ -222,17 +264,21 @@ export function QuickRegister({ onRegistered, configuracion = [] }: QuickRegiste
     setRefPagoAbono('')
     setCapturaPagoFile(null)
     setComboboxSearch('')
+    setEstacionamientoId(null)
+    setEstacionamientoEtiqueta(null)
     setErrorMsg(null)
   }
 
+  const plazaOk = !requierePlaza || !!estacionamientoId
   const puedeRegistrar =
-    tipo === 'visitante'
+    plazaOk &&
+    (tipo === 'visitante'
       ? true
       : tipo === 'residente'
         ? residenteSeleccionado !== null || placa.trim().length > 0
         : tipo === 'abonado'
           ? abonadoSeleccionado !== null || placa.trim().length > 0
-          : false
+          : false)
 
   const residenteLabel = residenteSeleccionado
     ? (() => {
@@ -304,6 +350,35 @@ export function QuickRegister({ onRegistered, configuracion = [] }: QuickRegiste
                   ? 'Busque una placa ya registrada como abonado o ingrese una nueva. El mes corre desde el primer día de registro (pago por mes adelantado).'
                   : 'Busque por placa o apellido una placa ya registrada o ingrese una nueva con nombre y apellido.'}
             </p>
+
+            {requierePlaza && (
+              <div className="rounded-lg border border-border p-3 space-y-2 bg-muted/30">
+                <Label>Estacionamiento</Label>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={() => setMapaOpen(true)}>
+                    {estacionamientoEtiqueta ? `Plaza: ${estacionamientoEtiqueta}` : 'Ver mapa y elegir plaza'}
+                  </Button>
+                  {estacionamientoEtiqueta && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setEstacionamientoId(null)
+                        setEstacionamientoEtiqueta(null)
+                      }}
+                    >
+                      Quitar
+                    </Button>
+                  )}
+                </div>
+                {!estacionamientoId && (
+                  <p className="text-xs text-amber-700 dark:text-amber-300">
+                    Elija una plaza libre (verde). Las ocupadas aparecen en rojo.
+                  </p>
+                )}
+              </div>
+            )}
 
             {tipo === 'abonado' && (
               <div className="space-y-2">
@@ -557,6 +632,16 @@ export function QuickRegister({ onRegistered, configuracion = [] }: QuickRegiste
           </div>
         )}
       </CardContent>
+      <EstacionamientoMapaDialog
+        open={mapaOpen}
+        onOpenChange={setMapaOpen}
+        seleccionActual={estacionamientoId}
+        onSeleccionar={(id, etiqueta) => {
+          setEstacionamientoId(id)
+          setEstacionamientoEtiqueta(etiqueta)
+          setMapaOpen(false)
+        }}
+      />
     </Card>
   )
 }

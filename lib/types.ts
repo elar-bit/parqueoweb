@@ -30,6 +30,10 @@ export interface Servicio {
   total_pagar: number | null
   ref_pago_yape: string | null
   created_at: string
+  /** Plaza asignada (FK); puede quedar null si se eliminó la fila de plaza. */
+  estacionamiento_id?: string | null
+  /** Número/texto de plaza guardado al registrar (tickets y reportes). */
+  estacionamiento_etiqueta?: string | null
   vehiculo?: Vehiculo
 }
 

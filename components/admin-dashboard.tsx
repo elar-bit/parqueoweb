@@ -4,6 +4,7 @@ import { useMemo, useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -34,12 +35,17 @@ import {
   getAbonadosPorVencer,
   renovarAbono,
   cancelarAbono,
+  getEstacionamientos,
+  guardarEstacionamientosCorrelativo,
+  guardarEstacionamientosManuales,
   type FiltrosAdmin,
   type UsuarioRow,
+  type EstacionamientoRow,
 } from '@/app/actions'
 import type { ServicioConVehiculo, Configuracion, Vehiculo } from '@/lib/types'
 import { formatCurrency, formatMesAno, montoServicioParaMostrar, tiempoRestanteAbono } from '@/lib/billing'
-import { Car, DollarSign, RefreshCw, BarChart3, LogOut, Settings, Loader2, Users, UserPlus, Pencil, Trash2, Key, FileSpreadsheet, FileText, Info, CalendarCheck, AlertTriangle, Star, XCircle, UserX, UserCheck } from 'lucide-react'
+import { etiquetaPlazaServicio } from '@/lib/plaza'
+import { Car, DollarSign, RefreshCw, BarChart3, LogOut, Settings, Loader2, Users, UserPlus, Pencil, Trash2, Key, FileSpreadsheet, FileText, Info, CalendarCheck, AlertTriangle, Star, XCircle, UserX, UserCheck, MapPin } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
@@ -106,6 +112,12 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
   const [filtroPeriodoServicios, setFiltroPeriodoServicios] = useState<string>('')
   const [renovarNumeroMeses, setRenovarNumeroMeses] = useState<number>(1)
   const [reportesExpandido, setReportesExpandido] = useState(false)
+  const [listaEstacionamientos, setListaEstacionamientos] = useState<EstacionamientoRow[]>([])
+  const [modoPlazas, setModoPlazas] = useState<'correlativo' | 'manual'>('correlativo')
+  const [cantidadPlazasCorr, setCantidadPlazasCorr] = useState('20')
+  const [textoPlazasManual, setTextoPlazasManual] = useState('')
+  const [savingPlazas, setSavingPlazas] = useState(false)
+  const [plazaMsg, setPlazaMsg] = useState('')
   const [filtroMesServicios, setFiltroMesServicios] = useState<string>('')
   const [mesesDisponibles, setMesesDisponibles] = useState<string[]>([])
   const [loadingReportes, setLoadingReportes] = useState(false)
@@ -199,6 +211,7 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
       'Compartimos contigo tu ticket generado el día de hoy en nuestra playa de estacionamiento.',
       '',
       `Placa: ${placa}`,
+      `Estacionamiento: ${etiquetaPlazaServicio(servicio)}`,
       `Tipo: ${esAbonado ? 'Abonado' : esResidente ? 'Residente' : 'Visitante'}`,
       `Entrada: ${entrada}`,
       `Salida: ${salida}`,
@@ -344,13 +357,14 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
       const serviciosPromise = rangoMesServicios.fechaDesde
         ? getServiciosPagadosFiltrados({ fechaDesde: rangoMesServicios.fechaDesde, fechaHasta: rangoMesServicios.fechaHasta })
         : Promise.resolve([])
-      const [activos, servicios, config, users, vencidos, porVencer] = await Promise.all([
+      const [activos, servicios, config, users, vencidos, porVencer, plazas] = await Promise.all([
         getServiciosActivos(),
         serviciosPromise,
         getConfiguracion(),
         getUsuarios(),
         getAbonadosVencidos(),
         getAbonadosPorVencer(7),
+        getEstacionamientos(),
       ])
       setActiveCount(activos.length)
       setServiciosList(servicios)
@@ -361,6 +375,7 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
       const visitante = config.find((c) => c.tipo_usuario === 'visitante')
       const residente = config.find((c) => c.tipo_usuario === 'residente')
       const abonado = config.find((c) => c.tipo_usuario === 'abonado')
+      setListaEstacionamientos(plazas)
       setTarifaVisitante(visitante ? String(visitante.precio_hora) : '')
       setTarifaResidente(residente ? String(residente.precio_hora) : '')
       setTarifaAbonado(abonado ? String(abonado.precio_hora) : '')
@@ -502,6 +517,41 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
     }
   }
 
+  const handleGuardarPlazasCorrelativo = async () => {
+    const n = parseInt(cantidadPlazasCorr, 10)
+    if (isNaN(n) || n < 1) {
+      setPlazaMsg('Indique una cantidad entre 1 y 500.')
+      return
+    }
+    setSavingPlazas(true)
+    setPlazaMsg('')
+    try {
+      const r = await guardarEstacionamientosCorrelativo(n)
+      if (r.ok) {
+        setPlazaMsg('Estacionamientos guardados (numeración 1, 2, 3…).')
+        loadData()
+      } else setPlazaMsg(r.error || 'Error')
+    } finally {
+      setSavingPlazas(false)
+    }
+  }
+
+  const handleGuardarPlazasManual = async () => {
+    const partes = textoPlazasManual.split(/[\n,]+/).map((s) => s.trim()).filter(Boolean)
+    setSavingPlazas(true)
+    setPlazaMsg('')
+    try {
+      const r = await guardarEstacionamientosManuales(partes)
+      if (r.ok) {
+        setPlazaMsg('Estacionamientos guardados.')
+        setTextoPlazasManual('')
+        loadData()
+      } else setPlazaMsg(r.error || 'Error')
+    } finally {
+      setSavingPlazas(false)
+    }
+  }
+
   const handleLogout = async () => {
     await logoutAdmin()
     window.location.reload()
@@ -610,7 +660,7 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
   const exportarExcel = () => {
     const titulo = 'Reporte de ingresos - Estacionamiento'
     const filtrosLinea = `Datos: ${leyendaDatos}. ${textoPeriodo}`
-    const headers = ['Fecha de creación', 'Placa', 'Tipo', 'Período', 'Nombre', 'Oficina/Depto', 'Teléfono (WhatsApp)', 'Entrada', 'Salida', 'Total (S/)', 'Ref. Yape o Transferencia', 'Motivo cancelación']
+    const headers = ['Fecha de creación', 'Placa', 'Estacionamiento', 'Tipo', 'Período', 'Nombre', 'Oficina/Depto', 'Teléfono (WhatsApp)', 'Entrada', 'Salida', 'Total (S/)', 'Ref. Yape o Transferencia', 'Motivo cancelación']
     const rows = serviciosParaReportes.map((s) => {
       const nombre = (s.vehiculo?.tipo === 'residente' || s.vehiculo?.tipo === 'abonado') && (s.vehiculo.nombre_propietario || s.vehiculo.apellido_propietario)
         ? [s.vehiculo.nombre_propietario, s.vehiculo.apellido_propietario].filter(Boolean).join(' ')
@@ -626,6 +676,7 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
       return [
         fechaCreacion,
         s.vehiculo?.placa || 'Sin placa',
+        etiquetaPlazaServicio(s),
         s.vehiculo?.tipo === 'residente' ? 'Residente' : s.vehiculo?.tipo === 'abonado' ? (s.vehiculo?.abono_cancelado ? 'Abonado - Cancelado' : 'Abonado') : 'Visitante',
         periodoStr,
         nombre,
@@ -678,7 +729,7 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
           <p class="fecha">Generado: ${new Date().toLocaleString('es-PE')}</p>
           <table>
             <thead><tr>
-              <th>Fecha de creación</th><th>Placa</th><th>Tipo</th><th>Período</th><th>Nombre</th><th>Oficina/Depto</th><th>Teléfono (WhatsApp)</th>
+              <th>Fecha de creación</th><th>Placa</th><th>Estacionamiento</th><th>Tipo</th><th>Período</th><th>Nombre</th><th>Oficina/Depto</th><th>Teléfono (WhatsApp)</th>
               <th>Entrada</th><th>Salida</th><th>Total (S/)</th><th>Ref. Yape o Transferencia</th><th>Motivo cancelación</th>
             </tr></thead>
             <tbody>
@@ -696,6 +747,7 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
                 <tr>
                   <td>${fechaCreacion}</td>
                   <td>${esc(s.vehiculo?.placa || 'Sin placa')}</td>
+                  <td>${esc(etiquetaPlazaServicio(s))}</td>
                   <td>${s.vehiculo?.tipo === 'residente' ? 'Residente' : s.vehiculo?.tipo === 'abonado' ? (s.vehiculo?.abono_cancelado ? 'Abonado - Cancelado' : 'Abonado') : 'Visitante'}</td>
                   <td>${esc(periodoStr)}</td>
                   <td>${esc(nombre)}</td>
@@ -1206,6 +1258,8 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
                             )}
                           </div>
                           <p className="text-xs text-muted-foreground">
+                            Plaza: {etiquetaPlazaServicio(servicio)}
+                            {' · '}
                             {tipo === 'residente'
                               ? 'Residente'
                               : tipo === 'abonado'
@@ -1536,7 +1590,83 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
         </Card>
 
 
-        {/* 4. Tarifas */}
+        {/* 4. Estacionamientos */}
+        <Card className="border-border" id="estacionamientos-section">
+          <CardHeader>
+            <CardTitle className="text-foreground flex items-center gap-2">
+              <MapPin className="h-5 w-5" />
+              Estacionamientos
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Defina cuántas plazas gestiona el edificio. Puede usar números correlativos (1, 2, 3…) o etiquetas manuales (A-1, Sótano 2…). El conserje asignará una plaza libre al registrar cada entrada.
+            </p>
+            <p className="text-sm font-medium text-foreground">
+              Plazas configuradas: {listaEstacionamientos.length}
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant={modoPlazas === 'correlativo' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setModoPlazas('correlativo')}
+              >
+                Correlativos
+              </Button>
+              <Button
+                type="button"
+                variant={modoPlazas === 'manual' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setModoPlazas('manual')}
+              >
+                Manual
+              </Button>
+            </div>
+            {modoPlazas === 'correlativo' ? (
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="space-y-2">
+                  <Label>Cantidad de plazas</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={500}
+                    className="w-28"
+                    value={cantidadPlazasCorr}
+                    onChange={(e) => setCantidadPlazasCorr(e.target.value)}
+                  />
+                </div>
+                <Button type="button" onClick={handleGuardarPlazasCorrelativo} disabled={savingPlazas}>
+                  {savingPlazas ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  Guardar correlativos
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label>Una etiqueta por línea o separadas por coma (ej. A-1, A-2, B1)</Label>
+                <Textarea
+                  value={textoPlazasManual}
+                  onChange={(e) => setTextoPlazasManual(e.target.value)}
+                  placeholder={'A-1\nA-2\nB1'}
+                  rows={5}
+                  className="font-mono text-sm"
+                />
+                <Button type="button" onClick={handleGuardarPlazasManual} disabled={savingPlazas}>
+                  {savingPlazas ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  Guardar manual
+                </Button>
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">
+              No se puede cambiar la lista mientras haya entradas activas usando una plaza. Los números guardados en tickets y reportes se conservan aunque elimine una fila de plaza.
+            </p>
+            {plazaMsg && (
+              <p className={`text-sm ${plazaMsg.includes('guardad') ? 'text-green-600' : 'text-destructive'}`}>{plazaMsg}</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* 5. Tarifas */}
         <Card className="border-border">
           <CardHeader>
             <CardTitle className="text-foreground flex items-center gap-2">
@@ -1596,7 +1726,7 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
           </CardContent>
         </Card>
 
-        {/* 5. Gráficas y reportes (colapsado por defecto, filtros solo aquí) */}
+        {/* 6. Gráficas y reportes (colapsado por defecto, filtros solo aquí) */}
         <Collapsible open={reportesExpandido} onOpenChange={setReportesExpandido}>
           <Card className="border-border overflow-hidden">
             <CollapsibleTrigger asChild>
@@ -1772,6 +1902,8 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <span className="text-muted-foreground">Placa</span>
                   <span className="font-mono font-medium">{servicioDetalle.vehiculo?.placa || '—'}</span>
+                  <span className="text-muted-foreground">Estacionamiento</span>
+                  <span className="font-mono font-medium">{etiquetaPlazaServicio(servicioDetalle)}</span>
                   <span className="text-muted-foreground">Tipo</span>
                   <span>{servicioDetalle.vehiculo?.tipo === 'residente' ? 'Residente' : servicioDetalle.vehiculo?.tipo === 'abonado' ? (servicioDetalle.vehiculo?.abono_cancelado ? `Abonado - Cancelado${servicioDetalle.vehiculo?.motivo_cancelacion_abono ? ` (${servicioDetalle.vehiculo.motivo_cancelacion_abono})` : ''}` : 'Abonado') : 'Visitante'}</span>
                   {servicioDetalle.vehiculo?.tipo === 'abonado' && servicioDetalle.vehiculo?.abono_cancelado && servicioDetalle.vehiculo?.motivo_cancelacion_abono && (

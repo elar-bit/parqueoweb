@@ -6,8 +6,9 @@ import { VehicleCard } from '@/components/vehicle-card'
 import { ValidationModal } from '@/components/validation-modal'
 import { getServiciosActivos, getConfiguracion, logoutAdmin, getAbonadosVencidos, getAbonadosPorVencer, renovarAbono, cancelarAbono, getServiciosPagadosFiltrados, getMesesConServicios, actualizarVehiculo } from '@/app/actions'
 import { abonoVigente, formatCurrency, formatMesAno, montoServicioParaMostrar, tiempoRestanteAbono } from '@/lib/billing'
+import { etiquetaPlazaServicio } from '@/lib/plaza'
 import type { ServicioConVehiculo, Configuracion, Vehiculo } from '@/lib/types'
-import { Car, RefreshCw, LogOut, AlertTriangle, Info, CalendarCheck, Loader2, Star, XCircle } from 'lucide-react'
+import { Car, RefreshCw, LogOut, AlertTriangle, Info, CalendarCheck, Loader2, Star, XCircle, MapPin } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -37,6 +38,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import Link from 'next/link'
+import { EstacionamientoMapaDialog } from '@/components/estacionamiento-mapa-dialog'
 
 type ConserjeDashboardProps = { trialDiasRestantes?: number; slug?: string }
 
@@ -67,6 +69,7 @@ export function ConserjeDashboard({ trialDiasRestantes, slug }: ConserjeDashboar
   const [renovandoAbonoId, setRenovandoAbonoId] = useState<string | null>(null)
   const [filtroMesServicios, setFiltroMesServicios] = useState<string>('')
   const [mesesDisponibles, setMesesDisponibles] = useState<string[]>([])
+  const [mapaPlazasOpen, setMapaPlazasOpen] = useState(false)
 
   const normalizarTelefonoWhatsApp = (valor: string): string => {
     const digits = valor.replace(/\D/g, '')
@@ -219,6 +222,7 @@ export function ConserjeDashboard({ trialDiasRestantes, slug }: ConserjeDashboar
       'Compartimos contigo tu ticket generado el día de hoy en nuestra playa de estacionamiento.',
       '',
       `Placa: ${placa}`,
+      `Estacionamiento: ${etiquetaPlazaServicio(servicio)}`,
       `Tipo: ${esAbonado ? 'Abonado' : esResidente ? 'Residente' : 'Visitante'}`,
       `Entrada: ${entrada}`,
       `Salida: ${salida}`,
@@ -289,6 +293,16 @@ export function ConserjeDashboard({ trialDiasRestantes, slug }: ConserjeDashboar
               <Button variant="outline" size="sm" onClick={loadData} disabled={loading} className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0">
                 <RefreshCw className={`h-4 w-4 sm:mr-2 ${loading ? 'animate-spin' : ''}`} />
                 <span className="hidden sm:inline">Actualizar</span>
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0"
+                onClick={() => setMapaPlazasOpen(true)}
+              >
+                <MapPin className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Plazas</span>
               </Button>
               <Button variant="ghost" size="sm" asChild className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0">
                 <Link href="/">Inicio</Link>
@@ -716,6 +730,8 @@ export function ConserjeDashboard({ trialDiasRestantes, slug }: ConserjeDashboar
                           )}
                         </div>
                         <p className="text-xs text-muted-foreground">
+                          Plaza: {etiquetaPlazaServicio(servicio)}
+                          {' · '}
                           {tipo === 'residente'
                             ? 'Residente'
                             : tipo === 'abonado'
@@ -772,6 +788,8 @@ export function ConserjeDashboard({ trialDiasRestantes, slug }: ConserjeDashboar
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <span className="text-muted-foreground">Placa</span>
                 <span className="font-mono font-medium">{servicioDetalle.vehiculo?.placa || '—'}</span>
+                <span className="text-muted-foreground">Estacionamiento</span>
+                <span className="font-mono font-medium">{etiquetaPlazaServicio(servicioDetalle)}</span>
                 <span className="text-muted-foreground">Tipo</span>
                 <span>
                   {servicioDetalle.vehiculo?.tipo === 'residente'
@@ -1050,6 +1068,12 @@ export function ConserjeDashboard({ trialDiasRestantes, slug }: ConserjeDashboar
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <EstacionamientoMapaDialog
+        open={mapaPlazasOpen}
+        onOpenChange={setMapaPlazasOpen}
+        soloConsulta
+      />
 
       <ValidationModal
         servicio={selectedServicio}

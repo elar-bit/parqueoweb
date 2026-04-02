@@ -72,7 +72,8 @@ async function revalidateTenantPaths() {
     revalidatePath(`/${session.slug}/admin`)
     revalidatePath(`/${session.slug}/conserje`)
   } else {
-    revalidateTenantPaths()
+    revalidatePath('/default/admin')
+    revalidatePath('/default/conserje')
   }
 }
 
@@ -711,6 +712,132 @@ export async function getConfiguracion(): Promise<Configuracion[]> {
   }
 }
 
+export type EstacionamientoRow = {
+  id: string
+  cuenta_id: string
+  etiqueta: string
+  orden: number
+}
+
+/** Lista de plazas del tenant (admin y conserje). */
+export async function getEstacionamientos(): Promise<EstacionamientoRow[]> {
+  try {
+    const cuentaId = await getCuentaIdFromSession()
+    if (!cuentaId) return []
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('estacionamientos')
+      .select('id, cuenta_id, etiqueta, orden')
+      .eq('cuenta_id', cuentaId)
+      .order('orden', { ascending: true })
+      .order('etiqueta', { ascending: true })
+    if (error) return []
+    return (data || []) as EstacionamientoRow[]
+  } catch {
+    return []
+  }
+}
+
+/** Estado de cada plaza: ocupada si hay un servicio activo usando esa plaza. */
+export async function getEstacionamientosOcupacion(): Promise<{ id: string; etiqueta: string; ocupado: boolean }[]> {
+  try {
+    const cuentaId = await getCuentaIdFromSession()
+    if (!cuentaId) return []
+    const supabase = await createClient()
+    const { data: plazas, error: e1 } = await supabase
+      .from('estacionamientos')
+      .select('id, etiqueta')
+      .eq('cuenta_id', cuentaId)
+      .order('orden', { ascending: true })
+      .order('etiqueta', { ascending: true })
+    if (e1 || !plazas?.length) return []
+    const { data: ocupados, error: e2 } = await supabase
+      .from('servicios')
+      .select('estacionamiento_id')
+      .eq('cuenta_id', cuentaId)
+      .eq('estado', 'activo')
+      .not('estacionamiento_id', 'is', null)
+    if (e2) return plazas.map((p: { id: string; etiqueta: string }) => ({ ...p, ocupado: false }))
+    const setOcup = new Set((ocupados || []).map((r: { estacionamiento_id: string }) => r.estacionamiento_id))
+    return plazas.map((p: { id: string; etiqueta: string }) => ({
+      id: p.id,
+      etiqueta: p.etiqueta,
+      ocupado: setOcup.has(p.id),
+    }))
+  } catch {
+    return []
+  }
+}
+
+async function hayEntradasActivasConPlaza(cuentaId: string, supabase: Awaited<ReturnType<typeof createClient>>): Promise<boolean> {
+  const { count } = await supabase
+    .from('servicios')
+    .select('*', { count: 'exact', head: true })
+    .eq('cuenta_id', cuentaId)
+    .eq('estado', 'activo')
+    .not('estacionamiento_id', 'is', null)
+  return (count ?? 0) > 0
+}
+
+/** Reemplaza todas las plazas por números 1..N (solo admin). */
+export async function guardarEstacionamientosCorrelativo(cantidad: number): Promise<{ ok: boolean; error?: string }> {
+  if (!(await getAdminAuth())) return { ok: false, error: 'No autorizado' }
+  const cuentaId = await getCuentaIdFromSession()
+  if (!cuentaId) return { ok: false, error: 'No autorizado' }
+  const n = Math.floor(Number(cantidad))
+  if (n < 1 || n > 500) return { ok: false, error: 'Indique entre 1 y 500 plazas' }
+  try {
+    const supabase = await createClient()
+    if (await hayEntradasActivasConPlaza(cuentaId, supabase)) {
+      return {
+        ok: false,
+        error: 'Hay entradas activas usando plazas. Registre las salidas antes de reconfigurar.',
+      }
+    }
+    const { error: delErr } = await supabase.from('estacionamientos').delete().eq('cuenta_id', cuentaId)
+    if (delErr) return { ok: false, error: delErr.message }
+    const rows = Array.from({ length: n }, (_, i) => ({
+      cuenta_id: cuentaId,
+      etiqueta: String(i + 1),
+      orden: i,
+    }))
+    const { error: insErr } = await supabase.from('estacionamientos').insert(rows)
+    if (insErr) return { ok: false, error: insErr.message }
+    revalidateTenantPaths()
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: String(e) }
+  }
+}
+
+/** Reemplaza todas las plazas por etiquetas manuales (solo admin). */
+export async function guardarEstacionamientosManuales(etiquetas: string[]): Promise<{ ok: boolean; error?: string }> {
+  if (!(await getAdminAuth())) return { ok: false, error: 'No autorizado' }
+  const cuentaId = await getCuentaIdFromSession()
+  if (!cuentaId) return { ok: false, error: 'No autorizado' }
+  const limpias = [...new Set(etiquetas.map((e) => String(e).trim()).filter(Boolean))]
+  if (limpias.length < 1) return { ok: false, error: 'Agregue al menos un número o nombre de plaza' }
+  if (limpias.length > 500) return { ok: false, error: 'Máximo 500 plazas' }
+  try {
+    const supabase = await createClient()
+    if (await hayEntradasActivasConPlaza(cuentaId, supabase)) {
+      return {
+        ok: false,
+        error: 'Hay entradas activas usando plazas. Registre las salidas antes de reconfigurar.',
+      }
+    }
+    const { error: delErr } = await supabase.from('estacionamientos').delete().eq('cuenta_id', cuentaId)
+    if (delErr) return { ok: false, error: delErr.message }
+    const rows = limpias.map((etiqueta, i) => ({ cuenta_id: cuentaId, etiqueta, orden: i }))
+    const { error: insErr } = await supabase.from('estacionamientos').insert(rows)
+    if (insErr) return { ok: false, error: insErr.message }
+    revalidateTenantPaths()
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: String(e) }
+  }
+}
+
 export async function getServiciosActivos(): Promise<ServicioConVehiculo[]> {
   try {
     const cuentaId = await getCuentaIdFromSession()
@@ -860,7 +987,8 @@ export async function registrarEntrada(
   placa?: string | null,
   vehiculoIdExistente?: string | null,
   datosResidente?: DatosResidente | null,
-  datosAbonado?: DatosAbonado | null
+  datosAbonado?: DatosAbonado | null,
+  estacionamientoId?: string | null
 ): Promise<{
   vehiculo: Vehiculo
   servicio: { id: string }
@@ -950,6 +1078,32 @@ export async function registrarEntrada(
     cuenta_id: cuentaId,
     vehiculo_id: vehiculo.id,
     entrada_real: ahoraIso,
+  }
+
+  const { count: nPlazas } = await supabase
+    .from('estacionamientos')
+    .select('*', { count: 'exact', head: true })
+    .eq('cuenta_id', cuentaId)
+  const requierePlaza = (nPlazas ?? 0) > 0
+  if (requierePlaza) {
+    const idPlaza = (estacionamientoId || '').trim()
+    if (!idPlaza) throw new Error('Seleccione un estacionamiento')
+    const { data: estRow, error: errEst } = await supabase
+      .from('estacionamientos')
+      .select('id, etiqueta')
+      .eq('id', idPlaza)
+      .eq('cuenta_id', cuentaId)
+      .maybeSingle()
+    if (errEst || !estRow) throw new Error('Estacionamiento no válido')
+    const { data: ocupado } = await supabase
+      .from('servicios')
+      .select('id')
+      .eq('estacionamiento_id', estRow.id)
+      .eq('estado', 'activo')
+      .maybeSingle()
+    if (ocupado) throw new Error('Ese estacionamiento ya está ocupado')
+    baseServicio.estacionamiento_id = estRow.id
+    baseServicio.estacionamiento_etiqueta = estRow.etiqueta
   }
 
   // Para abonados: el registro representa el pago adelantado del mes,

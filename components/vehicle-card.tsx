@@ -14,6 +14,7 @@ import { Clock, Car, DollarSign, AlertTriangle, ImageIcon } from 'lucide-react'
 import { formatDuration, getElapsedTime, formatCurrency } from '@/lib/billing'
 import { abonoVigente } from '@/lib/billing'
 import type { ServicioConVehiculo, Configuracion } from '@/lib/types'
+import { etiquetaPlazaServicio } from '@/lib/plaza'
 
 // Cambio mínimo sin impacto para generar diff
 
@@ -73,6 +74,9 @@ export function VehicleCard({ servicio, configuracion, onValidate }: VehicleCard
                   {servicio.vehiculo.tipo === 'residente' ? 'Residente' : servicio.vehiculo.tipo === 'abonado' ? 'Abonado' : 'Visitante'}
                 </Badge>
               </div>
+              <p className="text-xs text-muted-foreground">
+                Plaza: {etiquetaPlazaServicio(servicio)}
+              </p>
               {servicio.vehiculo.nombre_propietario && (
                 <p className="text-sm text-muted-foreground truncate">
                   {servicio.vehiculo.nombre_propietario}
