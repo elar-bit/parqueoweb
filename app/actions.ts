@@ -138,17 +138,17 @@ async function ensureDefaultConserje(supabase: Awaited<ReturnType<typeof createC
   }
 }
 
-/** Marca como suspendidas todas las cuentas activas cuya prueba ya venció (5 días). Se llama al listar o al acceder a una cuenta para que el estado no dependa del login. */
+/** Marca como suspendidas todas las cuentas activas cuya prueba ya venció (según dias_prueba_freemium por cuenta). Se llama al listar o al acceder a una cuenta para que el estado no dependa del login. */
 async function aplicarSuspensionCuentasVencidas(supabase: Awaited<ReturnType<typeof createClient>>) {
   try {
     const { data: activas } = await supabase
       .from('cuentas')
-      .select('id, fecha_creacion, acceso_pagado')
+      .select('id, fecha_creacion, acceso_pagado, dias_prueba_freemium')
       .eq('estado', 'activo')
     if (!activas?.length) return
     const vencidas = (
-      activas as { id: string; fecha_creacion: string; acceso_pagado?: boolean | null }[]
-    ).filter((c) => diasRestantesTrial(c.fecha_creacion) < 0 && !c.acceso_pagado)
+      activas as { id: string; fecha_creacion: string; acceso_pagado?: boolean | null; dias_prueba_freemium?: number | null }[]
+    ).filter((c) => diasRestantesTrial(c.fecha_creacion, c.dias_prueba_freemium) < 0 && !c.acceso_pagado)
     if (vencidas.length === 0) return
     const ids = vencidas.map((c) => c.id)
     await supabase.from('cuentas').update({ estado: 'suspendido' }).in('id', ids)
@@ -209,11 +209,45 @@ export async function getCuentas(filtro?: 'activas' | 'suspendidas' | 'por_vence
     const { data, error } = await q
     if (error) return []
     let list = (data || []) as Cuenta[]
-    if (filtro === 'por_vencer') list = list.filter((c) => c.estado === 'activo' && diasRestantesTrial(c.fecha_creacion) <= 2 && diasRestantesTrial(c.fecha_creacion) >= 1)
-    if (filtro === 'vencidas') list = list.filter((c) => diasRestantesTrial(c.fecha_creacion) < 0 || c.estado === 'suspendido')
+    if (filtro === 'por_vencer')
+      list = list.filter(
+        (c) =>
+          c.estado === 'activo' &&
+          diasRestantesTrial(c.fecha_creacion, c.dias_prueba_freemium) <= 2 &&
+          diasRestantesTrial(c.fecha_creacion, c.dias_prueba_freemium) >= 1
+      )
+    if (filtro === 'vencidas')
+      list = list.filter(
+        (c) => diasRestantesTrial(c.fecha_creacion, c.dias_prueba_freemium) < 0 || c.estado === 'suspendido'
+      )
     return list
   } catch {
     return []
+  }
+}
+
+/** Fija los días de prueba freemium de una cuenta (solo superadmin). No altera acceso_pagado ni estado salvo revalidación de rutas. */
+export async function updateCuentaDiasPruebaFreemium(
+  cuentaId: string,
+  diasPrueba: number
+): Promise<{ ok: boolean; error?: string }> {
+  if (!(await getSuperadminAuth())) return { ok: false, error: 'No autorizado' }
+  const n = Math.floor(Number(diasPrueba))
+  if (!Number.isFinite(n) || n < 1 || n > 3650) {
+    return { ok: false, error: 'Indique un número de días entre 1 y 3650.' }
+  }
+  try {
+    const supabase = await createClient()
+    const { data: row, error: errSel } = await supabase.from('cuentas').select('slug').eq('id', cuentaId).single()
+    if (errSel || !row?.slug) return { ok: false, error: 'Cuenta no encontrada' }
+    const { error } = await supabase.from('cuentas').update({ dias_prueba_freemium: n }).eq('id', cuentaId)
+    if (error) return { ok: false, error: error.message }
+    revalidatePath('/superadmin')
+    revalidatePath(`/${row.slug}/admin`)
+    revalidatePath(`/${row.slug}/conserje`)
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: String(e) }
   }
 }
 

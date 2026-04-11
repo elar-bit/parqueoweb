@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getCuentas, updateCuentaEstado, eliminarCuenta, logoutAdmin } from '@/app/actions'
+import { getCuentas, updateCuentaEstado, updateCuentaDiasPruebaFreemium, eliminarCuenta, logoutAdmin } from '@/app/actions'
 import type { Cuenta } from '@/lib/tenant'
-import { diasRestantesTrial } from '@/lib/tenant'
+import { diasRestantesTrial, diasPruebaEfectivos, DIAS_PRUEBA_FREEMIUM } from '@/lib/tenant'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -24,7 +24,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { LogOut, Building2, Calendar, AlertTriangle, CheckCircle, XCircle, Trash2 } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { LogOut, Building2, AlertTriangle, CheckCircle, XCircle, Trash2, CalendarDays } from 'lucide-react'
 import Link from 'next/link'
 
 export function SuperadminDashboard() {
@@ -33,6 +43,9 @@ export function SuperadminDashboard() {
   const [loading, setLoading] = useState(true)
   const [cuentaAEliminar, setCuentaAEliminar] = useState<Cuenta | null>(null)
   const [eliminando, setEliminando] = useState(false)
+  const [cuentaDiasPrueba, setCuentaDiasPrueba] = useState<Cuenta | null>(null)
+  const [diasPruebaInput, setDiasPruebaInput] = useState(String(DIAS_PRUEBA_FREEMIUM))
+  const [guardandoDiasPrueba, setGuardandoDiasPrueba] = useState(false)
 
   const loadCuentas = async () => {
     setLoading(true)
@@ -59,6 +72,31 @@ export function SuperadminDashboard() {
     } else {
       // eslint-disable-next-line no-alert
       alert(r.error || 'No se pudo actualizar el estado de la cuenta')
+    }
+  }
+
+  const abrirDialogoDiasPrueba = (c: Cuenta) => {
+    setCuentaDiasPrueba(c)
+    setDiasPruebaInput(String(diasPruebaEfectivos(c.dias_prueba_freemium)))
+  }
+
+  const handleGuardarDiasPrueba = async () => {
+    if (!cuentaDiasPrueba) return
+    const n = parseInt(diasPruebaInput, 10)
+    if (!Number.isFinite(n) || n < 1 || n > 3650) {
+      // eslint-disable-next-line no-alert
+      alert('Indique un número de días entre 1 y 3650.')
+      return
+    }
+    setGuardandoDiasPrueba(true)
+    const r = await updateCuentaDiasPruebaFreemium(cuentaDiasPrueba.id, n)
+    setGuardandoDiasPrueba(false)
+    if (r.ok) {
+      setCuentaDiasPrueba(null)
+      loadCuentas()
+    } else {
+      // eslint-disable-next-line no-alert
+      alert(r.error || 'No se pudo actualizar el plazo de prueba')
     }
   }
 
@@ -102,7 +140,8 @@ export function SuperadminDashboard() {
           <CardHeader>
             <CardTitle className="break-words">Cuentas</CardTitle>
             <p className="text-sm text-muted-foreground break-words">
-              Gestión de cuentas. Prueba freemium 5 días. Solo el administrador global puede reactivar tras el pago.
+              Gestión de cuentas. Prueba freemium por defecto {DIAS_PRUEBA_FREEMIUM} días; puede ampliarse por cuenta con
+              &quot;Días de prueba&quot;. Solo el administrador global puede reactivar tras el pago.
             </p>
             <div className="pt-2">
               <Select value={filtro} onValueChange={setFiltro}>
@@ -127,7 +166,8 @@ export function SuperadminDashboard() {
             ) : (
               <ul className="space-y-3">
                 {cuentas.map((c) => {
-                  const dias = diasRestantesTrial(c.fecha_creacion)
+                  const dias = diasRestantesTrial(c.fecha_creacion, c.dias_prueba_freemium)
+                  const plazoDias = diasPruebaEfectivos(c.dias_prueba_freemium)
                   const vencido = dias < 0
                   const porVencer = dias >= 0 && dias <= 2
                   const accesoAutorizado = !!c.acceso_pagado
@@ -164,7 +204,12 @@ export function SuperadminDashboard() {
                           )}
                         </div>
                         <p className="text-xs text-muted-foreground mt-1 break-words">
-                          Admin: {c.nombre_admin} {c.apellido_admin} · Creada: {new Date(c.fecha_creacion).toLocaleDateString('es-PE')}
+                          Admin: {c.nombre_admin} {c.apellido_admin} · Creada:{' '}
+                          {new Date(c.fecha_creacion).toLocaleDateString('es-PE')}
+                          {' '}
+                          · Prueba freemium: <span className="font-medium text-foreground">{plazoDias}</span> día
+                          {plazoDias !== 1 ? 's' : ''}
+                          {c.acceso_pagado ? ' (acceso autorizado)' : ''}
                         </p>
                       </div>
                       <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
@@ -200,6 +245,16 @@ export function SuperadminDashboard() {
                         <Button
                           size="sm"
                           variant="outline"
+                          className="text-primary border-primary/40"
+                          onClick={() => abrirDialogoDiasPrueba(c)}
+                          title="Cambiar duración de la prueba freemium (desde fecha de creación de la cuenta)"
+                        >
+                          <CalendarDays className="h-4 w-4 mr-1" />
+                          Días de prueba
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
                           className="text-destructive border-destructive/40"
                           onClick={() => setCuentaAEliminar(c)}
                         >
@@ -215,6 +270,46 @@ export function SuperadminDashboard() {
           </CardContent>
         </Card>
       </main>
+
+      <Dialog
+        open={!!cuentaDiasPrueba}
+        onOpenChange={(open) => {
+          if (!open && !guardandoDiasPrueba) setCuentaDiasPrueba(null)
+        }}
+      >
+        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="break-words">Prueba freemium</DialogTitle>
+            <DialogDescription className="break-words text-left">
+              Cuenta <span className="font-semibold text-foreground">{cuentaDiasPrueba?.nombre_cuenta}</span> (
+              <span className="font-mono">/{cuentaDiasPrueba?.slug}</span>). Indique cuántos días de prueba aplican desde
+              la fecha de creación de la cuenta. La suspensión automática y los avisos al tenant usarán este plazo (salvo
+              cuentas con acceso autorizado tras pago).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="dias-prueba-freemium">Días de prueba (1 a 3650)</Label>
+            <Input
+              id="dias-prueba-freemium"
+              type="number"
+              min={1}
+              max={3650}
+              inputMode="numeric"
+              value={diasPruebaInput}
+              onChange={(e) => setDiasPruebaInput(e.target.value)}
+              disabled={guardandoDiasPrueba}
+            />
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={() => setCuentaDiasPrueba(null)} disabled={guardandoDiasPrueba}>
+              Cancelar
+            </Button>
+            <Button type="button" onClick={() => void handleGuardarDiasPrueba()} disabled={guardandoDiasPrueba}>
+              {guardandoDiasPrueba ? 'Guardando…' : 'Guardar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={!!cuentaAEliminar} onOpenChange={(open) => !open && !eliminando && setCuentaAEliminar(null)}>
         <AlertDialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg">

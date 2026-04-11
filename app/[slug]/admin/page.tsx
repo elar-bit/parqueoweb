@@ -10,7 +10,7 @@ export default async function TenantAdminPage({ params }: Props) {
   const { slug } = await params
   const cuenta = await getCuentaBySlug(slug)
   if (!cuenta) notFound()
-  const trialDiasRestantes = diasRestantesTrial(cuenta.fecha_creacion)
+  const trialDiasRestantes = diasRestantesTrial(cuenta.fecha_creacion, cuenta.dias_prueba_freemium)
   if (!isCuentaActiva(cuenta)) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4 sm:p-6 overflow-hidden">
