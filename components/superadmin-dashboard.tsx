@@ -65,8 +65,12 @@ export function SuperadminDashboard() {
     window.location.href = '/'
   }
 
-  const handleCambiarEstado = async (id: string, estado: 'activo' | 'suspendido') => {
-    const r = await updateCuentaEstado(id, estado)
+  const handleCambiarEstado = async (
+    id: string,
+    estado: 'activo' | 'suspendido',
+    opciones?: { conAccesoPagadoAlActivar?: boolean }
+  ) => {
+    const r = await updateCuentaEstado(id, estado, estado === 'activo' ? opciones : undefined)
     if (r.ok) {
       loadCuentas()
     } else {
@@ -140,8 +144,10 @@ export function SuperadminDashboard() {
           <CardHeader>
             <CardTitle className="break-words">Cuentas</CardTitle>
             <p className="text-sm text-muted-foreground break-words">
-              Gestión de cuentas. Prueba freemium por defecto {DIAS_PRUEBA_FREEMIUM} días; puede ampliarse por cuenta con
-              &quot;Días de prueba&quot;. Solo el administrador global puede reactivar tras el pago.
+              Gestión de cuentas. Prueba freemium por defecto {DIAS_PRUEBA_FREEMIUM} días; puede ampliarse con
+              &quot;Días de prueba&quot; (vuelve a regir el vencimiento y la suspensión automática).{' '}
+              <strong>Reactivar (pago)</strong> deja acceso autorizado; <strong>Reactivar (prueba)</strong> solo reabre
+              bajo freemium hasta que venza el plazo.
             </p>
             <div className="pt-2">
               <Select value={filtro} onValueChange={setFiltro}>
@@ -232,15 +238,28 @@ export function SuperadminDashboard() {
                             Suspender
                           </Button>
                         ) : (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-green-600 border-green-500/50"
-                            onClick={() => handleCambiarEstado(c.id, 'activo')}
-                          >
-                            <CheckCircle className="h-4 w-4 mr-1" />
-                            Reactivar
-                          </Button>
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-green-600 border-green-500/50"
+                              onClick={() => handleCambiarEstado(c.id, 'activo', { conAccesoPagadoAlActivar: true })}
+                              title="Cliente con pago: no se suspende al vencer la prueba en calendario"
+                            >
+                              <CheckCircle className="h-4 w-4 mr-1" />
+                              Reactivar (pago)
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-green-700 border-green-600/30"
+                              onClick={() => handleCambiarEstado(c.id, 'activo', { conAccesoPagadoAlActivar: false })}
+                              title="Solo freemium: al vencer los días de prueba la cuenta se suspenderá sola"
+                            >
+                              <CheckCircle className="h-4 w-4 mr-1" />
+                              Reactivar (prueba)
+                            </Button>
+                          </>
                         )}
                         <Button
                           size="sm"
@@ -283,8 +302,9 @@ export function SuperadminDashboard() {
             <DialogDescription className="break-words text-left">
               Cuenta <span className="font-semibold text-foreground">{cuentaDiasPrueba?.nombre_cuenta}</span> (
               <span className="font-mono">/{cuentaDiasPrueba?.slug}</span>). Indique cuántos días de prueba aplican desde
-              la fecha de creación de la cuenta. La suspensión automática y los avisos al tenant usarán este plazo (salvo
-              cuentas con acceso autorizado tras pago).
+              la fecha de creación de la cuenta. Al guardar se quita el &quot;acceso autorizado por pago&quot; para que,
+              al vencer ese plazo, la cuenta vuelva a suspenderse automáticamente. Si el cliente pagó la suscripción,
+              use después <strong>Reactivar (pago)</strong> en la lista.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 py-2">

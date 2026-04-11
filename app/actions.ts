@@ -226,7 +226,11 @@ export async function getCuentas(filtro?: 'activas' | 'suspendidas' | 'por_vence
   }
 }
 
-/** Fija los días de prueba freemium de una cuenta (solo superadmin). No altera acceso_pagado ni estado salvo revalidación de rutas. */
+/**
+ * Fija los días de prueba freemium (solo superadmin).
+ * Pone acceso_pagado en false para que, al vencer el plazo (desde fecha_creacion), vuelva a aplicarse la suspensión automática.
+ * Luego ejecuta la misma lógica de vencimiento por si el nuevo plazo ya expiró.
+ */
 export async function updateCuentaDiasPruebaFreemium(
   cuentaId: string,
   diasPrueba: number
@@ -240,8 +244,12 @@ export async function updateCuentaDiasPruebaFreemium(
     const supabase = await createClient()
     const { data: row, error: errSel } = await supabase.from('cuentas').select('slug').eq('id', cuentaId).single()
     if (errSel || !row?.slug) return { ok: false, error: 'Cuenta no encontrada' }
-    const { error } = await supabase.from('cuentas').update({ dias_prueba_freemium: n }).eq('id', cuentaId)
+    const { error } = await supabase
+      .from('cuentas')
+      .update({ dias_prueba_freemium: n, acceso_pagado: false })
+      .eq('id', cuentaId)
     if (error) return { ok: false, error: error.message }
+    await aplicarSuspensionCuentasVencidas(supabase)
     revalidatePath('/superadmin')
     revalidatePath(`/${row.slug}/admin`)
     revalidatePath(`/${row.slug}/conserje`)
@@ -251,19 +259,33 @@ export async function updateCuentaDiasPruebaFreemium(
   }
 }
 
-/** Actualiza estado de una cuenta (solo superadmin). */
-export async function updateCuentaEstado(cuentaId: string, estado: 'activo' | 'suspendido'): Promise<{ ok: boolean; error?: string }> {
+/**
+ * Actualiza estado de una cuenta (solo superadmin).
+ * Al activar: por defecto marca acceso_pagado (pago / acceso autorizado) para que no suspenda por prueba vencida.
+ * Use `conAccesoPagadoAlActivar: false` para reabrir la cuenta solo bajo freemium: al vencer el plazo volverá la suspensión automática.
+ */
+export async function updateCuentaEstado(
+  cuentaId: string,
+  estado: 'activo' | 'suspendido',
+  opciones?: { conAccesoPagadoAlActivar?: boolean }
+): Promise<{ ok: boolean; error?: string }> {
   if (!(await getSuperadminAuth())) return { ok: false, error: 'No autorizado' }
   try {
     const supabase = await createClient()
-    // Al reactivar desde superadmin, marcar acceso autorizado para que la suspensión automática por prueba vencida no revierta el cambio al refrescar la lista.
+    const accesoPagadoAlActivar = estado === 'activo' ? opciones?.conAccesoPagadoAlActivar !== false : false
     const payload =
-      estado === 'activo'
-        ? { estado, acceso_pagado: true as const }
-        : { estado }
+      estado === 'activo' ? { estado, acceso_pagado: accesoPagadoAlActivar } : { estado }
     const { error } = await supabase.from('cuentas').update(payload).eq('id', cuentaId)
     if (error) return { ok: false, error: error.message }
+    if (estado === 'activo' && !accesoPagadoAlActivar) {
+      await aplicarSuspensionCuentasVencidas(supabase)
+    }
     revalidatePath('/superadmin')
+    const { data: slugRow } = await supabase.from('cuentas').select('slug').eq('id', cuentaId).single()
+    if (slugRow?.slug) {
+      revalidatePath(`/${slugRow.slug}/admin`)
+      revalidatePath(`/${slugRow.slug}/conserje`)
+    }
     return { ok: true }
   } catch (e) {
     return { ok: false, error: String(e) }
