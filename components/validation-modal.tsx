@@ -86,6 +86,7 @@ export function ValidationModal({
   const [whatsappPhone, setWhatsappPhone] = useState('')
   const [whatsappSaving, setWhatsappSaving] = useState(false)
   const [verCapturaUrl, setVerCapturaUrl] = useState<string | null>(null)
+  const [confirmError, setConfirmError] = useState<string | null>(null)
   const ticketRef = useRef<HTMLDivElement>(null)
 
   const normalizarTelefonoWhatsApp = (valor: string): string => {
@@ -102,6 +103,7 @@ export function ValidationModal({
       setRefYape('')
       setShowTicket(false)
       setSalidaTicket(null)
+      setConfirmError(null)
       
       const entradaReal = new Date(servicio.entrada_real)
       const salida = new Date()
@@ -135,6 +137,7 @@ export function ValidationModal({
     if (!servicio) return
     
     setLoading(true)
+    setConfirmError(null)
     try {
       // Update vehicle info if changed
       if (placa !== servicio.vehiculo.placa || tipo !== servicio.vehiculo.tipo) {
@@ -154,6 +157,9 @@ export function ValidationModal({
       setShowTicket(true)
     } catch (error) {
       console.error('Error processing exit:', error)
+      setConfirmError(
+        error instanceof Error ? error.message : 'No se pudo completar la salida. Inténtelo de nuevo.'
+      )
     } finally {
       setLoading(false)
     }
@@ -269,7 +275,10 @@ export function ValidationModal({
                 <Input
                   id="placa"
                   value={placa}
-                  onChange={(e) => setPlaca(e.target.value.toUpperCase())}
+                  onChange={(e) => {
+                    setPlaca(e.target.value.toUpperCase())
+                    setConfirmError(null)
+                  }}
                   placeholder="ABC-123"
                   className="font-mono"
                 />
@@ -348,6 +357,12 @@ export function ValidationModal({
               </div>
             </div>
             
+            {confirmError && (
+              <p className="text-sm text-destructive" role="alert">
+                {confirmError}
+              </p>
+            )}
+
             <DialogFooter>
               <Button variant="outline" onClick={onClose}>
                 Cancelar

@@ -8,6 +8,11 @@ import { hash, compare } from 'bcryptjs'
 import { calculateBilling, abonoVigente, calcularTotalAbonado, montoServicioParaMostrar } from '@/lib/billing'
 import { slugFromNombre, diasRestantesTrial, isCuentaActiva, type Cuenta } from '@/lib/tenant'
 import type { Configuracion, ServicioConVehiculo, Vehiculo } from '@/lib/types'
+import {
+  MENSAJE_PLACA_DUPLICADA,
+  MENSAJE_PLACA_LONGITUD,
+  normalizarPlacaClave,
+} from '@/lib/placa'
 
 const SESSION_COOKIE_NAME = 'parqueo_session'
 const DEFAULT_ADMIN_USER = 'admin'
@@ -1128,6 +1133,39 @@ function addMonths(d: Date, months: number): Date {
   return out
 }
 
+async function assertPlacaUnicaEnCuenta(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  cuentaId: string,
+  clave6: string,
+  excluirVehiculoId?: string
+): Promise<void> {
+  const { data: rows, error } = await supabase
+    .from('vehiculos')
+    .select('id, placa')
+    .eq('cuenta_id', cuentaId)
+    .not('placa', 'is', null)
+  if (error) throw error
+  for (const row of rows ?? []) {
+    if (excluirVehiculoId && row.id === excluirVehiculoId) continue
+    if (normalizarPlacaClave(row.placa ?? '') === clave6) {
+      throw new Error(MENSAJE_PLACA_DUPLICADA)
+    }
+  }
+}
+
+/** Si hay texto de placa, exige 6 caracteres alfanuméricos (p. ej. ABC-123) y unicidad en la cuenta. */
+async function validarPlacaNuevaVehiculo(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  cuentaId: string,
+  placaRaw: string | null | undefined
+): Promise<void> {
+  const trimmed = (placaRaw ?? '').trim()
+  if (!trimmed) return
+  const clave = normalizarPlacaClave(trimmed)
+  if (clave.length !== 6) throw new Error(MENSAJE_PLACA_LONGITUD)
+  await assertPlacaUnicaEnCuenta(supabase, cuentaId, clave)
+}
+
 export async function registrarEntrada(
   tipo: 'visitante' | 'residente' | 'abonado',
   placa?: string | null,
@@ -1210,6 +1248,7 @@ export async function registrarEntrada(
         insertPayload.captura_pago_abono = String(datosAbonado.capturaPagoAbono).trim()
       }
     }
+    await validarPlacaNuevaVehiculo(supabase, cuentaId, placa?.trim() || null)
     const { data: nuevo, error: vehiculoError } = await supabase
       .from('vehiculos')
       .insert(insertPayload)
@@ -1290,12 +1329,25 @@ export async function actualizarVehiculo(
   const cuentaId = await getCuentaIdFromSession()
   if (!cuentaId) throw new Error('No autorizado')
   const supabase = await createClient()
+  const { placa: placaIn, ...rest } = data
+  const updatePayload: Record<string, unknown> = { ...rest }
+  if (placaIn !== undefined) {
+    const trimmed = placaIn.trim()
+    if (!trimmed) {
+      updatePayload.placa = null
+    } else {
+      const clave = normalizarPlacaClave(trimmed)
+      if (clave.length !== 6) throw new Error(MENSAJE_PLACA_LONGITUD)
+      await assertPlacaUnicaEnCuenta(supabase, cuentaId, clave, vehiculoId)
+      updatePayload.placa = trimmed
+    }
+  }
   const { error } = await supabase
     .from('vehiculos')
-    .update(data)
+    .update(updatePayload)
     .eq('id', vehiculoId)
     .eq('cuenta_id', cuentaId)
-  
+
   if (error) throw error
   revalidateTenantPaths()
 }
