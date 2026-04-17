@@ -49,6 +49,7 @@ export function ConserjeDashboard({ trialDiasRestantes, slug }: ConserjeDashboar
   const [selectedServicio, setSelectedServicio] = useState<ServicioConVehiculo | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [salirLoading, setSalirLoading] = useState(false)
   const [abonadosVencidos, setAbonadosVencidos] = useState<Vehiculo[]>([])
   const [abonadosPorVencer, setAbonadosPorVencer] = useState<Vehiculo[]>([])
   const [serviciosHoy, setServiciosHoy] = useState<ServicioConVehiculo[]>([])
@@ -152,8 +153,14 @@ export function ConserjeDashboard({ trialDiasRestantes, slug }: ConserjeDashboar
   }
 
   const handleSalir = async () => {
-    await logoutAdmin()
-    window.location.href = '/'
+    setSalirLoading(true)
+    try {
+      await logoutAdmin()
+      window.location.href = '/'
+    } catch (e) {
+      console.error('Logout:', e)
+      setSalirLoading(false)
+    }
   }
 
   const buildMensajeDespedidaAbonado = (v: { nombre_propietario?: string | null; apellido_propietario?: string | null }): string => {
@@ -327,9 +334,21 @@ export function ConserjeDashboard({ trialDiasRestantes, slug }: ConserjeDashboar
               <Button variant="ghost" size="sm" asChild className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0">
                 <Link href={slug ? `/${slug}/admin` : '/admin'}>Admin</Link>
               </Button>
-              <Button variant="ghost" size="sm" onClick={handleSalir} className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0">
-                <LogOut className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Salir</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleSalir}
+                disabled={salirLoading}
+                aria-busy={salirLoading}
+                aria-label={salirLoading ? 'Cerrando sesión' : 'Salir'}
+                className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0"
+              >
+                {salirLoading ? (
+                  <Loader2 className="h-4 w-4 sm:mr-2 animate-spin" aria-hidden />
+                ) : (
+                  <LogOut className="h-4 w-4 sm:mr-2" aria-hidden />
+                )}
+                <span className="hidden sm:inline">{salirLoading ? 'Cerrando sesión…' : 'Salir'}</span>
               </Button>
             </div>
           </div>

@@ -35,7 +35,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { LogOut, Building2, AlertTriangle, CheckCircle, XCircle, Trash2, CalendarDays } from 'lucide-react'
+import { LogOut, Building2, AlertTriangle, CheckCircle, XCircle, Trash2, CalendarDays, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 
 export function SuperadminDashboard() {
@@ -47,6 +47,7 @@ export function SuperadminDashboard() {
   const [cuentaDiasPrueba, setCuentaDiasPrueba] = useState<Cuenta | null>(null)
   const [diasPruebaInput, setDiasPruebaInput] = useState(String(DIAS_PRUEBA_FREEMIUM))
   const [guardandoDiasPrueba, setGuardandoDiasPrueba] = useState(false)
+  const [salirLoading, setSalirLoading] = useState(false)
 
   const loadCuentas = async () => {
     setLoading(true)
@@ -62,8 +63,14 @@ export function SuperadminDashboard() {
   }, [filtro])
 
   const handleLogout = async () => {
-    await logoutAdmin()
-    window.location.href = '/'
+    setSalirLoading(true)
+    try {
+      await logoutAdmin()
+      window.location.href = '/'
+    } catch (e) {
+      console.error('Logout:', e)
+      setSalirLoading(false)
+    }
   }
 
   const handleCambiarEstado = async (
@@ -132,9 +139,20 @@ export function SuperadminDashboard() {
             <Button variant="outline" size="sm" asChild>
               <Link href="/">Inicio</Link>
             </Button>
-            <Button variant="ghost" size="sm" onClick={handleLogout}>
-              <LogOut className="h-4 w-4 mr-1" />
-              Cerrar sesión
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleLogout}
+              disabled={salirLoading}
+              aria-busy={salirLoading}
+              aria-label={salirLoading ? 'Cerrando sesión' : 'Cerrar sesión'}
+            >
+              {salirLoading ? (
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" aria-hidden />
+              ) : (
+                <LogOut className="h-4 w-4 mr-1" aria-hidden />
+              )}
+              {salirLoading ? 'Cerrando sesión…' : 'Cerrar sesión'}
             </Button>
           </div>
         </div>

@@ -100,6 +100,7 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
   const [serviciosList, setServiciosList] = useState<ServicioConVehiculo[]>([])
   const [configuracion, setConfiguracion] = useState<Configuracion[]>([])
   const [loading, setLoading] = useState(true)
+  const [salirLoading, setSalirLoading] = useState(false)
 
   const [filtroFechaDesde, setFiltroFechaDesde] = useState('')
   const [filtroFechaHasta, setFiltroFechaHasta] = useState('')
@@ -626,8 +627,14 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
   }
 
   const handleLogout = async () => {
-    await logoutAdmin()
-    window.location.reload()
+    setSalirLoading(true)
+    try {
+      await logoutAdmin()
+      window.location.reload()
+    } catch (e) {
+      console.error('Logout:', e)
+      setSalirLoading(false)
+    }
   }
 
   const handleCrearUsuario = async (e: React.FormEvent) => {
@@ -1004,9 +1011,21 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
               <Button variant="ghost" size="sm" asChild className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0" id="admin-link-conserje">
                 <Link href={slug ? `/${slug}/conserje` : '/conserje'}>Conserje</Link>
               </Button>
-              <Button variant="ghost" size="sm" onClick={handleLogout} className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0">
-                <LogOut className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Salir</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleLogout}
+                disabled={salirLoading}
+                aria-busy={salirLoading}
+                aria-label={salirLoading ? 'Cerrando sesión' : 'Salir'}
+                className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0"
+              >
+                {salirLoading ? (
+                  <Loader2 className="h-4 w-4 sm:mr-2 animate-spin" aria-hidden />
+                ) : (
+                  <LogOut className="h-4 w-4 sm:mr-2" aria-hidden />
+                )}
+                <span className="hidden sm:inline">{salirLoading ? 'Cerrando sesión…' : 'Salir'}</span>
               </Button>
             </div>
           </div>
