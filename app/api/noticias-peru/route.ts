@@ -5,7 +5,7 @@ export const revalidate = 300
 
 export async function GET() {
   try {
-    const { items, fuenteNombre, fuenteUrl } = await obtenerTitularesPeru(36)
+    const { items, fuenteNombre, fuenteUrl } = await obtenerTitularesPeru(20)
     return NextResponse.json({
       ok: true as const,
       items,

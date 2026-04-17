@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { startTransition, useEffect, useState } from 'react'
 import Link from 'next/link'
 
 type Titular = { title: string; link: string }
@@ -19,35 +19,56 @@ const FALLBACK_TITULAR: Titular = {
   link: 'https://rpp.pe',
 }
 
+/** Espera al dashboard (login, datos) antes de pedir RSS y animar; evita competir por red y CPU. */
+const CARGA_DIFERIDA_MS = 1800
+
 export function NoticiasPeruTicker() {
-  const [line, setLine] = useState<Titular[]>([])
+  const [items, setItems] = useState<Titular[]>([])
   const [fuente, setFuente] = useState({ nombre: 'RPP Noticias', url: 'https://rpp.pe' })
-  const [mounted, setMounted] = useState(false)
+  /** idle: antes del delay | loading: fetch en curso | ready: datos listos */
+  const [phase, setPhase] = useState<'idle' | 'loading' | 'ready'>('idle')
+  /** La animación solo cuando el carril ya midió ancho (evita titulares cortados / saltos) */
+  const [marqueeOn, setMarqueeOn] = useState(false)
 
   useEffect(() => {
-    setMounted(true)
     let cancelled = false
-    ;(async () => {
-      try {
-        const res = await fetch('/api/noticias-peru', { cache: 'no-store' })
-        const data: ApiPayload = await res.json()
-        if (cancelled) return
-        if (data.items?.length) {
-          setLine(data.items)
-          setFuente({ nombre: data.fuenteNombre, url: data.fuenteUrl })
-        } else {
-          setLine([FALLBACK_TITULAR])
+    const timer = window.setTimeout(() => {
+      if (cancelled) return
+      setPhase('loading')
+      void (async () => {
+        try {
+          const res = await fetch('/api/noticias-peru')
+          const data: ApiPayload = await res.json()
+          if (cancelled) return
+          const list = data.items?.length ? data.items : [FALLBACK_TITULAR]
+          startTransition(() => {
+            setItems(list)
+            setFuente({ nombre: data.fuenteNombre, url: data.fuenteUrl })
+            setPhase('ready')
+          })
+        } catch {
+          if (cancelled) return
+          startTransition(() => {
+            setItems([FALLBACK_TITULAR])
+            setPhase('ready')
+          })
         }
-      } catch {
-        if (!cancelled) setLine([FALLBACK_TITULAR])
-      }
-    })()
+        if (cancelled) return
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            if (!cancelled) setMarqueeOn(true)
+          })
+        })
+      })()
+    }, CARGA_DIFERIDA_MS)
+
     return () => {
       cancelled = true
+      clearTimeout(timer)
     }
   }, [])
 
-  const items = line.length > 0 ? line : [FALLBACK_TITULAR]
+  const list = phase === 'ready' && items.length > 0 ? items : null
 
   return (
     <div
@@ -61,20 +82,26 @@ export function NoticiasPeruTicker() {
             Perú
           </span>
         </div>
-        <div className="relative min-w-0 flex-1 overflow-hidden flex items-center">
-          {!mounted ? (
-            <span className="pl-2 text-[11px] sm:text-xs text-muted-foreground truncate">
-              Cargando titulares…
+        <div className="noticias-peru-viewport relative min-w-0 flex-1 overflow-hidden flex items-center">
+          {!list ? (
+            <span
+              className={`pl-2 pr-2 text-[11px] sm:text-xs truncate ${
+                phase === 'loading' ? 'text-muted-foreground animate-pulse' : 'text-muted-foreground/80'
+              }`}
+            >
+              {phase === 'loading' ? 'Cargando titulares…' : 'Titulares de actualidad en Perú…'}
             </span>
           ) : (
-            <div className="noticias-peru-scroll flex w-max">
+            <div
+              className={`noticias-peru-scroll flex w-max ${marqueeOn ? 'noticias-peru-scroll--running' : ''}`}
+            >
               {[0, 1].map((loop) => (
                 <div
                   key={loop}
                   className="flex items-center gap-x-6 sm:gap-x-10 pr-6 sm:pr-10 shrink-0"
                   aria-hidden={loop === 1}
                 >
-                  {items.map((it, idx) => (
+                  {list.map((it, idx) => (
                     <span key={`${loop}-${idx}`} className="inline-flex items-center gap-x-6 sm:gap-x-10">
                       <a
                         href={it.link}

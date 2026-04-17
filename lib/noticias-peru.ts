@@ -68,7 +68,7 @@ export function parseTitularesDesdeRss(xml: string, maxItems: number): TitularNo
   return out
 }
 
-export async function obtenerTitularesPeru(maxItems = 40): Promise<{
+export async function obtenerTitularesPeru(maxItems = 20): Promise<{
   items: TitularNoticia[]
   fuenteNombre: string
   fuenteUrl: string

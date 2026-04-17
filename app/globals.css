@@ -158,14 +158,35 @@
     transform: translateX(-50%);
   }
 }
+/* Carril sin animación hasta que el layout esté listo (evita titulares “cortados” al cargar) */
 .noticias-peru-scroll {
   display: flex;
   width: max-content;
-  /* Duración larga para leer titulares con calma (recorrido de un bloque duplicado) */
+}
+.noticias-peru-scroll--running {
+  will-change: transform;
+  /* Duración larga: recorrido de un bloque duplicado */
   animation: noticias-peru-marquee 360s linear infinite;
 }
+/* Suaviza bordes para que no parezca un corte brusco a mitad de palabra */
+.noticias-peru-viewport {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    black 0.75rem,
+    black calc(100% - 0.75rem),
+    transparent
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    black 0.75rem,
+    black calc(100% - 0.75rem),
+    transparent
+  );
+}
 @media (prefers-reduced-motion: reduce) {
-  .noticias-peru-scroll {
+  .noticias-peru-scroll--running {
     animation: none;
   }
 }
