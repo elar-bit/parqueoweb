@@ -191,7 +191,11 @@ export function ConserjeDashboard({ trialDiasRestantes, slug }: ConserjeDashboar
     setWhatsappSaving(true)
     try {
       if (numero && whatsappOpcion === 'nuevo') {
-        await actualizarVehiculo(servicioDetalle.vehiculo.id, { telefono_contacto: numero })
+        const r = await actualizarVehiculo(servicioDetalle.vehiculo.id, { telefono_contacto: numero })
+        if (!r.ok) {
+          alert(r.error ?? 'No se pudo guardar el teléfono.')
+          return
+        }
       }
       const texto = buildTicketTexto(servicioDetalle)
       const url = numero

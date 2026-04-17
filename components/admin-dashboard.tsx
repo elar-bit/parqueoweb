@@ -341,7 +341,11 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
     setWhatsappSaving(true)
     try {
       if (numero && whatsappOpcion === 'nuevo') {
-        await actualizarVehiculo(servicioDetalle.vehiculo.id, { telefono_contacto: numero })
+        const r = await actualizarVehiculo(servicioDetalle.vehiculo.id, { telefono_contacto: numero })
+        if (!r.ok) {
+          setUsuarioMsg(r.error ?? 'No se pudo guardar el teléfono.')
+          return
+        }
       }
       const texto = buildTicketTexto(servicioDetalle)
       const url = numero

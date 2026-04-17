@@ -169,10 +169,11 @@ export function QuickRegister({ onRegistered, configuracion = [] }: QuickRegiste
     setErrorMsg(null)
     const estId = estacionamientoId
     try {
+      let result: Awaited<ReturnType<typeof registrarEntrada>>
       if (tipo === 'residente' && residenteSeleccionado) {
-        await registrarEntrada('residente', null, residenteSeleccionado, undefined, undefined, estId)
+        result = await registrarEntrada('residente', null, residenteSeleccionado, undefined, undefined, estId)
       } else if (tipo === 'residente' && placa.trim()) {
-        await registrarEntrada(
+        result = await registrarEntrada(
           'residente',
           placa.trim(),
           null,
@@ -186,7 +187,7 @@ export function QuickRegister({ onRegistered, configuracion = [] }: QuickRegiste
           estId
         )
       } else if (tipo === 'abonado' && abonadoSeleccionado) {
-        await registrarEntrada('abonado', null, abonadoSeleccionado, undefined, undefined, estId)
+        result = await registrarEntrada('abonado', null, abonadoSeleccionado, undefined, undefined, estId)
       } else if (tipo === 'abonado' && placa.trim()) {
         let capturaDataUrl: string | null = null
         if (capturaPagoFile) {
@@ -197,7 +198,7 @@ export function QuickRegister({ onRegistered, configuracion = [] }: QuickRegiste
             r.readAsDataURL(capturaPagoFile)
           })
         }
-        await registrarEntrada(
+        result = await registrarEntrada(
           'abonado',
           placa.trim(),
           null,
@@ -220,7 +221,11 @@ export function QuickRegister({ onRegistered, configuracion = [] }: QuickRegiste
           estId
         )
       } else {
-        await registrarEntrada(tipo!, placa.trim() || null, null, undefined, undefined, estId)
+        result = await registrarEntrada(tipo!, placa.trim() || null, null, undefined, undefined, estId)
+      }
+      if (!result.ok) {
+        setErrorMsg(result.error)
+        return
       }
       setPaso('tipo')
       setTipo(null)

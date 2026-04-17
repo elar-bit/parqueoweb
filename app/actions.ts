@@ -1169,19 +1169,20 @@ async function assertPlacaUnicaEnCuenta(
   cuentaId: string,
   clave6: string,
   excluirVehiculoId?: string
-): Promise<void> {
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const { data: rows, error } = await supabase
     .from('vehiculos')
     .select('id, placa')
     .eq('cuenta_id', cuentaId)
     .not('placa', 'is', null)
-  if (error) throw error
+  if (error) return { ok: false, error: error.message }
   for (const row of rows ?? []) {
     if (excluirVehiculoId && row.id === excluirVehiculoId) continue
     if (normalizarPlacaClave(row.placa ?? '') === clave6) {
-      throw new Error(MENSAJE_PLACA_DUPLICADA)
+      return { ok: false, error: MENSAJE_PLACA_DUPLICADA }
     }
   }
+  return { ok: true }
 }
 
 /** Si hay texto de placa, exige 6 caracteres alfanuméricos (p. ej. ABC-123) y unicidad en la cuenta. */
@@ -1189,13 +1190,26 @@ async function validarPlacaNuevaVehiculo(
   supabase: Awaited<ReturnType<typeof createClient>>,
   cuentaId: string,
   placaRaw: string | null | undefined
-): Promise<void> {
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const trimmed = (placaRaw ?? '').trim()
-  if (!trimmed) return
+  if (!trimmed) return { ok: true }
   const clave = normalizarPlacaClave(trimmed)
-  if (clave.length !== 6) throw new Error(MENSAJE_PLACA_LONGITUD)
-  await assertPlacaUnicaEnCuenta(supabase, cuentaId, clave)
+  if (clave.length !== 6) return { ok: false, error: MENSAJE_PLACA_LONGITUD }
+  return assertPlacaUnicaEnCuenta(supabase, cuentaId, clave)
 }
+
+function mensajeErrorInsertVehiculo(err: { message?: string; code?: string }): string {
+  const code = err.code ?? ''
+  const msg = err.message ?? ''
+  if (code === '23505' || /duplicate key|unique constraint/i.test(msg)) {
+    return MENSAJE_PLACA_DUPLICADA
+  }
+  return msg || 'No se pudo registrar el vehículo.'
+}
+
+export type RegistrarEntradaResult =
+  | { ok: true; vehiculo: Vehiculo; servicio: { id: string } }
+  | { ok: false; error: string }
 
 export async function registrarEntrada(
   tipo: 'visitante' | 'residente' | 'abonado',
@@ -1204,143 +1218,157 @@ export async function registrarEntrada(
   datosResidente?: DatosResidente | null,
   datosAbonado?: DatosAbonado | null,
   estacionamientoId?: string | null
-): Promise<{
-  vehiculo: Vehiculo
-  servicio: { id: string }
-}> {
-  const cuentaId = await getCuentaIdFromSession()
-  if (!cuentaId) throw new Error('No autorizado')
-  const supabase = await createClient()
-  let vehiculo: Vehiculo
-  const tipoReuso = tipo === 'residente' ? 'residente' : tipo === 'abonado' ? 'abonado' : null
+): Promise<RegistrarEntradaResult> {
+  try {
+    const cuentaId = await getCuentaIdFromSession()
+    if (!cuentaId) return { ok: false, error: 'No autorizado' }
+    const supabase = await createClient()
+    let vehiculo: Vehiculo
+    const tipoReuso = tipo === 'residente' ? 'residente' : tipo === 'abonado' ? 'abonado' : null
 
-  if (vehiculoIdExistente && tipoReuso) {
-    const { data: existing, error: fetchError } = await supabase
-      .from('vehiculos')
-      .select('*')
-      .eq('id', vehiculoIdExistente)
-      .eq('cuenta_id', cuentaId)
-      .eq('tipo', tipoReuso)
-      .single()
-    if (fetchError || !existing) throw new Error(tipoReuso === 'abonado' ? 'Vehículo abonado no encontrado' : 'Vehículo residente no encontrado')
-    vehiculo = existing as Vehiculo
-    if (tipoReuso === 'abonado' && datosAbonado?.yaPagoMensualidad && datosAbonado?.numeroMeses != null) {
-      const meses = Math.min(6, Math.max(1, Math.floor(datosAbonado.numeroMeses)))
-      const hasta = addMonths(new Date(), meses)
-      const config = await getConfiguracion()
-      const precioAbonado = config.find((c) => c.tipo_usuario === 'abonado')?.precio_hora ?? 0
-      const montoAbono = calcularTotalAbonado(precioAbonado, meses)
-      await supabase
+    if (vehiculoIdExistente && tipoReuso) {
+      const { data: existing, error: fetchError } = await supabase
         .from('vehiculos')
-        .update({
-          vigencia_abono_hasta: hasta.toISOString().split('T')[0],
-          ultimo_numero_meses_abono: meses,
-          monto_ultimo_pago_abono: montoAbono,
-          abono_cancelado: false,
-          motivo_cancelacion_abono: null,
-        })
-        .eq('id', vehiculo.id)
-      vehiculo = { ...vehiculo, vigencia_abono_hasta: hasta.toISOString().split('T')[0], ultimo_numero_meses_abono: meses, monto_ultimo_pago_abono: montoAbono, abono_cancelado: false, motivo_cancelacion_abono: null } as Vehiculo
-    }
-  } else {
-    const insertPayload: Record<string, unknown> = {
-      cuenta_id: cuentaId,
-      tipo,
-      placa: placa?.trim() || null,
-    }
-    if (tipo === 'residente' && datosResidente) {
-      if (datosResidente.nombre != null) insertPayload.nombre_propietario = datosResidente.nombre
-      if (datosResidente.apellido != null) insertPayload.apellido_propietario = datosResidente.apellido
-      if (datosResidente.numero_oficina_dep != null) insertPayload.numero_oficina_dep = datosResidente.numero_oficina_dep
-      if (datosResidente.telefono_contacto != null) insertPayload.telefono_contacto = datosResidente.telefono_contacto
-    }
-    if (tipo === 'abonado' && (datosResidente || datosAbonado)) {
-      const d = datosAbonado ?? datosResidente
-      if (d) {
-        if (d.nombre != null) insertPayload.nombre_propietario = d.nombre
-        if (d.apellido != null) insertPayload.apellido_propietario = d.apellido
-        if (d.numero_oficina_dep != null) insertPayload.numero_oficina_dep = d.numero_oficina_dep
-        if (d.telefono_contacto != null) insertPayload.telefono_contacto = d.telefono_contacto
+        .select('*')
+        .eq('id', vehiculoIdExistente)
+        .eq('cuenta_id', cuentaId)
+        .eq('tipo', tipoReuso)
+        .single()
+      if (fetchError || !existing) {
+        return {
+          ok: false,
+          error: tipoReuso === 'abonado' ? 'Vehículo abonado no encontrado' : 'Vehículo residente no encontrado',
+        }
       }
-      if (datosAbonado?.yaPagoMensualidad && datosAbonado?.numeroMeses != null) {
+      vehiculo = existing as Vehiculo
+      if (tipoReuso === 'abonado' && datosAbonado?.yaPagoMensualidad && datosAbonado?.numeroMeses != null) {
         const meses = Math.min(6, Math.max(1, Math.floor(datosAbonado.numeroMeses)))
         const hasta = addMonths(new Date(), meses)
-        insertPayload.vigencia_abono_hasta = hasta.toISOString().split('T')[0]
-        insertPayload.ultimo_numero_meses_abono = meses
         const config = await getConfiguracion()
         const precioAbonado = config.find((c) => c.tipo_usuario === 'abonado')?.precio_hora ?? 0
         const montoAbono = calcularTotalAbonado(precioAbonado, meses)
-        insertPayload.monto_ultimo_pago_abono = montoAbono
+        await supabase
+          .from('vehiculos')
+          .update({
+            vigencia_abono_hasta: hasta.toISOString().split('T')[0],
+            ultimo_numero_meses_abono: meses,
+            monto_ultimo_pago_abono: montoAbono,
+            abono_cancelado: false,
+            motivo_cancelacion_abono: null,
+          })
+          .eq('id', vehiculo.id)
+        vehiculo = { ...vehiculo, vigencia_abono_hasta: hasta.toISOString().split('T')[0], ultimo_numero_meses_abono: meses, monto_ultimo_pago_abono: montoAbono, abono_cancelado: false, motivo_cancelacion_abono: null } as Vehiculo
       }
-      if (datosAbonado?.refPagoAbono != null && String(datosAbonado.refPagoAbono).trim()) {
-        insertPayload.ref_pago_abono = String(datosAbonado.refPagoAbono).trim()
+    } else {
+      const insertPayload: Record<string, unknown> = {
+        cuenta_id: cuentaId,
+        tipo,
+        placa: placa?.trim() || null,
       }
-      if (datosAbonado?.capturaPagoAbono != null && String(datosAbonado.capturaPagoAbono).trim()) {
-        insertPayload.captura_pago_abono = String(datosAbonado.capturaPagoAbono).trim()
+      if (tipo === 'residente' && datosResidente) {
+        if (datosResidente.nombre != null) insertPayload.nombre_propietario = datosResidente.nombre
+        if (datosResidente.apellido != null) insertPayload.apellido_propietario = datosResidente.apellido
+        if (datosResidente.numero_oficina_dep != null) insertPayload.numero_oficina_dep = datosResidente.numero_oficina_dep
+        if (datosResidente.telefono_contacto != null) insertPayload.telefono_contacto = datosResidente.telefono_contacto
       }
+      if (tipo === 'abonado' && (datosResidente || datosAbonado)) {
+        const d = datosAbonado ?? datosResidente
+        if (d) {
+          if (d.nombre != null) insertPayload.nombre_propietario = d.nombre
+          if (d.apellido != null) insertPayload.apellido_propietario = d.apellido
+          if (d.numero_oficina_dep != null) insertPayload.numero_oficina_dep = d.numero_oficina_dep
+          if (d.telefono_contacto != null) insertPayload.telefono_contacto = d.telefono_contacto
+        }
+        if (datosAbonado?.yaPagoMensualidad && datosAbonado?.numeroMeses != null) {
+          const meses = Math.min(6, Math.max(1, Math.floor(datosAbonado.numeroMeses)))
+          const hasta = addMonths(new Date(), meses)
+          insertPayload.vigencia_abono_hasta = hasta.toISOString().split('T')[0]
+          insertPayload.ultimo_numero_meses_abono = meses
+          const config = await getConfiguracion()
+          const precioAbonado = config.find((c) => c.tipo_usuario === 'abonado')?.precio_hora ?? 0
+          const montoAbono = calcularTotalAbonado(precioAbonado, meses)
+          insertPayload.monto_ultimo_pago_abono = montoAbono
+        }
+        if (datosAbonado?.refPagoAbono != null && String(datosAbonado.refPagoAbono).trim()) {
+          insertPayload.ref_pago_abono = String(datosAbonado.refPagoAbono).trim()
+        }
+        if (datosAbonado?.capturaPagoAbono != null && String(datosAbonado.capturaPagoAbono).trim()) {
+          insertPayload.captura_pago_abono = String(datosAbonado.capturaPagoAbono).trim()
+        }
+      }
+      const valPlaca = await validarPlacaNuevaVehiculo(supabase, cuentaId, placa?.trim() || null)
+      if (!valPlaca.ok) return valPlaca
+      const { data: nuevo, error: vehiculoError } = await supabase
+        .from('vehiculos')
+        .insert(insertPayload)
+        .select()
+        .single()
+      if (vehiculoError) {
+        return { ok: false, error: mensajeErrorInsertVehiculo(vehiculoError) }
+      }
+      vehiculo = nuevo as Vehiculo
     }
-    await validarPlacaNuevaVehiculo(supabase, cuentaId, placa?.trim() || null)
-    const { data: nuevo, error: vehiculoError } = await supabase
-      .from('vehiculos')
-      .insert(insertPayload)
-      .select()
-      .single()
-    if (vehiculoError) throw vehiculoError
-    vehiculo = nuevo as Vehiculo
-  }
 
-  const ahoraIso = new Date().toISOString()
-  const baseServicio: Record<string, unknown> = {
-    cuenta_id: cuentaId,
-    vehiculo_id: vehiculo.id,
-    entrada_real: ahoraIso,
-  }
+    const ahoraIso = new Date().toISOString()
+    const baseServicio: Record<string, unknown> = {
+      cuenta_id: cuentaId,
+      vehiculo_id: vehiculo.id,
+      entrada_real: ahoraIso,
+    }
 
-  const { count: nPlazas } = await supabase
-    .from('estacionamientos')
-    .select('*', { count: 'exact', head: true })
-    .eq('cuenta_id', cuentaId)
-  const requierePlaza = (nPlazas ?? 0) > 0
-  if (requierePlaza) {
-    const idPlaza = (estacionamientoId || '').trim()
-    if (!idPlaza) throw new Error('Seleccione un estacionamiento')
-    const { data: estRow, error: errEst } = await supabase
+    const { count: nPlazas } = await supabase
       .from('estacionamientos')
-      .select('id, etiqueta')
-      .eq('id', idPlaza)
+      .select('*', { count: 'exact', head: true })
       .eq('cuenta_id', cuentaId)
-      .maybeSingle()
-    if (errEst || !estRow) throw new Error('Estacionamiento no válido')
-    const { data: ocupado } = await supabase
+    const requierePlaza = (nPlazas ?? 0) > 0
+    if (requierePlaza) {
+      const idPlaza = (estacionamientoId || '').trim()
+      if (!idPlaza) return { ok: false, error: 'Seleccione un estacionamiento' }
+      const { data: estRow, error: errEst } = await supabase
+        .from('estacionamientos')
+        .select('id, etiqueta')
+        .eq('id', idPlaza)
+        .eq('cuenta_id', cuentaId)
+        .maybeSingle()
+      if (errEst || !estRow) return { ok: false, error: 'Estacionamiento no válido' }
+      const { data: ocupado } = await supabase
+        .from('servicios')
+        .select('id')
+        .eq('estacionamiento_id', estRow.id)
+        .eq('estado', 'activo')
+        .maybeSingle()
+      if (ocupado) return { ok: false, error: 'Ese estacionamiento ya está ocupado' }
+      baseServicio.estacionamiento_id = estRow.id
+      baseServicio.estacionamiento_etiqueta = estRow.etiqueta
+    }
+
+    if (tipo === 'abonado') {
+      baseServicio.estado = 'pagado'
+      baseServicio.salida = ahoraIso
+      baseServicio.tarifa_aplicada = 0
+      const montoAbono = (vehiculo as Vehiculo & { monto_ultimo_pago_abono?: number })?.monto_ultimo_pago_abono ?? 0
+      baseServicio.total_pagar = montoAbono
+    }
+
+    const { data: servicio, error: servicioError } = await supabase
       .from('servicios')
+      .insert(baseServicio)
       .select('id')
-      .eq('estacionamiento_id', estRow.id)
-      .eq('estado', 'activo')
-      .maybeSingle()
-    if (ocupado) throw new Error('Ese estacionamiento ya está ocupado')
-    baseServicio.estacionamiento_id = estRow.id
-    baseServicio.estacionamiento_etiqueta = estRow.etiqueta
+      .single()
+
+    if (servicioError) {
+      return { ok: false, error: servicioError.message || 'No se pudo registrar la entrada.' }
+    }
+    await revalidateTenantPathsSafe()
+    return { ok: true, vehiculo, servicio }
+  } catch (e) {
+    console.error('registrarEntrada:', e)
+    const msg = e instanceof Error ? e.message : String(e)
+    return {
+      ok: false,
+      error: msg || 'No se pudo registrar la entrada. Inténtelo de nuevo.',
+    }
   }
-
-  // Para abonados: el registro representa el pago adelantado del mes,
-  // por lo que se marca como pagado inmediatamente (sin necesidad de validar salida).
-  if (tipo === 'abonado') {
-    baseServicio.estado = 'pagado'
-    baseServicio.salida = ahoraIso
-    baseServicio.tarifa_aplicada = 0
-    const montoAbono = (vehiculo as Vehiculo & { monto_ultimo_pago_abono?: number })?.monto_ultimo_pago_abono ?? 0
-    baseServicio.total_pagar = montoAbono
-  }
-
-  const { data: servicio, error: servicioError } = await supabase
-    .from('servicios')
-    .insert(baseServicio)
-    .select('id')
-    .single()
-
-  if (servicioError) throw servicioError
-  revalidateTenantPaths()
-  return { vehiculo, servicio }
 }
 
 export async function actualizarVehiculo(
@@ -1356,31 +1384,46 @@ export async function actualizarVehiculo(
     ref_pago_abono?: string | null
     captura_pago_abono?: string | null
   }
-): Promise<void> {
-  const cuentaId = await getCuentaIdFromSession()
-  if (!cuentaId) throw new Error('No autorizado')
-  const supabase = await createClient()
-  const { placa: placaIn, ...rest } = data
-  const updatePayload: Record<string, unknown> = { ...rest }
-  if (placaIn !== undefined) {
-    const trimmed = placaIn.trim()
-    if (!trimmed) {
-      updatePayload.placa = null
-    } else {
-      const clave = normalizarPlacaClave(trimmed)
-      if (clave.length !== 6) throw new Error(MENSAJE_PLACA_LONGITUD)
-      await assertPlacaUnicaEnCuenta(supabase, cuentaId, clave, vehiculoId)
-      updatePayload.placa = trimmed
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const cuentaId = await getCuentaIdFromSession()
+    if (!cuentaId) return { ok: false, error: 'No autorizado' }
+    const supabase = await createClient()
+    const { placa: placaIn, ...rest } = data
+    const updatePayload: Record<string, unknown> = { ...rest }
+    if (placaIn !== undefined) {
+      const trimmed = placaIn.trim()
+      if (!trimmed) {
+        updatePayload.placa = null
+      } else {
+        const clave = normalizarPlacaClave(trimmed)
+        if (clave.length !== 6) return { ok: false, error: MENSAJE_PLACA_LONGITUD }
+        const dup = await assertPlacaUnicaEnCuenta(supabase, cuentaId, clave, vehiculoId)
+        if (!dup.ok) return dup
+        updatePayload.placa = trimmed
+      }
+    }
+    const { error } = await supabase
+      .from('vehiculos')
+      .update(updatePayload)
+      .eq('id', vehiculoId)
+      .eq('cuenta_id', cuentaId)
+
+    if (error) {
+      return {
+        ok: false,
+        error: mensajeErrorInsertVehiculo(error),
+      }
+    }
+    await revalidateTenantPathsSafe()
+    return { ok: true }
+  } catch (e) {
+    console.error('actualizarVehiculo:', e)
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : 'No se pudo actualizar el vehículo.',
     }
   }
-  const { error } = await supabase
-    .from('vehiculos')
-    .update(updatePayload)
-    .eq('id', vehiculoId)
-    .eq('cuenta_id', cuentaId)
-
-  if (error) throw error
-  revalidateTenantPaths()
 }
 
 /** Registra pago de mensualidad: extiende vigencia N meses desde fin del periodo anterior (o desde hoy si ya venció). */

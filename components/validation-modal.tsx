@@ -141,9 +141,13 @@ export function ValidationModal({
     try {
       // Update vehicle info if changed
       if (placa !== servicio.vehiculo.placa || tipo !== servicio.vehiculo.tipo) {
-        await actualizarVehiculo(servicio.vehiculo.id, { placa, tipo })
+        const r = await actualizarVehiculo(servicio.vehiculo.id, { placa, tipo })
+        if (!r.ok) {
+          setConfirmError(r.error ?? 'No se pudo actualizar el vehículo.')
+          return
+        }
       }
-      
+
       const tarifa = tipo === 'abonado' ? null : configuracion.find(c => c.tipo_usuario === tipo)
       
       await registrarSalida(
@@ -218,7 +222,11 @@ export function ValidationModal({
     setWhatsappSaving(true)
     try {
       if (numero && whatsappOpcion === 'nuevo') {
-        await actualizarVehiculo(servicio.vehiculo.id, { telefono_contacto: numero })
+        const r = await actualizarVehiculo(servicio.vehiculo.id, { telefono_contacto: numero })
+        if (!r.ok) {
+          setConfirmError(r.error ?? 'No se pudo guardar el teléfono.')
+          return
+        }
       }
       const nombreResidente =
         (servicio.vehiculo?.tipo === 'residente' || servicio.vehiculo?.tipo === 'abonado') &&
