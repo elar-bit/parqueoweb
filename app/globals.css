@@ -161,7 +161,8 @@
 .noticias-peru-scroll {
   display: flex;
   width: max-content;
-  animation: noticias-peru-marquee 90s linear infinite;
+  /* Duración larga para leer titulares con calma (recorrido de un bloque duplicado) */
+  animation: noticias-peru-marquee 360s linear infinite;
 }
 @media (prefers-reduced-motion: reduce) {
   .noticias-peru-scroll {
