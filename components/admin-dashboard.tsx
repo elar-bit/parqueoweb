@@ -642,8 +642,11 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
       } else {
         setUsuarioMsg(result.error || 'Error al crear usuario')
       }
-    } catch {
-      setUsuarioMsg('Error de conexión')
+    } catch (err) {
+      console.error('handleCrearUsuario:', err)
+      setUsuarioMsg(
+        err instanceof Error ? err.message : 'Error de conexión. Compruebe su red e inténtelo de nuevo.'
+      )
     } finally {
       setSavingUser(false)
     }
@@ -674,8 +677,11 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
       } else {
         setUsuarioMsg(result.error || 'Error al actualizar')
       }
-    } catch {
-      setUsuarioMsg('Error de conexión')
+    } catch (err) {
+      console.error('handleGuardarEdicionUsuario:', err)
+      setUsuarioMsg(
+        err instanceof Error ? err.message : 'Error de conexión. Compruebe su red e inténtelo de nuevo.'
+      )
     } finally {
       setSavingEdit(false)
     }
@@ -697,8 +703,11 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
       } else {
         setUsuarioMsg(result.error || 'Error al resetear')
       }
-    } catch {
-      setUsuarioMsg('Error de conexión')
+    } catch (err) {
+      console.error('handleResetPassword:', err)
+      setUsuarioMsg(
+        err instanceof Error ? err.message : 'Error de conexión. Compruebe su red e inténtelo de nuevo.'
+      )
     } finally {
       setSavingReset(false)
     }

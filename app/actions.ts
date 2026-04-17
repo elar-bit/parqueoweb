@@ -82,6 +82,14 @@ async function revalidateTenantPaths() {
   }
 }
 
+async function revalidateTenantPathsSafe(): Promise<void> {
+  try {
+    await revalidateTenantPaths()
+  } catch (e) {
+    console.error('revalidateTenantPaths:', e)
+  }
+}
+
 export async function getAdminAuth(): Promise<boolean> {
   const session = await getSession()
   return session?.role === 'admin' && !session?.isSuperadmin
@@ -571,29 +579,46 @@ export async function crearUsuario(
   password: string,
   rol: 'admin' | 'conserje'
 ): Promise<{ ok: boolean; error?: string }> {
-  const authed = await getAdminAuth()
-  if (!authed) return { ok: false, error: 'No autorizado' }
-
-  const nombreTrim = (nombre || '').trim()
-  const apellidoTrim = (apellido || '').trim()
-  const usuarioTrim = (usuario || '').trim().toLowerCase()
-  const passwordTrim = (password || '').trim()
-
-  if (!nombreTrim || !apellidoTrim || !usuarioTrim || !passwordTrim) {
-    return { ok: false, error: 'Complete todos los campos' }
-  }
-  if (passwordTrim.length < 4) {
-    return { ok: false, error: 'La contraseña debe tener al menos 4 caracteres' }
-  }
-  if (rol !== 'admin' && rol !== 'conserje') {
-    return { ok: false, error: 'Rol no válido' }
-  }
-
   try {
+    const authed = await getAdminAuth()
+    if (!authed) return { ok: false, error: 'No autorizado' }
+
+    const nombreTrim = (nombre || '').trim()
+    const apellidoTrim = (apellido || '').trim()
+    const usuarioTrim = (usuario || '').trim().toLowerCase()
+    const passwordTrim = (password || '').trim()
+
+    if (!nombreTrim || !apellidoTrim || !usuarioTrim || !passwordTrim) {
+      return { ok: false, error: 'Complete todos los campos' }
+    }
+    if (passwordTrim.length < 4) {
+      return { ok: false, error: 'La contraseña debe tener al menos 4 caracteres' }
+    }
+    if (rol !== 'admin' && rol !== 'conserje') {
+      return { ok: false, error: 'Rol no válido' }
+    }
+
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()) {
+      return {
+        ok: false,
+        error:
+          'Falta configuración de Supabase en el servidor (NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY).',
+      }
+    }
+
     const cuentaId = await getCuentaIdFromSession()
     if (!cuentaId) return { ok: false, error: 'No autorizado' }
     const supabase = await createClient()
-    const { data: existing } = await supabase.from('usuarios').select('id').eq('cuenta_id', cuentaId).eq('usuario', usuarioTrim).single()
+    const { data: existing, error: errExist } = await supabase
+      .from('usuarios')
+      .select('id')
+      .eq('cuenta_id', cuentaId)
+      .eq('usuario', usuarioTrim)
+      .maybeSingle()
+    if (errExist) {
+      console.error('crearUsuario exist check:', errExist)
+      return { ok: false, error: errExist.message }
+    }
     if (existing) return { ok: false, error: 'El usuario ya existe' }
 
     const password_hash = await hash(passwordTrim, 10)
@@ -609,11 +634,17 @@ export async function crearUsuario(
       console.error('crearUsuario error:', error)
       return { ok: false, error: error.message }
     }
-    revalidateTenantPaths()
+    await revalidateTenantPathsSafe()
     return { ok: true }
   } catch (e) {
     console.error('crearUsuario exception:', e)
-    return { ok: false, error: String(e) }
+    const msg = e instanceof Error ? e.message : String(e)
+    return {
+      ok: false,
+      error:
+        msg ||
+        'No se pudo crear el usuario. Si el problema continúa, compruebe la conexión a internet y la configuración de Supabase.',
+    }
   }
 }
 
@@ -621,9 +652,9 @@ export async function actualizarUsuario(
   id: string,
   data: { nombre?: string; apellido?: string; usuario?: string; rol?: 'admin' | 'conserje' }
 ): Promise<{ ok: boolean; error?: string }> {
-  const authed = await getAdminAuth()
-  if (!authed) return { ok: false, error: 'No autorizado' }
   try {
+    const authed = await getAdminAuth()
+    if (!authed) return { ok: false, error: 'No autorizado' }
     const supabase = await createClient()
     const updates: Record<string, unknown> = {}
     if (data.nombre != null) updates.nombre = (data.nombre || '').trim()
@@ -642,7 +673,7 @@ export async function actualizarUsuario(
       console.error('actualizarUsuario error:', error)
       return { ok: false, error: error.message }
     }
-    revalidateTenantPaths()
+    await revalidateTenantPathsSafe()
     return { ok: true }
   } catch (e) {
     console.error('actualizarUsuario exception:', e)
@@ -651,9 +682,9 @@ export async function actualizarUsuario(
 }
 
 export async function eliminarUsuario(id: string): Promise<{ ok: boolean; error?: string }> {
-  const authed = await getAdminAuth()
-  if (!authed) return { ok: false, error: 'No autorizado' }
   try {
+    const authed = await getAdminAuth()
+    if (!authed) return { ok: false, error: 'No autorizado' }
     const cuentaId = await getCuentaIdFromSession()
     if (!cuentaId) return { ok: false, error: 'No autorizado' }
     const supabase = await createClient()
@@ -662,7 +693,7 @@ export async function eliminarUsuario(id: string): Promise<{ ok: boolean; error?
       console.error('eliminarUsuario error:', error)
       return { ok: false, error: error.message }
     }
-    revalidateTenantPaths()
+    await revalidateTenantPathsSafe()
     return { ok: true }
   } catch (e) {
     console.error('eliminarUsuario exception:', e)
@@ -671,9 +702,9 @@ export async function eliminarUsuario(id: string): Promise<{ ok: boolean; error?
 }
 
 export async function suspenderUsuario(id: string): Promise<{ ok: boolean; error?: string }> {
-  const authed = await getAdminAuth()
-  if (!authed) return { ok: false, error: 'No autorizado' }
   try {
+    const authed = await getAdminAuth()
+    if (!authed) return { ok: false, error: 'No autorizado' }
     const cuentaId = await getCuentaIdFromSession()
     if (!cuentaId) return { ok: false, error: 'No autorizado' }
     const supabase = await createClient()
@@ -682,7 +713,7 @@ export async function suspenderUsuario(id: string): Promise<{ ok: boolean; error
       console.error('suspenderUsuario error:', error)
       return { ok: false, error: error.message }
     }
-    revalidateTenantPaths()
+    await revalidateTenantPathsSafe()
     return { ok: true }
   } catch (e) {
     console.error('suspenderUsuario exception:', e)
@@ -691,9 +722,9 @@ export async function suspenderUsuario(id: string): Promise<{ ok: boolean; error
 }
 
 export async function reactivarUsuario(id: string): Promise<{ ok: boolean; error?: string }> {
-  const authed = await getAdminAuth()
-  if (!authed) return { ok: false, error: 'No autorizado' }
   try {
+    const authed = await getAdminAuth()
+    if (!authed) return { ok: false, error: 'No autorizado' }
     const cuentaId = await getCuentaIdFromSession()
     if (!cuentaId) return { ok: false, error: 'No autorizado' }
     const supabase = await createClient()
@@ -702,7 +733,7 @@ export async function reactivarUsuario(id: string): Promise<{ ok: boolean; error
       console.error('reactivarUsuario error:', error)
       return { ok: false, error: error.message }
     }
-    revalidateTenantPaths()
+    await revalidateTenantPathsSafe()
     return { ok: true }
   } catch (e) {
     console.error('reactivarUsuario exception:', e)
@@ -711,11 +742,11 @@ export async function reactivarUsuario(id: string): Promise<{ ok: boolean; error
 }
 
 export async function resetearPasswordUsuario(id: string, nuevaPassword: string): Promise<{ ok: boolean; error?: string }> {
-  const authed = await getAdminAuth()
-  if (!authed) return { ok: false, error: 'No autorizado' }
   const pass = (nuevaPassword || '').trim()
   if (pass.length < 4) return { ok: false, error: 'La contraseña debe tener al menos 4 caracteres' }
   try {
+    const authed = await getAdminAuth()
+    if (!authed) return { ok: false, error: 'No autorizado' }
     const cuentaId = await getCuentaIdFromSession()
     if (!cuentaId) return { ok: false, error: 'No autorizado' }
     const supabase = await createClient()
@@ -725,7 +756,7 @@ export async function resetearPasswordUsuario(id: string, nuevaPassword: string)
       console.error('resetearPasswordUsuario error:', error)
       return { ok: false, error: error.message }
     }
-    revalidateTenantPaths()
+    await revalidateTenantPathsSafe()
     return { ok: true }
   } catch (e) {
     console.error('resetearPasswordUsuario exception:', e)
