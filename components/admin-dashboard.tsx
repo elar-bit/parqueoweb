@@ -69,6 +69,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { EstacionamientoMapaDialog } from '@/components/estacionamiento-mapa-dialog'
+import { NoticiasPeruTicker } from '@/components/noticias-peru-ticker'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 
 /** Precarga modo correlativo vs manual según la lista guardada (1..N vs etiquetas libres). */
@@ -1011,6 +1012,8 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug }: Admi
           </div>
         </div>
       </header>
+
+      <NoticiasPeruTicker />
 
       {trialDiasRestantes !== undefined && trialDiasRestantes >= 1 && trialDiasRestantes <= 2 && (
         <div className="container mx-auto px-3 sm:px-4 pt-3">

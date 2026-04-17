@@ -5,6 +5,7 @@ import { getCuentas, updateCuentaEstado, updateCuentaDiasPruebaFreemium, elimina
 import type { Cuenta } from '@/lib/tenant'
 import { diasRestantesTrial, diasPruebaEfectivos, DIAS_PRUEBA_FREEMIUM } from '@/lib/tenant'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { NoticiasPeruTicker } from '@/components/noticias-peru-ticker'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -138,6 +139,8 @@ export function SuperadminDashboard() {
           </div>
         </div>
       </header>
+
+      <NoticiasPeruTicker />
 
       <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 overflow-hidden">
         <Card className="border-amber-500/30 overflow-hidden">

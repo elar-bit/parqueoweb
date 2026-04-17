@@ -148,3 +148,23 @@
   animation-name: person-look-front;
   animation-iteration-count: infinite;
 }
+
+/* Titulares Perú (bajo el header): carril continuo derecha → izquierda */
+@keyframes noticias-peru-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.noticias-peru-scroll {
+  display: flex;
+  width: max-content;
+  animation: noticias-peru-marquee 90s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .noticias-peru-scroll {
+    animation: none;
+  }
+}

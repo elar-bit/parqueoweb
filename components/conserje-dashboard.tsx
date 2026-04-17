@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { QuickRegister } from '@/components/quick-register'
+import { NoticiasPeruTicker } from '@/components/noticias-peru-ticker'
 import { VehicleCard } from '@/components/vehicle-card'
 import { ValidationModal } from '@/components/validation-modal'
 import { getServiciosActivos, getConfiguracion, logoutAdmin, getAbonadosVencidos, getAbonadosPorVencer, renovarAbono, cancelarAbono, getServiciosPagadosFiltrados, getMesesConServicios, actualizarVehiculo, getEstacionamientos } from '@/app/actions'
@@ -334,6 +335,8 @@ export function ConserjeDashboard({ trialDiasRestantes, slug }: ConserjeDashboar
           </div>
         </div>
       </header>
+
+      <NoticiasPeruTicker />
 
       {trialDiasRestantes !== undefined && trialDiasRestantes >= 1 && trialDiasRestantes <= 2 && (
         <div className="container mx-auto px-3 sm:px-4 pt-3">
