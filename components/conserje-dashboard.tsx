@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { QuickRegister } from '@/components/quick-register'
 import { NoticiasPeruTicker } from '@/components/noticias-peru-ticker'
 import { VehicleCard } from '@/components/vehicle-card'
@@ -73,6 +73,8 @@ export function ConserjeDashboard({ trialDiasRestantes, slug, opcionesUi }: Cons
   const [renovandoAbonoId, setRenovandoAbonoId] = useState<string | null>(null)
   const [filtroMesServicios, setFiltroMesServicios] = useState<string>('')
   const [mesesDisponibles, setMesesDisponibles] = useState<string[]>([])
+  const [mesesServiciosMetaListos, setMesesServiciosMetaListos] = useState(false)
+  const [cargandoServiciosMes, setCargandoServiciosMes] = useState(false)
   const [mapaPlazasOpen, setMapaPlazasOpen] = useState(false)
   /** null = aún no cargado; evita mostrar el aviso antes de saber el estado real */
   const [tienePlazasConfiguradas, setTienePlazasConfiguradas] = useState<boolean | null>(null)
@@ -84,39 +86,56 @@ export function ConserjeDashboard({ trialDiasRestantes, slug, opcionesUi }: Cons
     return digits || ''
   }
 
-  const rangoMesServicios = (() => {
-    if (!filtroMesServicios || !/^\d{4}-\d{2}$/.test(filtroMesServicios)) {
+  const mesServiciosEfectivo = useMemo(() => {
+    if (filtroMesServicios && /^\d{4}-\d{2}$/.test(filtroMesServicios)) return filtroMesServicios
+    return mesesDisponibles[0] ?? ''
+  }, [filtroMesServicios, mesesDisponibles])
+
+  const rangoMesServicios = useMemo(() => {
+    const key = mesServiciosEfectivo
+    if (!key || !/^\d{4}-\d{2}$/.test(key)) {
       return { fechaDesde: '', fechaHasta: '' }
     }
-    const [y, m] = filtroMesServicios.split('-').map(Number)
+    const [y, m] = key.split('-').map(Number)
     const ultimoDia = new Date(y, m, 0).getDate()
     return {
-      fechaDesde: `${filtroMesServicios}-01`,
+      fechaDesde: `${key}-01`,
       fechaHasta: `${y}-${String(m).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}`,
     }
-  })()
+  }, [mesServiciosEfectivo])
 
   useEffect(() => {
-    getMesesConServicios().then((meses) => {
-      setMesesDisponibles(meses)
-      if (meses.length > 0) {
-        setFiltroMesServicios((prev) => {
-          const actual = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
-          if (prev && meses.includes(prev)) return prev
-          if (meses.includes(actual)) return actual
-          return meses[0]
-        })
-      }
-    })
+    getMesesConServicios()
+      .then((meses) => {
+        setMesesDisponibles(meses)
+        if (meses.length > 0) {
+          setFiltroMesServicios((prev) => {
+            const actual = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
+            if (prev && meses.includes(prev)) return prev
+            if (meses.includes(actual)) return actual
+            return meses[0]
+          })
+        }
+      })
+      .finally(() => setMesesServiciosMetaListos(true))
   }, [])
 
   const loadData = useCallback(async (opts?: { silent?: boolean }) => {
     const silent = opts?.silent === true
     if (!silent) setLoading(true)
     try {
-      const serviciosDelMesPromise = rangoMesServicios.fechaDesde
-        ? getServiciosPagadosFiltrados({ fechaDesde: rangoMesServicios.fechaDesde, fechaHasta: rangoMesServicios.fechaHasta })
-        : Promise.resolve([])
+      const serviciosDelMesPromise = (async () => {
+        if (!rangoMesServicios.fechaDesde) return []
+        setCargandoServiciosMes(true)
+        try {
+          return await getServiciosPagadosFiltrados({
+            fechaDesde: rangoMesServicios.fechaDesde,
+            fechaHasta: rangoMesServicios.fechaHasta,
+          })
+        } finally {
+          setCargandoServiciosMes(false)
+        }
+      })()
       const [serviciosData, configData, vencidos, porVencer, serviciosDelMes, plazas] = await Promise.all([
         getServiciosActivos(),
         getConfiguracion(),
@@ -283,6 +302,11 @@ export function ConserjeDashboard({ trialDiasRestantes, slug, opcionesUi }: Cons
       return placa.includes(filtroNorm) || apellido.includes(filtroNorm) || nombre.includes(filtroNorm)
     })
   })()
+
+  const cargaInicialListaServicios =
+    !mesesServiciosMetaListos ||
+    loading ||
+    (cargandoServiciosMes && serviciosHoy.length === 0)
 
   return (
     <div className="min-h-screen bg-background">
@@ -777,11 +801,13 @@ export function ConserjeDashboard({ trialDiasRestantes, slug, opcionesUi }: Cons
               </div>
             </div>
           </div>
-          {loading ? (
+          {cargaInicialListaServicios ? (
             <div className="flex flex-col items-center justify-center gap-2 py-16 text-muted-foreground min-h-[200px]">
               <Loader2 className="h-8 w-8 animate-spin text-primary shrink-0" aria-hidden />
               <span className="text-sm">Cargando servicios del mes…</span>
             </div>
+          ) : mesesDisponibles.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No hay meses con servicios registrados aún.</p>
           ) : serviciosHoy.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               No hay servicios pagados en el mes seleccionado.
@@ -789,7 +815,19 @@ export function ConserjeDashboard({ trialDiasRestantes, slug, opcionesUi }: Cons
           ) : serviciosHoyFiltrados.length === 0 ? (
             <p className="text-sm text-muted-foreground">Ningún registro coincide con la búsqueda</p>
           ) : (
-            <div className="space-y-3 max-h-[360px] overflow-y-auto overflow-x-hidden">
+            <div className="relative">
+              {cargandoServiciosMes ? (
+                <div
+                  className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-lg bg-background/75 backdrop-blur-[1px]"
+                  role="status"
+                  aria-live="polite"
+                  aria-busy="true"
+                >
+                  <Loader2 className="h-8 w-8 animate-spin text-primary shrink-0" aria-hidden />
+                  <span className="text-sm text-muted-foreground">Actualizando lista…</span>
+                </div>
+              ) : null}
+              <div className="space-y-3 max-h-[360px] overflow-y-auto overflow-x-hidden">
               {serviciosHoyFiltrados.map((servicio) => {
                 const tipo = servicio.vehiculo?.tipo
                 const nombreResidente =
@@ -876,6 +914,7 @@ export function ConserjeDashboard({ trialDiasRestantes, slug, opcionesUi }: Cons
                   </div>
                 )
               })}
+              </div>
             </div>
           )}
         </div>

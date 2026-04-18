@@ -147,6 +147,10 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug, opcion
   const [alertaModificarPlazasOpen, setAlertaModificarPlazasOpen] = useState(false)
   const [filtroMesServicios, setFiltroMesServicios] = useState<string>('')
   const [mesesDisponibles, setMesesDisponibles] = useState<string[]>([])
+  /** Evita "sin servicios" antes de que exista un mes efectivo para el fetch. */
+  const [mesesServiciosMetaListos, setMesesServiciosMetaListos] = useState(false)
+  /** Petición de lista del mes en curso (incluye actualización en segundo plano). */
+  const [cargandoServiciosMes, setCargandoServiciosMes] = useState(false)
   const [loadingReportes, setLoadingReportes] = useState(false)
   const [serviciosParaReportes, setServiciosParaReportes] = useState<ServicioConVehiculo[]>([])
 
@@ -379,39 +383,57 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug, opcion
     tipo: filtroTipo === '' ? null : (filtroTipo as 'visitante' | 'residente' | 'abonado'),
   }
 
-  const rangoMesServicios = (() => {
-    if (!filtroMesServicios || !/^\d{4}-\d{2}$/.test(filtroMesServicios)) {
+  /** Mismo criterio que el Select (mes guardado o primer mes disponible). */
+  const mesServiciosEfectivo = useMemo(() => {
+    if (filtroMesServicios && /^\d{4}-\d{2}$/.test(filtroMesServicios)) return filtroMesServicios
+    return mesesDisponibles[0] ?? ''
+  }, [filtroMesServicios, mesesDisponibles])
+
+  const rangoMesServicios = useMemo(() => {
+    const key = mesServiciosEfectivo
+    if (!key || !/^\d{4}-\d{2}$/.test(key)) {
       return { fechaDesde: '', fechaHasta: '' }
     }
-    const [y, m] = filtroMesServicios.split('-').map(Number)
+    const [y, m] = key.split('-').map(Number)
     const ultimoDia = new Date(y, m, 0).getDate()
     return {
-      fechaDesde: `${filtroMesServicios}-01`,
+      fechaDesde: `${key}-01`,
       fechaHasta: `${y}-${String(m).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}`,
     }
-  })()
+  }, [mesServiciosEfectivo])
 
   useEffect(() => {
-    getMesesConServicios().then((meses) => {
-      setMesesDisponibles(meses)
-      if (meses.length > 0) {
-        setFiltroMesServicios((prev) => {
-          const actual = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
-          if (prev && meses.includes(prev)) return prev
-          if (meses.includes(actual)) return actual
-          return meses[0]
-        })
-      }
-    })
+    getMesesConServicios()
+      .then((meses) => {
+        setMesesDisponibles(meses)
+        if (meses.length > 0) {
+          setFiltroMesServicios((prev) => {
+            const actual = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
+            if (prev && meses.includes(prev)) return prev
+            if (meses.includes(actual)) return actual
+            return meses[0]
+          })
+        }
+      })
+      .finally(() => setMesesServiciosMetaListos(true))
   }, [])
 
   const loadData = useCallback(async (opts?: { silent?: boolean }) => {
     const silent = opts?.silent === true
     if (!silent) setLoading(true)
     try {
-      const serviciosPromise = rangoMesServicios.fechaDesde
-        ? getServiciosPagadosFiltrados({ fechaDesde: rangoMesServicios.fechaDesde, fechaHasta: rangoMesServicios.fechaHasta })
-        : Promise.resolve([])
+      const serviciosPromise = (async () => {
+        if (!rangoMesServicios.fechaDesde) return []
+        setCargandoServiciosMes(true)
+        try {
+          return await getServiciosPagadosFiltrados({
+            fechaDesde: rangoMesServicios.fechaDesde,
+            fechaHasta: rangoMesServicios.fechaHasta,
+          })
+        } finally {
+          setCargandoServiciosMes(false)
+        }
+      })()
       const [activos, servicios, config, users, vencidos, porVencer, plazas] = await Promise.all([
         getServiciosActivos(),
         serviciosPromise,
@@ -527,6 +549,11 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug, opcion
     })
   })()
   const serviciosCount = serviciosListFiltrados.length
+
+  const cargaInicialListaServicios =
+    !mesesServiciosMetaListos ||
+    loading ||
+    (cargandoServiciosMes && serviciosList.length === 0)
 
   const leyendaDatos =
     filtroTipo === 'visitante'
@@ -1467,17 +1494,31 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug, opcion
             </div>
           </CardHeader>
           <CardContent>
-            {loading ? (
+            {cargaInicialListaServicios ? (
               <div className="flex flex-col items-center justify-center gap-2 py-16 text-muted-foreground min-h-[200px]">
                 <Loader2 className="h-8 w-8 animate-spin text-primary shrink-0" aria-hidden />
                 <span className="text-sm">Cargando servicios del mes…</span>
               </div>
+            ) : mesesDisponibles.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">No hay meses con servicios registrados aún.</p>
             ) : serviciosList.length === 0 ? (
               <p className="text-muted-foreground text-center py-8">No hay servicios con los filtros aplicados</p>
             ) : serviciosListFiltrados.length === 0 ? (
               <p className="text-muted-foreground text-center py-8">Ningún registro coincide con la búsqueda</p>
             ) : (
-              <div className="space-y-3 max-h-[400px] overflow-y-auto overflow-x-hidden">
+              <div className="relative">
+                {cargandoServiciosMes ? (
+                  <div
+                    className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-lg bg-background/75 backdrop-blur-[1px]"
+                    role="status"
+                    aria-live="polite"
+                    aria-busy="true"
+                  >
+                    <Loader2 className="h-8 w-8 animate-spin text-primary shrink-0" aria-hidden />
+                    <span className="text-sm text-muted-foreground">Actualizando lista…</span>
+                  </div>
+                ) : null}
+                <div className="space-y-3 max-h-[400px] overflow-y-auto overflow-x-hidden">
                 {serviciosListFiltrados.map((servicio) => {
                   const tipo = servicio.vehiculo?.tipo
                   const nombreResidente = tipo === 'residente' &&
@@ -1567,6 +1608,7 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug, opcion
                     </div>
                   )
                 })}
+                </div>
               </div>
             )}
           </CardContent>
