@@ -306,7 +306,7 @@ export function ConserjeDashboard({ trialDiasRestantes, slug, opcionesUi }: Cons
     (cargandoServiciosMes && serviciosHoy.length === 0)
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative overflow-x-hidden">
       <header className="border-b border-border bg-card">
         <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -416,7 +416,7 @@ export function ConserjeDashboard({ trialDiasRestantes, slug, opcionesUi }: Cons
 
       <main
         className={cn(
-          'container mx-auto px-3 sm:px-4 py-5 sm:py-8 relative',
+          'container mx-auto min-w-0 px-3 sm:px-4 py-5 sm:py-8 relative',
           loading && 'min-h-[50vh]'
         )}
       >

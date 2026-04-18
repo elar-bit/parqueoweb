@@ -7,7 +7,7 @@ import { AccederCuentaForm } from '@/components/acceder-cuenta-form'
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4 sm:p-6 relative overflow-hidden">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 sm:p-6 md:p-8 relative overflow-x-hidden overflow-y-auto">
       <LoginCarAnimation />
       <div className="w-full max-w-2xl relative z-10 flex flex-col items-center">
         <div className="text-center space-y-2 mb-6 sm:mb-8 w-full max-w-xl">

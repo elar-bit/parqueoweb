@@ -1155,7 +1155,7 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug, opcion
 
       <main
         className={cn(
-          'container mx-auto px-3 sm:px-4 py-5 sm:py-8 relative',
+          'container mx-auto min-w-0 px-3 sm:px-4 py-5 sm:py-8 relative',
           loading && 'min-h-[50vh]'
         )}
       >

@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { Bar, BarChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, PieChart, Pie, Cell, Legend } from 'recharts'
 import { formatCurrency } from '@/lib/billing'
 
@@ -8,6 +9,19 @@ const CHART_COLORS = ['hsl(var(--primary))', 'hsl(var(--primary) / 0.8)', 'hsl(v
 /* Pastel: verde agua y coral/salmon para buen contraste */
 const COLOR_VISITANTES = 'hsl(168, 42%, 72%)'
 const COLOR_RESIDENTES = 'hsl(12, 52%, 76%)'
+
+/** Móvil y tablet: ejes y torta legibles sin recortes horizontales */
+function useCompactChart() {
+  const [compact, setCompact] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 1023px)')
+    const apply = () => setCompact(mq.matches)
+    apply()
+    mq.addEventListener('change', apply)
+    return () => mq.removeEventListener('change', apply)
+  }, [])
+  return compact
+}
 
 interface IncomeChartProps {
   data: { fecha: string; total: number }[]
@@ -18,7 +32,24 @@ interface IncomeChartProps {
 }
 
 export function IncomeChart({ data, tipo = 'bar', leyenda, dataConTipo }: IncomeChartProps) {
+  const compact = useCompactChart()
   const useConTipo = dataConTipo && dataConTipo.length > 0
+
+  const barMargins = compact
+    ? { top: 8, right: 6, left: 4, bottom: 36 }
+    : { top: 10, right: 10, left: 10, bottom: 12 }
+  const xAxisCommon = compact
+    ? {
+        angle: -32,
+        textAnchor: 'end' as const,
+        height: 52,
+        tick: { fontSize: 10 },
+        interval: 'preserveStartEnd' as const,
+      }
+    : {
+        tick: { fontSize: 11 },
+        interval: 'preserveStartEnd' as const,
+      }
 
   const formattedData = data.map((item) => ({
     ...item,
@@ -134,8 +165,13 @@ export function IncomeChart({ data, tipo = 'bar', leyenda, dataConTipo }: Income
                 nameKey="name"
                 cx="50%"
                 cy="50%"
-                outerRadius={100}
-                label={({ name, total }) => `${name}: ${formatCurrency(total)}`}
+                outerRadius={compact ? '42%' : 100}
+                labelLine={!compact}
+                label={
+                  compact
+                    ? false
+                    : ({ name, total }) => `${name}: ${formatCurrency(total)}`
+                }
               >
                 {pieDataConTipo.map((entry, index) => (
                   <Cell key={index} fill={entry.fill} />
@@ -167,18 +203,21 @@ export function IncomeChart({ data, tipo = 'bar', leyenda, dataConTipo }: Income
         {leyenda && <p className="text-sm text-muted-foreground font-medium">Datos: {leyenda}</p>}
         <div className="h-[260px] sm:h-[300px] w-full min-w-0">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={formattedDataConTipo} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+            <BarChart data={formattedDataConTipo} margin={barMargins}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
               <XAxis
                 dataKey="label"
                 tickLine={false}
                 axisLine={false}
                 className="text-xs fill-muted-foreground"
+                {...xAxisCommon}
               />
               <YAxis
                 tickLine={false}
                 axisLine={false}
                 className="text-xs fill-muted-foreground"
+                width={compact ? 42 : undefined}
+                tick={{ fontSize: compact ? 10 : 11 }}
                 tickFormatter={(value) => `S/${value}`}
               />
               <Tooltip content={tooltipContent} />
@@ -215,8 +254,13 @@ export function IncomeChart({ data, tipo = 'bar', leyenda, dataConTipo }: Income
                 nameKey="name"
                 cx="50%"
                 cy="50%"
-                outerRadius={100}
-                label={({ name, total }) => `${name}: ${formatCurrency(total)}`}
+                outerRadius={compact ? '42%' : 100}
+                labelLine={!compact}
+                label={
+                  compact
+                    ? false
+                    : ({ name, total }) => `${name}: ${formatCurrency(total)}`
+                }
               >
                 {formattedData.map((_, index) => (
                   <Cell key={index} fill={CHART_COLORS[index % CHART_COLORS.length]} />
@@ -236,18 +280,21 @@ export function IncomeChart({ data, tipo = 'bar', leyenda, dataConTipo }: Income
       {leyenda && <p className="text-sm text-muted-foreground font-medium">Datos: {leyenda}</p>}
       <div className="h-[260px] sm:h-[300px] w-full min-w-0">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={formattedData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+          <BarChart data={formattedData} margin={barMargins}>
             <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
             <XAxis
               dataKey="label"
               tickLine={false}
               axisLine={false}
               className="text-xs fill-muted-foreground"
+              {...xAxisCommon}
             />
             <YAxis
               tickLine={false}
               axisLine={false}
               className="text-xs fill-muted-foreground"
+              width={compact ? 42 : undefined}
+              tick={{ fontSize: compact ? 10 : 11 }}
               tickFormatter={(value) => `S/${value}`}
             />
             <Tooltip content={tooltipContent} />
