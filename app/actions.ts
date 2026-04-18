@@ -195,6 +195,53 @@ export async function existeCuentaSlug(slug: string): Promise<boolean> {
   return !!cuenta
 }
 
+/** Cuentas activas para el selector en la página de inicio (sin autenticación). */
+export async function listarCuentasParaSelector(): Promise<{ slug: string; nombre_cuenta: string }[]> {
+  try {
+    const supabase = await createClient()
+    await aplicarSuspensionCuentasVencidas(supabase)
+    const { data, error } = await supabase
+      .from('cuentas')
+      .select('*')
+      .eq('estado', 'activo')
+      .order('nombre_cuenta')
+    if (error || !data) return []
+    return (data as Cuenta[])
+      .filter((c) => isCuentaActiva(c))
+      .map((c) => ({ slug: c.slug, nombre_cuenta: c.nombre_cuenta }))
+  } catch {
+    return []
+  }
+}
+
+export type UsuarioLoginListaItem = { usuario: string; nombre: string; apellido: string }
+
+/** Usuarios de un tenant por rol para elegir en el login (slug en la URL). */
+export async function listarUsuariosParaLogin(
+  slug: string,
+  rol: 'admin' | 'conserje'
+): Promise<UsuarioLoginListaItem[]> {
+  const limpio = (slug || '').trim().toLowerCase()
+  if (!limpio) return []
+  const cuenta = await getCuentaBySlug(limpio)
+  if (!cuenta || !isCuentaActiva(cuenta)) return []
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('usuarios')
+      .select('usuario, nombre, apellido, suspendido')
+      .eq('cuenta_id', cuenta.id)
+      .eq('rol', rol)
+      .order('usuario')
+    if (error || !data) return []
+    return (data as { usuario: string; nombre: string; apellido: string; suspendido?: boolean }[])
+      .filter((u) => !u.suspendido)
+      .map(({ usuario, nombre, apellido }) => ({ usuario, nombre, apellido }))
+  } catch {
+    return []
+  }
+}
+
 /** Obtiene la cuenta actual del usuario en sesión (tenant). */
 export async function getCuentaActual(): Promise<Cuenta | null> {
   const session = await getSession()
@@ -298,6 +345,33 @@ export async function updateCuentaEstado(
     if (slugRow?.slug) {
       revalidatePath(`/${slugRow.slug}/admin`)
       revalidatePath(`/${slugRow.slug}/conserje`)
+    }
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: String(e) }
+  }
+}
+
+/** Toggles de interfaz por tenant (solo superadmin). */
+export async function updateCuentaOpcionesUi(
+  cuentaId: string,
+  opciones: {
+    ui_banner_noticias: boolean
+    ui_btn_visitante: boolean
+    ui_btn_residente: boolean
+    ui_btn_abonado: boolean
+  }
+): Promise<{ ok: boolean; error?: string }> {
+  if (!(await getSuperadminAuth())) return { ok: false, error: 'No autorizado' }
+  try {
+    const supabase = await createClient()
+    const { error } = await supabase.from('cuentas').update(opciones).eq('id', cuentaId)
+    if (error) return { ok: false, error: error.message }
+    const { data: row } = await supabase.from('cuentas').select('slug').eq('id', cuentaId).single()
+    revalidatePath('/superadmin')
+    if (row?.slug) {
+      revalidatePath(`/${row.slug}/admin`)
+      revalidatePath(`/${row.slug}/conserje`)
     }
     return { ok: true }
   } catch (e) {
@@ -1265,7 +1339,7 @@ export async function registrarEntrada(
         tipo,
         placa: placa?.trim() || null,
       }
-      if (tipo === 'residente' && datosResidente) {
+      if ((tipo === 'residente' || tipo === 'visitante') && datosResidente) {
         if (datosResidente.nombre != null) insertPayload.nombre_propietario = datosResidente.nombre
         if (datosResidente.apellido != null) insertPayload.apellido_propietario = datosResidente.apellido
         if (datosResidente.numero_oficina_dep != null) insertPayload.numero_oficina_dep = datosResidente.numero_oficina_dep

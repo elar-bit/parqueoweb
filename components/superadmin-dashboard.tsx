@@ -1,7 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getCuentas, updateCuentaEstado, updateCuentaDiasPruebaFreemium, eliminarCuenta, logoutAdmin } from '@/app/actions'
+import {
+  getCuentas,
+  updateCuentaEstado,
+  updateCuentaDiasPruebaFreemium,
+  updateCuentaOpcionesUi,
+  eliminarCuenta,
+  logoutAdmin,
+} from '@/app/actions'
 import type { Cuenta } from '@/lib/tenant'
 import { diasRestantesTrial, diasPruebaEfectivos, DIAS_PRUEBA_FREEMIUM } from '@/lib/tenant'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -35,7 +42,8 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { LogOut, Building2, AlertTriangle, CheckCircle, XCircle, Trash2, CalendarDays, Loader2 } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
+import { LogOut, Building2, AlertTriangle, CheckCircle, XCircle, Trash2, CalendarDays, Loader2, Palette } from 'lucide-react'
 import Link from 'next/link'
 
 export function SuperadminDashboard() {
@@ -48,6 +56,12 @@ export function SuperadminDashboard() {
   const [diasPruebaInput, setDiasPruebaInput] = useState(String(DIAS_PRUEBA_FREEMIUM))
   const [guardandoDiasPrueba, setGuardandoDiasPrueba] = useState(false)
   const [salirLoading, setSalirLoading] = useState(false)
+  const [cuentaPersonalizar, setCuentaPersonalizar] = useState<Cuenta | null>(null)
+  const [uiBanner, setUiBanner] = useState(true)
+  const [uiVisitante, setUiVisitante] = useState(true)
+  const [uiResidente, setUiResidente] = useState(true)
+  const [uiAbonado, setUiAbonado] = useState(true)
+  const [guardandoOpciones, setGuardandoOpciones] = useState(false)
 
   const loadCuentas = async () => {
     setLoading(true)
@@ -90,6 +104,33 @@ export function SuperadminDashboard() {
   const abrirDialogoDiasPrueba = (c: Cuenta) => {
     setCuentaDiasPrueba(c)
     setDiasPruebaInput(String(diasPruebaEfectivos(c.dias_prueba_freemium)))
+  }
+
+  const abrirPersonalizar = (c: Cuenta) => {
+    setCuentaPersonalizar(c)
+    setUiBanner(c.ui_banner_noticias !== false)
+    setUiVisitante(c.ui_btn_visitante !== false)
+    setUiResidente(c.ui_btn_residente !== false)
+    setUiAbonado(c.ui_btn_abonado !== false)
+  }
+
+  const handleGuardarOpcionesUi = async () => {
+    if (!cuentaPersonalizar) return
+    setGuardandoOpciones(true)
+    const r = await updateCuentaOpcionesUi(cuentaPersonalizar.id, {
+      ui_banner_noticias: uiBanner,
+      ui_btn_visitante: uiVisitante,
+      ui_btn_residente: uiResidente,
+      ui_btn_abonado: uiAbonado,
+    })
+    setGuardandoOpciones(false)
+    if (r.ok) {
+      setCuentaPersonalizar(null)
+      loadCuentas()
+    } else {
+      // eslint-disable-next-line no-alert
+      alert(r.error || 'No se pudo guardar las opciones')
+    }
   }
 
   const handleGuardarDiasPrueba = async () => {
@@ -295,6 +336,16 @@ export function SuperadminDashboard() {
                         <Button
                           size="sm"
                           variant="outline"
+                          className="text-violet-600 border-violet-500/40"
+                          onClick={() => abrirPersonalizar(c)}
+                          title="Banner de noticias y botones del registro rápido (conserje)"
+                        >
+                          <Palette className="h-4 w-4 mr-1" />
+                          Personalizar
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
                           className="text-destructive border-destructive/40"
                           onClick={() => setCuentaAEliminar(c)}
                         >
@@ -310,6 +361,58 @@ export function SuperadminDashboard() {
           </CardContent>
         </Card>
       </main>
+
+      <Dialog
+        open={!!cuentaPersonalizar}
+        onOpenChange={(open) => {
+          if (!open && !guardandoOpciones) setCuentaPersonalizar(null)
+        }}
+      >
+        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="break-words">Personalizar interfaz</DialogTitle>
+            <DialogDescription className="break-words text-left">
+              Cuenta <span className="font-semibold text-foreground">{cuentaPersonalizar?.nombre_cuenta}</span> (
+              <span className="font-mono">/{cuentaPersonalizar?.slug}</span>). Active o desactive elementos para el
+              panel de administración, conserje y registro rápido de esa cuenta.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="flex items-center justify-between gap-4">
+              <Label htmlFor="ui-banner" className="text-sm font-normal leading-snug cursor-pointer">
+                Banner de noticias
+              </Label>
+              <Switch id="ui-banner" checked={uiBanner} onCheckedChange={setUiBanner} disabled={guardandoOpciones} />
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <Label htmlFor="ui-vis" className="text-sm font-normal leading-snug cursor-pointer">
+                Botón Visitante (registro rápido)
+              </Label>
+              <Switch id="ui-vis" checked={uiVisitante} onCheckedChange={setUiVisitante} disabled={guardandoOpciones} />
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <Label htmlFor="ui-res" className="text-sm font-normal leading-snug cursor-pointer">
+                Botón Residente
+              </Label>
+              <Switch id="ui-res" checked={uiResidente} onCheckedChange={setUiResidente} disabled={guardandoOpciones} />
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <Label htmlFor="ui-abo" className="text-sm font-normal leading-snug cursor-pointer">
+                Botón Abonado
+              </Label>
+              <Switch id="ui-abo" checked={uiAbonado} onCheckedChange={setUiAbonado} disabled={guardandoOpciones} />
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={() => setCuentaPersonalizar(null)} disabled={guardandoOpciones}>
+              Cancelar
+            </Button>
+            <Button type="button" onClick={() => void handleGuardarOpcionesUi()} disabled={guardandoOpciones}>
+              {guardandoOpciones ? 'Guardando…' : 'Guardar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={!!cuentaDiasPrueba}

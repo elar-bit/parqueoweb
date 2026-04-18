@@ -1,15 +1,23 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { loginUsuario } from '@/app/actions'
+import { loginUsuario, listarUsuariosParaLogin } from '@/app/actions'
+import type { UsuarioLoginListaItem } from '@/app/actions'
 import { User, Loader2, Home } from 'lucide-react'
 import Link from 'next/link'
 import { LoginCarAnimation } from '@/components/login-car-animation'
 import { LoginLoadingOverlay } from '@/components/login-loading-overlay'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 type ConserjeLoginFormProps = { slug?: string }
 
@@ -18,6 +26,25 @@ export function ConserjeLoginForm({ slug }: ConserjeLoginFormProps) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [listaUsuarios, setListaUsuarios] = useState<UsuarioLoginListaItem[]>([])
+  const [cargandoLista, setCargandoLista] = useState(false)
+
+  useEffect(() => {
+    if (!slug) {
+      setListaUsuarios([])
+      return
+    }
+    let ok = true
+    setCargandoLista(true)
+    void listarUsuariosParaLogin(slug, 'conserje').then((list) => {
+      if (!ok) return
+      setListaUsuarios(list)
+      setCargandoLista(false)
+    })
+    return () => {
+      ok = false
+    }
+  }, [slug])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -60,6 +87,30 @@ export function ConserjeLoginForm({ slug }: ConserjeLoginFormProps) {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="usuario">Usuario</Label>
+              {slug && cargandoLista && (
+                <p className="text-xs text-muted-foreground flex items-center gap-2">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Cargando usuarios de la cuenta…
+                </p>
+              )}
+              {slug && listaUsuarios.length > 0 && (
+                <Select value={usuario || undefined} onValueChange={setUsuario} disabled={loading}>
+                  <SelectTrigger id="usuario-select" className="w-full">
+                    <SelectValue placeholder="Seleccione su usuario" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {listaUsuarios.map((u) => (
+                      <SelectItem key={u.usuario} value={u.usuario}>
+                        <span className="font-mono">{u.usuario}</span>
+                        <span className="text-muted-foreground">
+                          {' '}
+                          · {u.nombre} {u.apellido}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <Input
                 id="usuario"
                 type="text"
@@ -68,6 +119,7 @@ export function ConserjeLoginForm({ slug }: ConserjeLoginFormProps) {
                 placeholder="Su usuario de conserje"
                 autoComplete="username"
                 disabled={loading}
+                className={slug && listaUsuarios.length > 0 ? 'mt-1' : ''}
               />
             </div>
             <div className="space-y-2">

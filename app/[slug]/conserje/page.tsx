@@ -1,5 +1,5 @@
 import { getSession, getCuentaBySlug } from '@/app/actions'
-import { isCuentaActiva, diasRestantesTrial } from '@/lib/tenant'
+import { isCuentaActiva, diasRestantesTrial, opcionesUiDesdeCuenta } from '@/lib/tenant'
 import { ConserjeLoginForm } from '@/components/conserje-login-form'
 import { ConserjeDashboard } from '@/components/conserje-dashboard'
 import { notFound } from 'next/navigation'
@@ -28,5 +28,5 @@ export default async function TenantConserjePage({ params }: Props) {
   if (session?.role !== 'conserje' || session?.slug !== slug) {
     return <ConserjeLoginForm slug={slug} />
   }
-  return <ConserjeDashboard trialDiasRestantes={trialDiasRestantes} slug={slug} />
+  return <ConserjeDashboard trialDiasRestantes={trialDiasRestantes} slug={slug} opcionesUi={opcionesUiDesdeCuenta(cuenta)} />
 }

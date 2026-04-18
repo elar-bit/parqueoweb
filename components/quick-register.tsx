@@ -39,12 +39,36 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
+export type QuickRegisterOpcionesUi = {
+  btnVisitante?: boolean
+  btnResidente?: boolean
+  btnAbonado?: boolean
+}
+
 interface QuickRegisterProps {
   onRegistered: () => void
   configuracion?: Configuracion[]
+  /** Por defecto todos encendidos (misma experiencia que antes). */
+  opcionesUi?: QuickRegisterOpcionesUi
 }
 
 type TipoEntrada = 'visitante' | 'residente' | 'abonado' | null
+
+function opcionesRegistroRapido(op?: QuickRegisterOpcionesUi) {
+  return {
+    visitante: op?.btnVisitante !== false,
+    residente: op?.btnResidente !== false,
+    abonado: op?.btnAbonado !== false,
+  }
+}
+
+function getInitialPasoYTipo(op?: QuickRegisterOpcionesUi): { paso: 'tipo' | 'placa'; tipo: TipoEntrada } {
+  const o = opcionesRegistroRapido(op)
+  const keys = (['visitante', 'residente', 'abonado'] as const).filter((k) => o[k])
+  if (keys.length === 0) return { paso: 'tipo', tipo: null }
+  if (keys.length === 1) return { paso: 'placa', tipo: keys[0] }
+  return { paso: 'tipo', tipo: null }
+}
 
 function normalize(s: string): string {
   return s
@@ -62,9 +86,11 @@ function matchResidente(r: ResidenteOption, search: string): boolean {
   return placa.includes(q) || nombre.includes(q) || apellido.includes(q)
 }
 
-export function QuickRegister({ onRegistered, configuracion = [] }: QuickRegisterProps) {
-  const [paso, setPaso] = useState<'tipo' | 'placa'>('tipo')
-  const [tipo, setTipo] = useState<TipoEntrada>(null)
+export function QuickRegister({ onRegistered, configuracion = [], opcionesUi }: QuickRegisterProps) {
+  const ui = opcionesRegistroRapido(opcionesUi)
+  const ningunTipoHabilitado = !ui.visitante && !ui.residente && !ui.abonado
+  const [paso, setPaso] = useState<'tipo' | 'placa'>(() => getInitialPasoYTipo(opcionesUi).paso)
+  const [tipo, setTipo] = useState<TipoEntrada>(() => getInitialPasoYTipo(opcionesUi).tipo)
   const [placa, setPlaca] = useState('')
   const [residenteSeleccionado, setResidenteSeleccionado] = useState<string | null>(null)
   const [abonadoSeleccionado, setAbonadoSeleccionado] = useState<string | null>(null)
@@ -220,6 +246,20 @@ export function QuickRegister({ onRegistered, configuracion = [] }: QuickRegiste
           },
           estId
         )
+      } else if (tipo === 'visitante') {
+        result = await registrarEntrada(
+          'visitante',
+          placa.trim() || null,
+          null,
+          {
+            nombre: nombreResidente.trim() || null,
+            apellido: apellidoResidente.trim() || null,
+            numero_oficina_dep: numeroOficinaDep.trim() || null,
+            telefono_contacto: telefonoResidente.trim() || null,
+          },
+          undefined,
+          estId
+        )
       } else {
         result = await registrarEntrada(tipo!, placa.trim() || null, null, undefined, undefined, estId)
       }
@@ -227,8 +267,11 @@ export function QuickRegister({ onRegistered, configuracion = [] }: QuickRegiste
         setErrorMsg(result.error)
         return
       }
-      setPaso('tipo')
-      setTipo(null)
+      {
+        const next = getInitialPasoYTipo(opcionesUi)
+        setPaso(next.paso)
+        setTipo(next.tipo)
+      }
       setPlaca('')
       setResidenteSeleccionado(null)
       setAbonadoSeleccionado(null)
@@ -255,8 +298,9 @@ export function QuickRegister({ onRegistered, configuracion = [] }: QuickRegiste
   }
 
   const handleCancelar = () => {
-    setPaso('tipo')
-    setTipo(null)
+    const next = getInitialPasoYTipo(opcionesUi)
+    setPaso(next.paso)
+    setTipo(next.tipo)
     setPlaca('')
     setResidenteSeleccionado(null)
     setAbonadoSeleccionado(null)
@@ -309,6 +353,22 @@ export function QuickRegister({ onRegistered, configuracion = [] }: QuickRegiste
       })()
     : 'Buscar por placa o apellido...'
 
+  if (ningunTipoHabilitado) {
+    return (
+      <Card className="border-border">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg font-semibold text-foreground">Registro Rápido</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            El administrador deshabilitó los tipos de entrada rápida para esta cuenta. Si necesita registrar ingresos,
+            solicite que reactive las opciones en el panel global.
+          </p>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <Card className="border-border">
       <CardHeader className="pb-4">
@@ -319,38 +379,44 @@ export function QuickRegister({ onRegistered, configuracion = [] }: QuickRegiste
       <CardContent>
         {paso === 'tipo' ? (
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 flex-wrap">
-            <Button
-              size="lg"
-              className="flex-1 min-h-[80px] sm:h-24 flex flex-col gap-2 bg-primary text-primary-foreground hover:bg-primary/90 min-w-[120px]"
-              onClick={() => handleSeleccionarTipo('visitante')}
-            >
-              <Car className="h-7 w-7 sm:h-8 sm:w-8" />
-              <span className="text-sm font-medium">Visitante</span>
-            </Button>
-            <Button
-              size="lg"
-              variant="secondary"
-              className="flex-1 min-h-[80px] sm:h-24 flex flex-col gap-2 min-w-[120px]"
-              onClick={() => handleSeleccionarTipo('residente')}
-            >
-              <User className="h-7 w-7 sm:h-8 sm:w-8" />
-              <span className="text-sm font-medium">Residente</span>
-            </Button>
-            <Button
-              size="lg"
-              variant="secondary"
-              className="flex-1 min-h-[80px] sm:h-24 flex flex-col gap-2 min-w-[120px]"
-              onClick={() => handleSeleccionarTipo('abonado')}
-            >
-              <CalendarCheck className="h-7 w-7 sm:h-8 sm:w-8" />
-              <span className="text-sm font-medium">Abonado</span>
-            </Button>
+            {ui.visitante && (
+              <Button
+                size="lg"
+                className="flex-1 min-h-[80px] sm:h-24 flex flex-col gap-2 bg-primary text-primary-foreground hover:bg-primary/90 min-w-[120px]"
+                onClick={() => handleSeleccionarTipo('visitante')}
+              >
+                <Car className="h-7 w-7 sm:h-8 sm:w-8" />
+                <span className="text-sm font-medium">Visitante</span>
+              </Button>
+            )}
+            {ui.residente && (
+              <Button
+                size="lg"
+                variant="secondary"
+                className="flex-1 min-h-[80px] sm:h-24 flex flex-col gap-2 min-w-[120px]"
+                onClick={() => handleSeleccionarTipo('residente')}
+              >
+                <User className="h-7 w-7 sm:h-8 sm:w-8" />
+                <span className="text-sm font-medium">Residente</span>
+              </Button>
+            )}
+            {ui.abonado && (
+              <Button
+                size="lg"
+                variant="secondary"
+                className="flex-1 min-h-[80px] sm:h-24 flex flex-col gap-2 min-w-[120px]"
+                onClick={() => handleSeleccionarTipo('abonado')}
+              >
+                <CalendarCheck className="h-7 w-7 sm:h-8 sm:w-8" />
+                <span className="text-sm font-medium">Abonado</span>
+              </Button>
+            )}
           </div>
         ) : (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
               {tipo === 'visitante'
-                ? 'Ingrese la placa del visitante (opcional).'
+                ? 'Ingrese la placa (opcional) y los mismos datos opcionales que para un residente: nombre, apellido, oficina o departamento y teléfono.'
                 : tipo === 'abonado'
                   ? 'Busque una placa ya registrada como abonado o ingrese una nueva. El mes corre desde el primer día de registro (pago por mes adelantado).'
                   : 'Busque por placa o apellido una placa ya registrada o ingrese una nueva con nombre y apellido.'}
@@ -513,7 +579,7 @@ export function QuickRegister({ onRegistered, configuracion = [] }: QuickRegiste
                     onKeyDown={(e) => e.key === 'Enter' && handleRegistrar()}
                   />
                 </div>
-                {(tipo === 'residente' || tipo === 'abonado') && (
+                {(tipo === 'visitante' || tipo === 'residente' || tipo === 'abonado') && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-2">
                       <Label htmlFor="nombre-res">Nombre</Label>
@@ -521,7 +587,13 @@ export function QuickRegister({ onRegistered, configuracion = [] }: QuickRegiste
                         id="nombre-res"
                         value={nombreResidente}
                         onChange={(e) => setNombreResidente(e.target.value)}
-                        placeholder={tipo === 'abonado' ? 'Nombre del abonado' : 'Nombre del residente'}
+                        placeholder={
+                          tipo === 'visitante'
+                            ? 'Nombre del visitante'
+                            : tipo === 'abonado'
+                              ? 'Nombre del abonado'
+                              : 'Nombre del residente'
+                        }
                       />
                     </div>
                     <div className="space-y-2">
@@ -530,7 +602,13 @@ export function QuickRegister({ onRegistered, configuracion = [] }: QuickRegiste
                         id="apellido-res"
                         value={apellidoResidente}
                         onChange={(e) => setApellidoResidente(e.target.value)}
-                        placeholder={tipo === 'abonado' ? 'Apellido del abonado' : 'Apellido del residente'}
+                        placeholder={
+                          tipo === 'visitante'
+                            ? 'Apellido del visitante'
+                            : tipo === 'abonado'
+                              ? 'Apellido del abonado'
+                              : 'Apellido del residente'
+                        }
                       />
                     </div>
                     <div className="space-y-2 sm:col-span-2">

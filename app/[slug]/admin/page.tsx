@@ -1,5 +1,5 @@
 import { getAdminAuth, getSession, getCuentaBySlug } from '@/app/actions'
-import { isCuentaActiva, diasRestantesTrial } from '@/lib/tenant'
+import { isCuentaActiva, diasRestantesTrial, opcionesUiDesdeCuenta } from '@/lib/tenant'
 import { AdminLoginForm } from '@/components/admin-login-form'
 import { AdminDashboard } from '@/components/admin-dashboard'
 import { notFound } from 'next/navigation'
@@ -29,5 +29,12 @@ export default async function TenantAdminPage({ params }: Props) {
   if (!authed || session?.slug !== slug) {
     return <AdminLoginForm slug={slug} />
   }
-  return <AdminDashboard currentUserId={session?.userId ?? null} trialDiasRestantes={trialDiasRestantes} slug={slug} />
+  return (
+    <AdminDashboard
+      currentUserId={session?.userId ?? null}
+      trialDiasRestantes={trialDiasRestantes}
+      slug={slug}
+      opcionesUi={opcionesUiDesdeCuenta(cuenta)}
+    />
+  )
 }

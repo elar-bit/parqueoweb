@@ -17,6 +17,28 @@ export interface Cuenta {
   nombre_admin?: string | null
   apellido_admin?: string | null
   created_at?: string
+  /** Opciones UI (default true en BD). */
+  ui_banner_noticias?: boolean | null
+  ui_btn_visitante?: boolean | null
+  ui_btn_residente?: boolean | null
+  ui_btn_abonado?: boolean | null
+}
+
+export type CuentaOpcionesUi = {
+  bannerNoticias: boolean
+  btnVisitante: boolean
+  btnResidente: boolean
+  btnAbonado: boolean
+}
+
+/** Valores efectivos para la UI (null/undefined en cuenta = encendido). */
+export function opcionesUiDesdeCuenta(c: Cuenta | null | undefined): CuentaOpcionesUi {
+  return {
+    bannerNoticias: c?.ui_banner_noticias !== false,
+    btnVisitante: c?.ui_btn_visitante !== false,
+    btnResidente: c?.ui_btn_residente !== false,
+    btnAbonado: c?.ui_btn_abonado !== false,
+  }
 }
 
 /** Genera un slug válido para URL a partir del nombre de la cuenta (único por BD). */

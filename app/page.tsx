@@ -51,7 +51,7 @@ export default function HomePage() {
                 Acceder a mi cuenta
               </CardTitle>
               <CardDescription className="text-xs sm:text-sm break-words flex-1">
-                Ingrese el nombre de su cuenta (ej: mi-edificio) y elija tipo de acceso.
+                Elija su cuenta en la lista y abra administración o conserje.
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-0 flex-shrink-0">
