@@ -434,7 +434,7 @@ export function ConserjeDashboard({ trialDiasRestantes, slug, opcionesUi }: Cons
             <p className="text-sm font-medium text-muted-foreground">Cargando panel…</p>
           </div>
         )}
-        <div className={cn('flex flex-col gap-8 sm:gap-10', loading && 'pointer-events-none select-none')}>
+        <div className={cn('flex flex-col gap-12 sm:gap-16', loading && 'pointer-events-none select-none')}>
         {(abonadosVencidos.length > 0 || abonadosPorVencer.length > 0) && (
           <div
             id="abonados-alertas-conserje"
@@ -613,66 +613,6 @@ export function ConserjeDashboard({ trialDiasRestantes, slug, opcionesUi }: Cons
             }}
           />
         </section>
-
-        <Dialog open={!!cancelandoAbono} onOpenChange={(open) => { if (!open) { setCancelandoAbono(null); setMotivoCancelacion(''); setMotivoCancelacionOtro('') } }}>
-          <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md overflow-hidden">
-            <DialogHeader>
-              <DialogTitle className="break-words">¿Cancelar suscripción?</DialogTitle>
-              <p className="text-sm text-muted-foreground break-words">
-                Este abonado ya no renovará. Se quitará de la lista de alertas pero el registro se conserva. Indique el motivo de cancelación (obligatorio).
-              </p>
-            </DialogHeader>
-            <div className="grid gap-4 py-2">
-              <div className="space-y-2">
-                <Label>Motivo de cancelación</Label>
-                <Select value={motivoCancelacion} onValueChange={(v) => { setMotivoCancelacion(v); if (v !== 'otro') setMotivoCancelacionOtro('') }}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccione un motivo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="no_respondio">El cliente no respondió</SelectItem>
-                    <SelectItem value="no_desea">No desea más la suscripción</SelectItem>
-                    <SelectItem value="pagar_horas">Desea pagar por horas</SelectItem>
-                    <SelectItem value="otro">Otro</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {motivoCancelacion === 'otro' && (
-                <div className="space-y-2">
-                  <Label>Especifique el motivo</Label>
-                  <Input
-                    placeholder="Motivo..."
-                    value={motivoCancelacionOtro}
-                    onChange={(e) => setMotivoCancelacionOtro(e.target.value)}
-                  />
-                </div>
-              )}
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => { setCancelandoAbono(null); setMotivoCancelacion(''); setMotivoCancelacionOtro('') }}>No, volver</Button>
-              <Button
-                variant="destructive"
-                disabled={!motivoCancelacion || (motivoCancelacion === 'otro' && !motivoCancelacionOtro.trim())}
-                onClick={async () => {
-                  if (!cancelandoAbono) return
-                  const motivoTexto = motivoCancelacion === 'otro' ? motivoCancelacionOtro.trim() : (motivoCancelacion === 'no_respondio' ? 'El cliente no respondió' : motivoCancelacion === 'no_desea' ? 'No desea más la suscripción' : motivoCancelacion === 'pagar_horas' ? 'Desea pagar por horas' : motivoCancelacion)
-                  if (!motivoTexto) return
-                  const telefono = cancelandoAbono.telefono_contacto ? normalizarTelefonoWhatsApp(cancelandoAbono.telefono_contacto) : ''
-                  await cancelarAbono(cancelandoAbono.id, motivoTexto)
-                  const mensajeCancelacion = buildMensajeDespedidaAbonado(cancelandoAbono)
-                  const url = telefono ? `https://wa.me/${telefono}?text=${encodeURIComponent(mensajeCancelacion)}` : `https://wa.me/?text=${encodeURIComponent(mensajeCancelacion)}`
-                  window.open(url, '_blank')
-                  setCancelandoAbono(null)
-                  setMotivoCancelacion('')
-                  setMotivoCancelacionOtro('')
-                  loadData()
-                }}
-              >
-                Sí, cancelar suscripción
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
 
         {servicios.some((s) => s.vehiculo?.tipo === 'abonado' && !abonoVigente(s.vehiculo.vigencia_abono_hasta)) && (
           <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 text-sm px-4 py-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
@@ -923,8 +863,68 @@ export function ConserjeDashboard({ trialDiasRestantes, slug, opcionesUi }: Cons
         </div>
       </main>
 
-      {/* Detalle de servicio pagado (ticket) */}
-      <Dialog open={!!servicioDetalle} onOpenChange={(open) => !open && setServicioDetalle(null)}>
+      <Dialog open={!!cancelandoAbono} onOpenChange={(open) => { if (!open) { setCancelandoAbono(null); setMotivoCancelacion(''); setMotivoCancelacionOtro('') } }}>
+          <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md overflow-hidden">
+            <DialogHeader>
+              <DialogTitle className="break-words">¿Cancelar suscripción?</DialogTitle>
+              <p className="text-sm text-muted-foreground break-words">
+                Este abonado ya no renovará. Se quitará de la lista de alertas pero el registro se conserva. Indique el motivo de cancelación (obligatorio).
+              </p>
+            </DialogHeader>
+            <div className="grid gap-4 py-2">
+              <div className="space-y-2">
+                <Label>Motivo de cancelación</Label>
+                <Select value={motivoCancelacion} onValueChange={(v) => { setMotivoCancelacion(v); if (v !== 'otro') setMotivoCancelacionOtro('') }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccione un motivo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="no_respondio">El cliente no respondió</SelectItem>
+                    <SelectItem value="no_desea">No desea más la suscripción</SelectItem>
+                    <SelectItem value="pagar_horas">Desea pagar por horas</SelectItem>
+                    <SelectItem value="otro">Otro</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {motivoCancelacion === 'otro' && (
+                <div className="space-y-2">
+                  <Label>Especifique el motivo</Label>
+                  <Input
+                    placeholder="Motivo..."
+                    value={motivoCancelacionOtro}
+                    onChange={(e) => setMotivoCancelacionOtro(e.target.value)}
+                  />
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => { setCancelandoAbono(null); setMotivoCancelacion(''); setMotivoCancelacionOtro('') }}>No, volver</Button>
+              <Button
+                variant="destructive"
+                disabled={!motivoCancelacion || (motivoCancelacion === 'otro' && !motivoCancelacionOtro.trim())}
+                onClick={async () => {
+                  if (!cancelandoAbono) return
+                  const motivoTexto = motivoCancelacion === 'otro' ? motivoCancelacionOtro.trim() : (motivoCancelacion === 'no_respondio' ? 'El cliente no respondió' : motivoCancelacion === 'no_desea' ? 'No desea más la suscripción' : motivoCancelacion === 'pagar_horas' ? 'Desea pagar por horas' : motivoCancelacion)
+                  if (!motivoTexto) return
+                  const telefono = cancelandoAbono.telefono_contacto ? normalizarTelefonoWhatsApp(cancelandoAbono.telefono_contacto) : ''
+                  await cancelarAbono(cancelandoAbono.id, motivoTexto)
+                  const mensajeCancelacion = buildMensajeDespedidaAbonado(cancelandoAbono)
+                  const url = telefono ? `https://wa.me/${telefono}?text=${encodeURIComponent(mensajeCancelacion)}` : `https://wa.me/?text=${encodeURIComponent(mensajeCancelacion)}`
+                  window.open(url, '_blank')
+                  setCancelandoAbono(null)
+                  setMotivoCancelacion('')
+                  setMotivoCancelacionOtro('')
+                  loadData()
+                }}
+              >
+                Sí, cancelar suscripción
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Detalle de servicio pagado (ticket) */}
+        <Dialog open={!!servicioDetalle} onOpenChange={(open) => !open && setServicioDetalle(null)}>
         <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md overflow-hidden">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
