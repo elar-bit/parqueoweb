@@ -280,10 +280,17 @@ export function AccederCuentaForm() {
           <DialogHeader className="px-4 pt-4 pb-2 space-y-2 text-left">
             <DialogTitle className="text-base leading-snug">Elegir cuenta</DialogTitle>
             <DialogDescription className="text-xs leading-relaxed">
-              En el sistema hay <span className="font-medium text-foreground">{totalCuentas}</span> cuenta
-              {totalCuentas !== 1 ? 's' : ''}. Abajo solo se listan las{' '}
-              <span className="font-medium text-foreground">{MODAL_VISTA_ULTIMAS}</span> más nuevas; si hay menos
-              cuentas en total, verá todas. ¿No está la suya? Búsquela por nombre o ruta arriba.
+              {totalCuentas > MODAL_VISTA_ULTIMAS ? (
+                <>
+                  Esta lista muestra las últimas{' '}
+                  <span className="font-medium text-foreground">{MODAL_VISTA_ULTIMAS}</span> cuentas creadas. En el
+                  sistema hay <span className="font-medium text-foreground">{totalCuentas}</span> cuentas en total; si
+                  no ve la suya, escriba el nombre o la ruta de su cuenta en el buscador para encontrarla y
+                  seleccionarla.
+                </>
+              ) : (
+                <>Seleccione su cuenta en la lista.</>
+              )}
             </DialogDescription>
           </DialogHeader>
           <div className="px-4 pb-2">
