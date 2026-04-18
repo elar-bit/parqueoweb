@@ -72,6 +72,7 @@ import { EstacionamientoMapaDialog } from '@/components/estacionamiento-mapa-dia
 import { NoticiasPeruTicker } from '@/components/noticias-peru-ticker'
 import type { CuentaOpcionesUi } from '@/lib/tenant'
 import { ChevronDown, ChevronRight } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 /** Precarga modo correlativo vs manual según la lista guardada (1..N vs etiquetas libres). */
 function valoresFormularioDesdeLista(lista: EstacionamientoRow[]): {
@@ -182,6 +183,9 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug, opcion
   const hasConserjeActivo = useMemo(() => {
     return usuarios.some((u) => u.rol === 'conserje' && !u.suspendido)
   }, [usuarios])
+
+  /** Primera carga de datos del panel (evita mostrar "sin conserje" o filtros antes de tiempo). */
+  const panelDatosListos = !loading
 
   const esRegistroReciente = searchParams.get('registrado') === '1'
   const [onboardingInicialOpen, setOnboardingInicialOpen] = useState(false)
@@ -986,6 +990,7 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug, opcion
                 variant={abonadosVencidos.length > 0 || abonadosPorVencer.length > 0 ? 'destructive' : 'outline'}
                 size="sm"
                 className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0 flex items-center gap-1"
+                disabled={loading}
                 onClick={() => {
                   // Abrimos el card desplazándonos a la sección de abonados; por simplicidad, solo hacemos scroll al main.
                   const el = document.getElementById('abonados-alertas')
@@ -1009,12 +1014,19 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug, opcion
                 variant="outline"
                 size="sm"
                 className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0"
+                disabled={loading}
                 onClick={() => setMapaPlazasOpen(true)}
               >
                 <MapPin className="h-4 w-4 sm:mr-2" />
                 <span className="hidden sm:inline">Plazas</span>
               </Button>
-              <Button variant="ghost" size="sm" asChild className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0" id="admin-link-conserje">
+              <Button
+                variant="ghost"
+                size="sm"
+                asChild
+                className={cn('flex-1 sm:flex-none min-h-[44px] sm:min-h-0', loading && 'pointer-events-none opacity-50')}
+                id="admin-link-conserje"
+              >
                 <Link href={slug ? `/${slug}/conserje` : '/conserje'}>Conserje</Link>
               </Button>
               <Button
@@ -1051,7 +1063,7 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug, opcion
         </div>
       )}
 
-      {!hasConserjeActivo && (
+      {panelDatosListos && !hasConserjeActivo && (
         <div className="container mx-auto px-3 sm:px-4 pt-3">
           <div className="rounded-lg border border-blue-500/40 bg-blue-500/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 overflow-hidden">
             <div className="flex items-start gap-3 min-w-0 flex-1">
@@ -1077,7 +1089,7 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug, opcion
         </div>
       )}
 
-      {hasConserjeActivo && listaEstacionamientos.length === 0 && (
+      {panelDatosListos && hasConserjeActivo && listaEstacionamientos.length === 0 && (
         <div className="container mx-auto px-3 sm:px-4 pt-3">
           <div className="rounded-lg border border-blue-500/40 bg-blue-500/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 overflow-hidden">
             <div className="flex items-start gap-3 min-w-0 flex-1">
@@ -1099,7 +1111,24 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug, opcion
         </div>
       )}
 
-      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-6">
+      <main
+        className={cn(
+          'container mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-6 relative',
+          loading && 'min-h-[50vh]'
+        )}
+      >
+        {loading && (
+          <div
+            className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 rounded-md bg-background/80 backdrop-blur-[1px] border border-border/50 shadow-sm"
+            role="status"
+            aria-live="polite"
+            aria-busy="true"
+          >
+            <Loader2 className="h-10 w-10 animate-spin text-primary shrink-0" aria-hidden />
+            <p className="text-sm font-medium text-muted-foreground">Cargando panel…</p>
+          </div>
+        )}
+        <div className={cn(loading && 'pointer-events-none select-none opacity-[0.42]')}>
         {/* 1. Alertas de abonados */}
         {(abonadosVencidos.length > 0 || abonadosPorVencer.length > 0) && (
           <Card className="border-amber-500/50 bg-amber-500/5 overflow-hidden" id="abonados-alertas">
@@ -2470,6 +2499,7 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug, opcion
           onOpenChange={setMapaPlazasOpen}
           soloConsulta
         />
+        </div>
       </main>
       </div>
     </div>

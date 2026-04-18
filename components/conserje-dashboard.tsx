@@ -41,6 +41,7 @@ import {
 import Link from 'next/link'
 import { EstacionamientoMapaDialog } from '@/components/estacionamiento-mapa-dialog'
 import type { CuentaOpcionesUi } from '@/lib/tenant'
+import { cn } from '@/lib/utils'
 
 type ConserjeDashboardProps = { trialDiasRestantes?: number; slug?: string; opcionesUi?: CuentaOpcionesUi }
 
@@ -302,6 +303,7 @@ export function ConserjeDashboard({ trialDiasRestantes, slug, opcionesUi }: Cons
                 variant={abonadosVencidos.length > 0 || abonadosPorVencer.length > 0 ? 'destructive' : 'outline'}
                 size="sm"
                 className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0 flex items-center gap-1"
+                disabled={loading}
                 onClick={() => {
                   const el = document.getElementById('abonados-alertas-conserje')
                   if (el) el.scrollIntoView({ behavior: 'smooth' })
@@ -324,15 +326,26 @@ export function ConserjeDashboard({ trialDiasRestantes, slug, opcionesUi }: Cons
                 variant="outline"
                 size="sm"
                 className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0"
+                disabled={loading}
                 onClick={() => setMapaPlazasOpen(true)}
               >
                 <MapPin className="h-4 w-4 sm:mr-2" />
                 <span className="hidden sm:inline">Plazas</span>
               </Button>
-              <Button variant="ghost" size="sm" asChild className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0">
+              <Button
+                variant="ghost"
+                size="sm"
+                asChild
+                className={cn('flex-1 sm:flex-none min-h-[44px] sm:min-h-0', loading && 'pointer-events-none opacity-50')}
+              >
                 <Link href="/">Inicio</Link>
               </Button>
-              <Button variant="ghost" size="sm" asChild className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0">
+              <Button
+                variant="ghost"
+                size="sm"
+                asChild
+                className={cn('flex-1 sm:flex-none min-h-[44px] sm:min-h-0', loading && 'pointer-events-none opacity-50')}
+              >
                 <Link href={slug ? `/${slug}/admin` : '/admin'}>Admin</Link>
               </Button>
               <Button
@@ -369,7 +382,7 @@ export function ConserjeDashboard({ trialDiasRestantes, slug, opcionesUi }: Cons
         </div>
       )}
 
-      {tienePlazasConfiguradas === false && (
+      {!loading && tienePlazasConfiguradas === false && (
         <div className="container mx-auto px-3 sm:px-4 pt-3">
           <div className="rounded-lg border border-muted-foreground/25 bg-muted/40 px-4 py-3 flex items-start gap-3">
             <Info className="h-5 w-5 shrink-0 text-muted-foreground mt-0.5" />
@@ -380,7 +393,24 @@ export function ConserjeDashboard({ trialDiasRestantes, slug, opcionesUi }: Cons
         </div>
       )}
 
-      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-6">
+      <main
+        className={cn(
+          'container mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-6 relative',
+          loading && 'min-h-[50vh]'
+        )}
+      >
+        {loading && (
+          <div
+            className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 rounded-md bg-background/80 backdrop-blur-[1px] border border-border/50 shadow-sm"
+            role="status"
+            aria-live="polite"
+            aria-busy="true"
+          >
+            <Loader2 className="h-10 w-10 animate-spin text-primary shrink-0" aria-hidden />
+            <p className="text-sm font-medium text-muted-foreground">Cargando panel…</p>
+          </div>
+        )}
+        <div className={cn(loading && 'pointer-events-none select-none opacity-[0.42]')}>
         {(abonadosVencidos.length > 0 || abonadosPorVencer.length > 0) && (
           <div
             id="abonados-alertas-conserje"
@@ -633,8 +663,9 @@ export function ConserjeDashboard({ trialDiasRestantes, slug, opcionesUi }: Cons
           </div>
 
           {loading && servicios.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              Cargando vehiculos...
+            <div className="text-center py-12 text-muted-foreground flex flex-col items-center gap-2">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden />
+              <span>Cargando vehículos…</span>
             </div>
           ) : servicios.length === 0 ? (
             <div className="text-center py-12 border border-dashed border-border rounded-lg">
@@ -842,6 +873,7 @@ export function ConserjeDashboard({ trialDiasRestantes, slug, opcionesUi }: Cons
               })}
             </div>
           )}
+        </div>
         </div>
       </main>
 
