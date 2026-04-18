@@ -1081,8 +1081,14 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug, opcion
               <Button variant="outline" onClick={scrollToUsuarios} className="border-blue-600/40 text-blue-700 hover:bg-blue-500/10">
                 Crear conserje
               </Button>
-              <Button variant="ghost" asChild className="text-blue-700">
-                <Link href={slug ? `/${slug}/conserje` : '/conserje'}>Ir a login Conserje</Link>
+              <Button
+                type="button"
+                variant="ghost"
+                disabled
+                className="text-blue-700 opacity-60 cursor-not-allowed"
+                title="Cree primero un usuario con rol Conserje en la sección Usuarios."
+              >
+                Ir a login Conserje
               </Button>
             </div>
           </div>
