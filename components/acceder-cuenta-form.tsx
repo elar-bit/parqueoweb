@@ -280,12 +280,10 @@ export function AccederCuentaForm() {
           <DialogHeader className="px-4 pt-4 pb-2 space-y-2 text-left">
             <DialogTitle className="text-base leading-snug">Elegir cuenta</DialogTitle>
             <DialogDescription className="text-xs leading-relaxed">
-              Sin buscar, solo aparecen hasta{' '}
-              <span className="font-medium text-foreground">{MODAL_VISTA_ULTIMAS}</span> cuentas (las creadas más
-              recientemente; si en el sistema hay menos, se muestran todas esas). Total de cuentas:{' '}
-              <span className="font-medium text-foreground">{totalCuentas}</span>. Si no ve la suya, escriba en el
-              buscador: se filtra entre las <span className="font-medium text-foreground">{totalCuentas}</span>{' '}
-              cuentas.
+              En el sistema hay <span className="font-medium text-foreground">{totalCuentas}</span> cuenta
+              {totalCuentas !== 1 ? 's' : ''}. Abajo solo se listan las{' '}
+              <span className="font-medium text-foreground">{MODAL_VISTA_ULTIMAS}</span> más nuevas; si hay menos
+              cuentas en total, verá todas. ¿No está la suya? Búsquela por nombre o ruta arriba.
             </DialogDescription>
           </DialogHeader>
           <div className="px-4 pb-2">
@@ -300,9 +298,7 @@ export function AccederCuentaForm() {
               />
             </div>
             {normalizarBusqueda(busquedaModal) ? (
-              <p className="text-xs text-muted-foreground mt-2">
-                Resultados entre las {totalCuentas} cuenta{totalCuentas !== 1 ? 's' : ''} del sistema.
-              </p>
+              <p className="text-xs text-muted-foreground mt-2">Buscando en todas las cuentas.</p>
             ) : null}
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto border-t border-border px-2 py-2">
