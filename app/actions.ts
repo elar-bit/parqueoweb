@@ -195,8 +195,14 @@ export async function existeCuentaSlug(slug: string): Promise<boolean> {
   return !!cuenta
 }
 
-/** Cuentas activas para el selector en la página de inicio (sin autenticación). */
-export async function listarCuentasParaSelector(): Promise<{ slug: string; nombre_cuenta: string }[]> {
+/** Cuentas activas para el selector en la página de inicio (sin autenticación). Incluye fecha para ordenar por recientes. */
+export type CuentaSelectorItem = {
+  slug: string
+  nombre_cuenta: string
+  fecha_creacion: string
+}
+
+export async function listarCuentasParaSelector(): Promise<CuentaSelectorItem[]> {
   try {
     const supabase = await createClient()
     await aplicarSuspensionCuentasVencidas(supabase)
@@ -204,11 +210,14 @@ export async function listarCuentasParaSelector(): Promise<{ slug: string; nombr
       .from('cuentas')
       .select('*')
       .eq('estado', 'activo')
-      .order('nombre_cuenta')
     if (error || !data) return []
     return (data as Cuenta[])
       .filter((c) => isCuentaActiva(c))
-      .map((c) => ({ slug: c.slug, nombre_cuenta: c.nombre_cuenta }))
+      .map((c) => ({
+        slug: c.slug,
+        nombre_cuenta: c.nombre_cuenta,
+        fecha_creacion: c.fecha_creacion,
+      }))
   } catch {
     return []
   }
