@@ -1020,15 +1020,27 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug, opcion
                 <MapPin className="h-4 w-4 sm:mr-2" />
                 <span className="hidden sm:inline">Plazas</span>
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                asChild
-                className={cn('flex-1 sm:flex-none min-h-[44px] sm:min-h-0', loading && 'pointer-events-none opacity-50')}
-                id="admin-link-conserje"
-              >
-                <Link href={slug ? `/${slug}/conserje` : '/conserje'}>Conserje</Link>
-              </Button>
+              {loading || !hasConserjeActivo ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled
+                  className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0 opacity-50 cursor-not-allowed"
+                  id="admin-link-conserje"
+                  title={
+                    loading
+                      ? 'Cargando datos del panel…'
+                      : 'Cree primero un usuario con rol Conserje en la sección Usuarios.'
+                  }
+                >
+                  Conserje
+                </Button>
+              ) : (
+                <Button variant="ghost" size="sm" asChild className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0" id="admin-link-conserje">
+                  <Link href={slug ? `/${slug}/conserje` : '/conserje'}>Conserje</Link>
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
