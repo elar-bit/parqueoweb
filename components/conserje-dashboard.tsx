@@ -419,7 +419,7 @@ export function ConserjeDashboard({ trialDiasRestantes, slug, opcionesUi }: Cons
 
       <main
         className={cn(
-          'container mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-6 relative',
+          'container mx-auto px-3 sm:px-4 py-5 sm:py-8 relative',
           loading && 'min-h-[50vh]'
         )}
       >
@@ -434,7 +434,7 @@ export function ConserjeDashboard({ trialDiasRestantes, slug, opcionesUi }: Cons
             <p className="text-sm font-medium text-muted-foreground">Cargando panel…</p>
           </div>
         )}
-        <div className={cn(loading && 'pointer-events-none select-none')}>
+        <div className={cn('flex flex-col gap-8 sm:gap-10', loading && 'pointer-events-none select-none')}>
         {(abonadosVencidos.length > 0 || abonadosPorVencer.length > 0) && (
           <div
             id="abonados-alertas-conserje"
@@ -602,15 +602,17 @@ export function ConserjeDashboard({ trialDiasRestantes, slug, opcionesUi }: Cons
           </div>
         )}
 
-        <QuickRegister
-          onRegistered={loadData}
-          configuracion={configuracion}
-          opcionesUi={{
-            btnVisitante: opcionesUi?.btnVisitante,
-            btnResidente: opcionesUi?.btnResidente,
-            btnAbonado: opcionesUi?.btnAbonado,
-          }}
-        />
+        <section className="scroll-mt-4">
+          <QuickRegister
+            onRegistered={loadData}
+            configuracion={configuracion}
+            opcionesUi={{
+              btnVisitante: opcionesUi?.btnVisitante,
+              btnResidente: opcionesUi?.btnResidente,
+              btnAbonado: opcionesUi?.btnAbonado,
+            }}
+          />
+        </section>
 
         <Dialog open={!!cancelandoAbono} onOpenChange={(open) => { if (!open) { setCancelandoAbono(null); setMotivoCancelacion(''); setMotivoCancelacionOtro('') } }}>
           <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md overflow-hidden">
@@ -679,7 +681,7 @@ export function ConserjeDashboard({ trialDiasRestantes, slug, opcionesUi }: Cons
           </div>
         )}
 
-        <div className="space-y-4">
+        <section className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-foreground">
               Vehiculos Activos ({servicios.length})
@@ -711,10 +713,10 @@ export function ConserjeDashboard({ trialDiasRestantes, slug, opcionesUi }: Cons
               ))}
             </div>
           )}
-        </div>
+        </section>
 
         {/* Servicios del mes (consulta por mes) */}
-        <div className="space-y-3">
+        <section className="space-y-3 pt-6 sm:pt-8 border-t border-border/50">
           <div className="flex flex-col gap-2">
             <div className="flex flex-row items-center gap-2 flex-wrap min-w-0">
               <h2 className="text-lg font-semibold text-foreground break-words min-w-0">
@@ -917,7 +919,7 @@ export function ConserjeDashboard({ trialDiasRestantes, slug, opcionesUi }: Cons
               </div>
             </div>
           )}
-        </div>
+        </section>
         </div>
       </main>
 

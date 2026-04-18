@@ -1158,7 +1158,7 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug, opcion
 
       <main
         className={cn(
-          'container mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-6 relative',
+          'container mx-auto px-3 sm:px-4 py-5 sm:py-8 relative',
           loading && 'min-h-[50vh]'
         )}
       >
@@ -1173,7 +1173,7 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug, opcion
             <p className="text-sm font-medium text-muted-foreground">Cargando panel…</p>
           </div>
         )}
-        <div className={cn(loading && 'pointer-events-none select-none')}>
+        <div className={cn('flex flex-col gap-8 sm:gap-10', loading && 'pointer-events-none select-none')}>
         {/* 1. Alertas de abonados */}
         {(abonadosVencidos.length > 0 || abonadosPorVencer.length > 0) && (
           <Card className="border-amber-500/50 bg-amber-500/5 overflow-hidden" id="abonados-alertas">
