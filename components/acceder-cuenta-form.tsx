@@ -48,6 +48,8 @@ export function AccederCuentaForm() {
   const [modalTodas, setModalTodas] = useState(false)
   const [busquedaModal, setBusquedaModal] = useState('')
   const [predeterminadoSlug, setPredeterminadoSlug] = useState<string | null>(null)
+  /** Evita que Radix deje `__ver_mas__` como valor interno al reabrir el Select (segundo clic en «Ver más»). */
+  const [selectCuentaKey, setSelectCuentaKey] = useState(0)
 
   useEffect(() => {
     let ok = true
@@ -138,6 +140,8 @@ export function AccederCuentaForm() {
     if (value === '__ver_mas__') {
       setModalTodas(true)
       setBusquedaModal('')
+      setSelectCuentaKey((k) => k + 1)
+      if (error) setError('')
       return
     }
     setSlug(value)
@@ -192,7 +196,12 @@ export function AccederCuentaForm() {
           <p className="text-sm text-muted-foreground">No hay cuentas disponibles en este momento.</p>
         ) : (
           <div className="flex gap-2 items-end">
-            <Select value={slug || undefined} onValueChange={handleSelectCuenta} disabled={busy}>
+            <Select
+              key={selectCuentaKey}
+              value={slug || undefined}
+              onValueChange={handleSelectCuenta}
+              disabled={busy}
+            >
               <SelectTrigger id="cuenta-select" className="w-full min-w-0 flex-1" aria-invalid={!!error}>
                 <SelectValue placeholder="Seleccione su cuenta" />
               </SelectTrigger>
@@ -205,6 +214,7 @@ export function AccederCuentaForm() {
                 ))}
                 <SelectItem
                   value="__ver_mas__"
+                  textValue="Ver más"
                   className="text-primary font-medium focus:text-primary"
                 >
                   Ver más…
