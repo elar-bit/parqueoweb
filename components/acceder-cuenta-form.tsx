@@ -26,6 +26,11 @@ import { cn } from '@/lib/utils'
 
 const STORAGE_PREDETERMINADO = 'parqueo_tenant_predeterminado'
 
+/** Cuentas más recientes en el desplegable de inicio. */
+const DROPDOWN_ULTIMAS = 3
+/** Cuentas mostradas en el modal sin escribir en el buscador. */
+const MODAL_VISTA_ULTIMAS = 5
+
 function normalizarBusqueda(s: string): string {
   return s
     .trim()
@@ -69,27 +74,36 @@ export function AccederCuentaForm() {
     }
   }, [cuentas])
 
-  const recientes5 = useMemo(() => {
-    return [...cuentas]
-      .sort((a, b) => new Date(b.fecha_creacion).getTime() - new Date(a.fecha_creacion).getTime())
-      .slice(0, 5)
-  }, [cuentas])
-
-  const ordenadasPorNombre = useMemo(() => {
-    return [...cuentas].sort((a, b) =>
-      a.nombre_cuenta.localeCompare(b.nombre_cuenta, 'es', { sensitivity: 'base' })
+  /** Orden: creación más reciente primero (misma lógica para dropdown y vista corta del modal). */
+  const ordenadasPorCreacionDesc = useMemo(() => {
+    return [...cuentas].sort(
+      (a, b) => new Date(b.fecha_creacion).getTime() - new Date(a.fecha_creacion).getTime()
     )
   }, [cuentas])
 
-  const filtradasModal = useMemo(() => {
+  const recientesDropdown = useMemo(
+    () => ordenadasPorCreacionDesc.slice(0, DROPDOWN_ULTIMAS),
+    [ordenadasPorCreacionDesc]
+  )
+
+  const totalCuentas = cuentas.length
+
+  /** Sin búsqueda: solo las N últimas creadas. Con búsqueda: todas las que coincidan (alfabético). */
+  const listaModal = useMemo(() => {
     const q = normalizarBusqueda(busquedaModal)
-    if (!q) return ordenadasPorNombre
-    return ordenadasPorNombre.filter((c) => {
-      const nombre = normalizarBusqueda(c.nombre_cuenta)
-      const sl = c.slug.toLowerCase()
-      return nombre.includes(q) || sl.includes(q)
-    })
-  }, [ordenadasPorNombre, busquedaModal])
+    if (!q) {
+      return ordenadasPorCreacionDesc.slice(0, MODAL_VISTA_ULTIMAS)
+    }
+    return [...cuentas]
+      .filter((c) => {
+        const nombre = normalizarBusqueda(c.nombre_cuenta)
+        const sl = c.slug.toLowerCase()
+        return nombre.includes(q) || sl.includes(q)
+      })
+      .sort((a, b) =>
+        a.nombre_cuenta.localeCompare(b.nombre_cuenta, 'es', { sensitivity: 'base' })
+      )
+  }, [cuentas, busquedaModal, ordenadasPorCreacionDesc])
 
   const esPredeterminado = !!slug && predeterminadoSlug === slug
 
@@ -183,7 +197,7 @@ export function AccederCuentaForm() {
                 <SelectValue placeholder="Seleccione su cuenta" />
               </SelectTrigger>
               <SelectContent>
-                {recientes5.map((c) => (
+                {recientesDropdown.map((c) => (
                   <SelectItem key={c.slug} value={c.slug}>
                     <span className="font-medium">{c.nombre_cuenta}</span>{' '}
                     <span className="text-muted-foreground font-mono text-xs">/{c.slug}</span>
@@ -263,10 +277,15 @@ export function AccederCuentaForm() {
         }}
       >
         <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg max-h-[85vh] flex flex-col gap-0 p-0">
-          <DialogHeader className="px-4 pt-4 pb-2 space-y-1">
-            <DialogTitle className="text-left">Todas las cuentas</DialogTitle>
-            <DialogDescription className="text-left text-sm">
-              Orden alfabético. Escriba para filtrar por nombre o por ruta (slug).
+          <DialogHeader className="px-4 pt-4 pb-2 space-y-2 text-left">
+            <DialogTitle className="text-base leading-snug">Elegir cuenta</DialogTitle>
+            <DialogDescription className="text-xs leading-relaxed">
+              Sin buscar, solo aparecen hasta{' '}
+              <span className="font-medium text-foreground">{MODAL_VISTA_ULTIMAS}</span> cuentas (las creadas más
+              recientemente; si en el sistema hay menos, se muestran todas esas). Total de cuentas:{' '}
+              <span className="font-medium text-foreground">{totalCuentas}</span>. Si no ve la suya, escriba en el
+              buscador: se filtra entre las <span className="font-medium text-foreground">{totalCuentas}</span>{' '}
+              cuentas.
             </DialogDescription>
           </DialogHeader>
           <div className="px-4 pb-2">
@@ -275,18 +294,23 @@ export function AccederCuentaForm() {
               <Input
                 value={busquedaModal}
                 onChange={(e) => setBusquedaModal(e.target.value)}
-                placeholder="Buscar…"
+                placeholder="Buscar entre todas las cuentas…"
                 className="pl-9"
                 autoFocus
               />
             </div>
+            {normalizarBusqueda(busquedaModal) ? (
+              <p className="text-xs text-muted-foreground mt-2">
+                Resultados entre las {totalCuentas} cuenta{totalCuentas !== 1 ? 's' : ''} del sistema.
+              </p>
+            ) : null}
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto border-t border-border px-2 py-2">
-            {filtradasModal.length === 0 ? (
+            {listaModal.length === 0 ? (
               <p className="text-sm text-muted-foreground px-2 py-4 text-center">No hay resultados.</p>
             ) : (
               <ul className="space-y-0.5">
-                {filtradasModal.map((c) => (
+                {listaModal.map((c) => (
                   <li key={c.slug}>
                     <button
                       type="button"
