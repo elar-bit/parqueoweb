@@ -101,6 +101,12 @@ export function AccederCuentaForm() {
     return [sel, ...recent.filter((c) => c.slug !== slug)].slice(0, DROPDOWN_ULTIMAS)
   }, [ordenadasPorCreacionDesc, cuentas, slug])
 
+  /** Etiqueta del trigger: Radix a veces no enlaza el valor si no vino de un clic en SelectItem (p. ej. elegir desde el modal). */
+  const cuentaSeleccionada = useMemo(
+    () => (slug ? cuentas.find((c) => c.slug === slug) : undefined),
+    [cuentas, slug]
+  )
+
   const totalCuentas = cuentas.length
 
   /** Sin búsqueda: solo las N últimas creadas. Con búsqueda: todas las que coincidan (alfabético). */
@@ -163,6 +169,7 @@ export function AccederCuentaForm() {
 
   const elegirDesdeModal = (c: CuentaSelectorItem) => {
     setSlug(c.slug)
+    setSelectCuentaKey((k) => k + 1)
     if (error) setError('')
     setModalTodas(false)
     setBusquedaModal('')
@@ -216,7 +223,14 @@ export function AccederCuentaForm() {
               disabled={busy}
             >
               <SelectTrigger id="cuenta-select" className="w-full min-w-0 flex-1" aria-invalid={!!error}>
-                <SelectValue placeholder="Seleccione su cuenta" />
+                <SelectValue placeholder="Seleccione su cuenta">
+                  {cuentaSeleccionada ? (
+                    <>
+                      <span className="font-medium">{cuentaSeleccionada.nombre_cuenta}</span>{' '}
+                      <span className="text-muted-foreground font-mono text-xs">/{cuentaSeleccionada.slug}</span>
+                    </>
+                  ) : null}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {cuentasParaDropdown.map((c) => (
