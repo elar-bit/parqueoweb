@@ -70,6 +70,11 @@ export function AccederCuentaForm() {
       setPredeterminadoSlug(guardado)
       if (guardado && cuentas.some((c) => c.slug === guardado)) {
         setSlug(guardado)
+        setSelectCuentaKey((k) => k + 1)
+      } else if (guardado && !cuentas.some((c) => c.slug === guardado)) {
+        setSlug('')
+        localStorage.removeItem(STORAGE_PREDETERMINADO)
+        setPredeterminadoSlug(null)
       }
     } catch {
       setPredeterminadoSlug(null)
@@ -83,10 +88,18 @@ export function AccederCuentaForm() {
     )
   }, [cuentas])
 
-  const recientesDropdown = useMemo(
-    () => ordenadasPorCreacionDesc.slice(0, DROPDOWN_ULTIMAS),
-    [ordenadasPorCreacionDesc]
-  )
+  /**
+   * Las 3 más recientes; si hay una cuenta seleccionada (p. ej. favorita) que no está en ese top 3,
+   * se incluye igual para que Radix Select pueda mostrarla (si no, solo vería el placeholder).
+   */
+  const cuentasParaDropdown = useMemo(() => {
+    const recent = ordenadasPorCreacionDesc.slice(0, DROPDOWN_ULTIMAS)
+    if (!slug) return recent
+    if (recent.some((c) => c.slug === slug)) return recent
+    const sel = cuentas.find((c) => c.slug === slug)
+    if (!sel) return recent
+    return [sel, ...recent.filter((c) => c.slug !== slug)].slice(0, DROPDOWN_ULTIMAS)
+  }, [ordenadasPorCreacionDesc, cuentas, slug])
 
   const totalCuentas = cuentas.length
 
@@ -206,7 +219,7 @@ export function AccederCuentaForm() {
                 <SelectValue placeholder="Seleccione su cuenta" />
               </SelectTrigger>
               <SelectContent>
-                {recientesDropdown.map((c) => (
+                {cuentasParaDropdown.map((c) => (
                   <SelectItem key={c.slug} value={c.slug}>
                     <span className="font-medium">{c.nombre_cuenta}</span>{' '}
                     <span className="text-muted-foreground font-mono text-xs">/{c.slug}</span>
