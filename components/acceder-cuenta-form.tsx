@@ -93,8 +93,22 @@ export function AccederCuentaForm() {
 
   const esPredeterminado = !!slug && predeterminadoSlug === slug
 
-  const guardarPredeterminado = () => {
+  const limpiarStoragePredeterminado = () => {
+    try {
+      localStorage.removeItem(STORAGE_PREDETERMINADO)
+      setPredeterminadoSlug(null)
+    } catch {
+      setPredeterminadoSlug(null)
+    }
+  }
+
+  /** Estrella: si ya es la predeterminada, quita; si no, guarda la selección actual. */
+  const togglePredeterminado = () => {
     if (!slug) return
+    if (esPredeterminado) {
+      limpiarStoragePredeterminado()
+      return
+    }
     try {
       localStorage.setItem(STORAGE_PREDETERMINADO, slug)
       setPredeterminadoSlug(slug)
@@ -102,6 +116,9 @@ export function AccederCuentaForm() {
       // ignore
     }
   }
+
+  /** Hay otra cuenta guardada distinta a la del dropdown (útil para olvidar sin cambiar selección). */
+  const hayOtraGuardada = !!predeterminadoSlug && !esPredeterminado
 
   const handleSelectCuenta = (value: string) => {
     if (value === '__ver_mas__') {
@@ -186,9 +203,17 @@ export function AccederCuentaForm() {
               size="icon"
               className="h-10 w-10 shrink-0"
               disabled={busy || !slug}
-              onClick={guardarPredeterminado}
-              title="Recordar esta cuenta en este navegador"
-              aria-label="Recordar esta cuenta en este navegador"
+              onClick={togglePredeterminado}
+              title={
+                esPredeterminado
+                  ? 'Dejar de recordar esta cuenta en este navegador'
+                  : 'Recordar esta cuenta en este navegador'
+              }
+              aria-label={
+                esPredeterminado
+                  ? 'Dejar de recordar esta cuenta en este navegador'
+                  : 'Recordar esta cuenta en este navegador'
+              }
             >
               <Star
                 className={cn(
@@ -198,6 +223,18 @@ export function AccederCuentaForm() {
               />
             </Button>
           </div>
+        )}
+        {hayOtraGuardada && (
+          <p className="text-xs text-muted-foreground pt-1">
+            Hay otra cuenta guardada como predeterminada.{' '}
+            <button
+              type="button"
+              className="text-primary underline underline-offset-2 hover:text-primary/90"
+              onClick={limpiarStoragePredeterminado}
+            >
+              Quitar cuenta predeterminada
+            </button>
+          </p>
         )}
       </div>
       {error && <p className="text-sm text-destructive">{error}</p>}
