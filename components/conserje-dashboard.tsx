@@ -401,7 +401,7 @@ export function ConserjeDashboard({ trialDiasRestantes, slug, opcionesUi }: Cons
       >
         {loading && (
           <div
-            className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 rounded-md bg-background/80 backdrop-blur-[1px] border border-border/50 shadow-sm"
+            className="fixed inset-0 z-40 flex flex-col items-center justify-center gap-3 bg-background/80 backdrop-blur-[1px] border border-border/50 shadow-sm"
             role="status"
             aria-live="polite"
             aria-busy="true"
@@ -410,7 +410,7 @@ export function ConserjeDashboard({ trialDiasRestantes, slug, opcionesUi }: Cons
             <p className="text-sm font-medium text-muted-foreground">Cargando panel…</p>
           </div>
         )}
-        <div className={cn(loading && 'pointer-events-none select-none opacity-[0.42]')}>
+        <div className={cn(loading && 'pointer-events-none select-none')}>
         {(abonadosVencidos.length > 0 || abonadosPorVencer.length > 0) && (
           <div
             id="abonados-alertas-conserje"
@@ -777,7 +777,12 @@ export function ConserjeDashboard({ trialDiasRestantes, slug, opcionesUi }: Cons
               </div>
             </div>
           </div>
-          {serviciosHoy.length === 0 ? (
+          {loading ? (
+            <div className="flex flex-col items-center justify-center gap-2 py-16 text-muted-foreground min-h-[200px]">
+              <Loader2 className="h-8 w-8 animate-spin text-primary shrink-0" aria-hidden />
+              <span className="text-sm">Cargando servicios del mes…</span>
+            </div>
+          ) : serviciosHoy.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               No hay servicios pagados en el mes seleccionado.
             </p>
