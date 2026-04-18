@@ -123,19 +123,15 @@ export function ConserjeDashboard({ trialDiasRestantes, slug, opcionesUi }: Cons
   const loadData = useCallback(async (opts?: { silent?: boolean }) => {
     const silent = opts?.silent === true
     if (!silent) setLoading(true)
+    const hayConsultaMes = !!rangoMesServicios.fechaDesde
+    if (hayConsultaMes) setCargandoServiciosMes(true)
     try {
-      const serviciosDelMesPromise = (async () => {
-        if (!rangoMesServicios.fechaDesde) return []
-        setCargandoServiciosMes(true)
-        try {
-          return await getServiciosPagadosFiltrados({
+      const serviciosDelMesPromise = hayConsultaMes
+        ? getServiciosPagadosFiltrados({
             fechaDesde: rangoMesServicios.fechaDesde,
             fechaHasta: rangoMesServicios.fechaHasta,
           })
-        } finally {
-          setCargandoServiciosMes(false)
-        }
-      })()
+        : Promise.resolve([])
       const [serviciosData, configData, vencidos, porVencer, serviciosDelMes, plazas] = await Promise.all([
         getServiciosActivos(),
         getConfiguracion(),
@@ -153,6 +149,7 @@ export function ConserjeDashboard({ trialDiasRestantes, slug, opcionesUi }: Cons
     } catch (error) {
       console.error('Error loading data:', error)
     } finally {
+      if (hayConsultaMes) setCargandoServiciosMes(false)
       if (!silent) setLoading(false)
     }
   }, [rangoMesServicios.fechaDesde, rangoMesServicios.fechaHasta])
@@ -750,11 +747,11 @@ export function ConserjeDashboard({ trialDiasRestantes, slug, opcionesUi }: Cons
             </div>
           ) : mesesDisponibles.length === 0 ? (
             <p className="text-sm text-muted-foreground">No hay meses con servicios registrados aún.</p>
-          ) : serviciosHoy.length === 0 ? (
+          ) : serviciosHoy.length === 0 && !cargandoServiciosMes ? (
             <p className="text-sm text-muted-foreground">
               No hay servicios pagados en el mes seleccionado.
             </p>
-          ) : serviciosHoyFiltrados.length === 0 ? (
+          ) : !cargandoServiciosMes && serviciosHoy.length > 0 && serviciosHoyFiltrados.length === 0 ? (
             <p className="text-sm text-muted-foreground">Ningún registro coincide con la búsqueda</p>
           ) : (
             <div className="relative">

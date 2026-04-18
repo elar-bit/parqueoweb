@@ -421,19 +421,15 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug, opcion
   const loadData = useCallback(async (opts?: { silent?: boolean }) => {
     const silent = opts?.silent === true
     if (!silent) setLoading(true)
+    const hayConsultaMes = !!rangoMesServicios.fechaDesde
+    if (hayConsultaMes) setCargandoServiciosMes(true)
     try {
-      const serviciosPromise = (async () => {
-        if (!rangoMesServicios.fechaDesde) return []
-        setCargandoServiciosMes(true)
-        try {
-          return await getServiciosPagadosFiltrados({
+      const serviciosPromise = hayConsultaMes
+        ? getServiciosPagadosFiltrados({
             fechaDesde: rangoMesServicios.fechaDesde,
             fechaHasta: rangoMesServicios.fechaHasta,
           })
-        } finally {
-          setCargandoServiciosMes(false)
-        }
-      })()
+        : Promise.resolve([])
       const [activos, servicios, config, users, vencidos, porVencer, plazas] = await Promise.all([
         getServiciosActivos(),
         serviciosPromise,
@@ -459,6 +455,7 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug, opcion
     } catch (error) {
       console.error('Error loading admin data:', error)
     } finally {
+      if (hayConsultaMes) setCargandoServiciosMes(false)
       if (!silent) setLoading(false)
     }
   }, [rangoMesServicios.fechaDesde, rangoMesServicios.fechaHasta])
@@ -1441,9 +1438,9 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug, opcion
               </div>
             ) : mesesDisponibles.length === 0 ? (
               <p className="text-muted-foreground text-center py-8">No hay meses con servicios registrados aún.</p>
-            ) : serviciosList.length === 0 ? (
+            ) : serviciosList.length === 0 && !cargandoServiciosMes ? (
               <p className="text-muted-foreground text-center py-8">No hay servicios con los filtros aplicados</p>
-            ) : serviciosListFiltrados.length === 0 ? (
+            ) : !cargandoServiciosMes && serviciosList.length > 0 && serviciosListFiltrados.length === 0 ? (
               <p className="text-muted-foreground text-center py-8">Ningún registro coincide con la búsqueda</p>
             ) : (
               <div className="relative">
