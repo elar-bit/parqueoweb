@@ -85,14 +85,14 @@ export function AdminLoginForm({ slug }: AdminLoginFormProps) {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="usuario">Usuario</Label>
+              <Label htmlFor={slug && listaUsuarios.length > 0 ? 'usuario-select' : 'usuario'}>Usuario</Label>
               {slug && cargandoLista && (
                 <p className="text-xs text-muted-foreground flex items-center gap-2">
                   <Loader2 className="h-3 w-3 animate-spin" />
                   Cargando usuarios de la cuenta…
                 </p>
               )}
-              {slug && listaUsuarios.length > 0 && (
+              {slug && listaUsuarios.length > 0 ? (
                 <Select value={usuario || undefined} onValueChange={setUsuario} disabled={loading}>
                   <SelectTrigger id="usuario-select" className="w-full">
                     <SelectValue placeholder="Seleccione su usuario" />
@@ -109,17 +109,17 @@ export function AdminLoginForm({ slug }: AdminLoginFormProps) {
                     ))}
                   </SelectContent>
                 </Select>
+              ) : (
+                <Input
+                  id="usuario"
+                  type="text"
+                  value={usuario}
+                  onChange={(e) => setUsuario(e.target.value)}
+                  placeholder="Usuario"
+                  autoComplete="username"
+                  disabled={loading}
+                />
               )}
-              <Input
-                id="usuario"
-                type="text"
-                value={usuario}
-                onChange={(e) => setUsuario(e.target.value)}
-                placeholder="Usuario"
-                autoComplete="username"
-                disabled={loading}
-                className={slug && listaUsuarios.length > 0 ? 'mt-1' : ''}
-              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Contraseña</Label>

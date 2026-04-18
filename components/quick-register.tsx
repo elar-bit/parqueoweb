@@ -249,7 +249,7 @@ export function QuickRegister({ onRegistered, configuracion = [], opcionesUi }: 
       } else if (tipo === 'visitante') {
         result = await registrarEntrada(
           'visitante',
-          placa.trim() || null,
+          placa.trim(),
           null,
           {
             nombre: nombreResidente.trim() || null,
@@ -322,7 +322,7 @@ export function QuickRegister({ onRegistered, configuracion = [], opcionesUi }: 
   const puedeRegistrar =
     plazaOk &&
     (tipo === 'visitante'
-      ? true
+      ? placa.trim().length > 0
       : tipo === 'residente'
         ? residenteSeleccionado !== null || placa.trim().length > 0
         : tipo === 'abonado'
@@ -416,7 +416,7 @@ export function QuickRegister({ onRegistered, configuracion = [], opcionesUi }: 
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
               {tipo === 'visitante'
-                ? 'Ingrese la placa (opcional) y los mismos datos opcionales que para un residente: nombre, apellido, oficina o departamento y teléfono.'
+                ? 'Ingrese la placa y, si aplica, los mismos datos opcionales que para un residente: nombre, apellido, oficina o departamento y teléfono.'
                 : tipo === 'abonado'
                   ? 'Busque una placa ya registrada como abonado o ingrese una nueva. El mes corre desde el primer día de registro (pago por mes adelantado).'
                   : 'Busque por placa o apellido una placa ya registrada o ingrese una nueva con nombre y apellido.'}
@@ -568,7 +568,7 @@ export function QuickRegister({ onRegistered, configuracion = [], opcionesUi }: 
               <>
                 <div className="space-y-2">
                   <Label htmlFor="placa">
-                    {tipo === 'visitante' ? 'Placa (opcional)' : 'Placa'}
+                    Placa
                   </Label>
                   <Input
                     id="placa"

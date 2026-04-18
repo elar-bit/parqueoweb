@@ -1334,6 +1334,9 @@ export async function registrarEntrada(
         vehiculo = { ...vehiculo, vigencia_abono_hasta: hasta.toISOString().split('T')[0], ultimo_numero_meses_abono: meses, monto_ultimo_pago_abono: montoAbono, abono_cancelado: false, motivo_cancelacion_abono: null } as Vehiculo
       }
     } else {
+      if (tipo === 'visitante' && !(placa ?? '').trim()) {
+        return { ok: false, error: 'La placa es obligatoria para visitantes.' }
+      }
       const insertPayload: Record<string, unknown> = {
         cuenta_id: cuentaId,
         tipo,
