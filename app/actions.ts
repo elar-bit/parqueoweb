@@ -1343,18 +1343,27 @@ export async function registrarEntrada(
         vehiculo = { ...vehiculo, vigencia_abono_hasta: hasta.toISOString().split('T')[0], ultimo_numero_meses_abono: meses, monto_ultimo_pago_abono: montoAbono, abono_cancelado: false, motivo_cancelacion_abono: null } as Vehiculo
       }
     } else {
-      if (tipo === 'visitante' && !(placa ?? '').trim()) {
-        return { ok: false, error: 'La placa es obligatoria para visitantes.' }
+      const placaTrim = (placa ?? '').trim()
+      if (!placaTrim) {
+        return { ok: false, error: 'La placa es obligatoria.' }
+      }
+      const oficinaTrim = (
+        tipo === 'abonado'
+          ? (datosAbonado?.numero_oficina_dep ?? datosResidente?.numero_oficina_dep ?? '')
+          : (datosResidente?.numero_oficina_dep ?? '')
+      ).trim()
+      if (!oficinaTrim) {
+        return { ok: false, error: 'El número de oficina/departamento es obligatorio.' }
       }
       const insertPayload: Record<string, unknown> = {
         cuenta_id: cuentaId,
         tipo,
-        placa: placa?.trim() || null,
+        placa: placaTrim,
+        numero_oficina_dep: oficinaTrim,
       }
       if ((tipo === 'residente' || tipo === 'visitante') && datosResidente) {
         if (datosResidente.nombre != null) insertPayload.nombre_propietario = datosResidente.nombre
         if (datosResidente.apellido != null) insertPayload.apellido_propietario = datosResidente.apellido
-        if (datosResidente.numero_oficina_dep != null) insertPayload.numero_oficina_dep = datosResidente.numero_oficina_dep
         if (datosResidente.telefono_contacto != null) insertPayload.telefono_contacto = datosResidente.telefono_contacto
       }
       if (tipo === 'abonado' && (datosResidente || datosAbonado)) {
@@ -1362,7 +1371,6 @@ export async function registrarEntrada(
         if (d) {
           if (d.nombre != null) insertPayload.nombre_propietario = d.nombre
           if (d.apellido != null) insertPayload.apellido_propietario = d.apellido
-          if (d.numero_oficina_dep != null) insertPayload.numero_oficina_dep = d.numero_oficina_dep
           if (d.telefono_contacto != null) insertPayload.telefono_contacto = d.telefono_contacto
         }
         if (datosAbonado?.yaPagoMensualidad && datosAbonado?.numeroMeses != null) {
@@ -1382,7 +1390,7 @@ export async function registrarEntrada(
           insertPayload.captura_pago_abono = String(datosAbonado.capturaPagoAbono).trim()
         }
       }
-      const valPlaca = await validarPlacaNuevaVehiculo(supabase, cuentaId, placa?.trim() || null)
+      const valPlaca = await validarPlacaNuevaVehiculo(supabase, cuentaId, placaTrim)
       if (!valPlaca.ok) return valPlaca
       const { data: nuevo, error: vehiculoError } = await supabase
         .from('vehiculos')

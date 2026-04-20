@@ -191,6 +191,18 @@ export function QuickRegister({ onRegistered, configuracion = [], opcionesUi }: 
       setErrorMsg('Seleccione un estacionamiento libre en el mapa.')
       return
     }
+    const necesitaPlaca =
+      tipo === 'visitante' ||
+      (tipo === 'residente' && residenteSeleccionado === null) ||
+      (tipo === 'abonado' && abonadoSeleccionado === null)
+    if (necesitaPlaca && !placa.trim()) {
+      setErrorMsg('La placa es obligatoria.')
+      return
+    }
+    if (necesitaPlaca && !numeroOficinaDep.trim()) {
+      setErrorMsg('El número de oficina/departamento es obligatorio.')
+      return
+    }
     setLoading(true)
     setErrorMsg(null)
     const estId = estacionamientoId
@@ -576,6 +588,7 @@ export function QuickRegister({ onRegistered, configuracion = [], opcionesUi }: 
                     onChange={(e) => setPlaca(e.target.value.toUpperCase())}
                     placeholder="ABC-123"
                     className="font-mono"
+                    required
                     onKeyDown={(e) => e.key === 'Enter' && handleRegistrar()}
                   />
                 </div>
@@ -612,12 +625,13 @@ export function QuickRegister({ onRegistered, configuracion = [], opcionesUi }: 
                       />
                     </div>
                     <div className="space-y-2 sm:col-span-2">
-                      <Label htmlFor="oficina-dep">Nº oficina / departamento (opcional)</Label>
+                      <Label htmlFor="oficina-dep">Nº oficina / departamento</Label>
                       <Input
                         id="oficina-dep"
                         value={numeroOficinaDep}
                         onChange={(e) => setNumeroOficinaDep(e.target.value)}
                         placeholder="Ej. 101, Depto 2A"
+                        required
                       />
                     </div>
                     <div className="space-y-2 sm:col-span-2">
