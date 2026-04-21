@@ -101,6 +101,10 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug, opcion
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
+  const uiBtnVisitante = opcionesUi?.btnVisitante !== false
+  const uiBtnResidente = opcionesUi?.btnResidente !== false
+  const uiBtnAbonado = opcionesUi?.btnAbonado !== false
+
   const [activeCount, setActiveCount] = useState(0)
   const [chartData, setChartData] = useState<{ fecha: string; total: number }[]>([])
   const [chartDataConTipo, setChartDataConTipo] = useState<{ fecha: string; visitantes: number; residentes: number }[]>([])
@@ -1414,18 +1418,24 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug, opcion
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground block opacity-0 select-none pointer-events-none">Leyenda</Label>
                 <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs text-muted-foreground shrink-0 h-9 items-center">
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full bg-amber-200" aria-hidden />
-                    Visitantes
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-200" aria-hidden />
-                    Residentes
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full bg-sky-200" aria-hidden />
-                    Abonados
-                  </span>
+                  {uiBtnVisitante && (
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded-full bg-amber-200" aria-hidden />
+                      Visitantes
+                    </span>
+                  )}
+                  {uiBtnResidente && (
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded-full bg-emerald-200" aria-hidden />
+                      Residentes
+                    </span>
+                  )}
+                  {uiBtnAbonado && (
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded-full bg-sky-200" aria-hidden />
+                      Abonados
+                    </span>
+                  )}
                 </div>
               </div>
             </div>

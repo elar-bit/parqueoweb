@@ -79,6 +79,10 @@ export function ConserjeDashboard({ trialDiasRestantes, slug, opcionesUi }: Cons
   /** null = aún no cargado; evita mostrar el aviso antes de saber el estado real */
   const [tienePlazasConfiguradas, setTienePlazasConfiguradas] = useState<boolean | null>(null)
 
+  const uiBtnVisitante = opcionesUi?.btnVisitante !== false
+  const uiBtnResidente = opcionesUi?.btnResidente !== false
+  const uiBtnAbonado = opcionesUi?.btnAbonado !== false
+
   const normalizarTelefonoWhatsApp = (valor: string): string => {
     const digits = valor.replace(/\D/g, '')
     if (digits.length === 9 && digits.startsWith('9')) return '51' + digits
@@ -660,18 +664,24 @@ export function ConserjeDashboard({ trialDiasRestantes, slug, opcionesUi }: Cons
                 Servicios del mes ({serviciosHoyFiltrados.length}{serviciosHoy.length !== serviciosHoyFiltrados.length ? ` de ${serviciosHoy.length}` : ''})
               </h2>
               <div className="flex items-center gap-2 sm:gap-3 text-xs text-muted-foreground shrink-0 flex-wrap">
-                <span className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full bg-amber-200" aria-hidden />
-                  Visitantes
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-200" aria-hidden />
-                  Residentes
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full bg-sky-200" aria-hidden />
-                  Abonados
-                </span>
+                {uiBtnVisitante && (
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full bg-amber-200" aria-hidden />
+                    Visitantes
+                  </span>
+                )}
+                {uiBtnResidente && (
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-200" aria-hidden />
+                    Residentes
+                  </span>
+                )}
+                {uiBtnAbonado && (
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full bg-sky-200" aria-hidden />
+                    Abonados
+                  </span>
+                )}
               </div>
             </div>
             <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 overflow-hidden">
