@@ -82,6 +82,27 @@ export function ConserjeDashboard({ trialDiasRestantes, slug, opcionesUi }: Cons
   const uiBtnVisitante = opcionesUi?.btnVisitante !== false
   const uiBtnResidente = opcionesUi?.btnResidente !== false
   const uiBtnAbonado = opcionesUi?.btnAbonado !== false
+  const tiposHabilitadosList = useMemo(() => {
+    return (['visitante', 'residente', 'abonado'] as const).filter((t) => {
+      if (t === 'visitante') return uiBtnVisitante
+      if (t === 'residente') return uiBtnResidente
+      return uiBtnAbonado
+    })
+  }, [uiBtnVisitante, uiBtnResidente, uiBtnAbonado])
+  const puedeTodosServiciosMes = tiposHabilitadosList.length >= 2
+  const primerTipoHabilitado = tiposHabilitadosList[0] ?? ''
+
+  useEffect(() => {
+    setFiltroTipoServicios((prev) => {
+      if (prev === '' && puedeTodosServiciosMes) return prev
+      if (prev === '' && !puedeTodosServiciosMes) return (primerTipoHabilitado as typeof prev) || ''
+      if (prev === 'visitante' && !uiBtnVisitante) return (primerTipoHabilitado as typeof prev) || ''
+      if (prev === 'residente' && !uiBtnResidente) return (primerTipoHabilitado as typeof prev) || ''
+      if (prev === 'abonado' && !uiBtnAbonado) return (primerTipoHabilitado as typeof prev) || ''
+      return prev
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uiBtnVisitante, uiBtnResidente, uiBtnAbonado, puedeTodosServiciosMes, primerTipoHabilitado])
 
   const normalizarTelefonoWhatsApp = (valor: string): string => {
     const digits = valor.replace(/\D/g, '')
@@ -303,6 +324,11 @@ export function ConserjeDashboard({ trialDiasRestantes, slug, opcionesUi }: Cons
       return placa.includes(filtroNorm) || apellido.includes(filtroNorm) || nombre.includes(filtroNorm)
     })
   })()
+
+  useEffect(() => {
+    // Si el tipo deja de ser abonado, limpiar período.
+    if (filtroTipoServicios !== 'abonado' && filtroPeriodoServicios) setFiltroPeriodoServicios('')
+  }, [filtroTipoServicios, filtroPeriodoServicios])
 
   const cargaInicialListaServicios =
     !mesesServiciosMetaListos ||
@@ -712,15 +738,18 @@ export function ConserjeDashboard({ trialDiasRestantes, slug, opcionesUi }: Cons
               </div>
               <div className="flex items-center gap-2 min-w-0 w-full sm:w-auto">
                 <Label className="text-xs text-muted-foreground whitespace-nowrap shrink-0">Tipo</Label>
-                <Select value={filtroTipoServicios || 'todos'} onValueChange={(v) => { setFiltroTipoServicios(v === 'todos' ? '' : v as 'visitante' | 'residente' | 'abonado'); if (v !== 'abonado') setFiltroPeriodoServicios('') }}>
+                <Select
+                  value={filtroTipoServicios || (puedeTodosServiciosMes ? 'todos' : (primerTipoHabilitado || 'todos'))}
+                  onValueChange={(v) => { setFiltroTipoServicios(v === 'todos' ? '' : v as 'visitante' | 'residente' | 'abonado'); if (v !== 'abonado') setFiltroPeriodoServicios('') }}
+                >
                   <SelectTrigger className="w-full min-w-0 sm:w-[120px]">
                     <SelectValue placeholder="Todos" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="todos">Todos</SelectItem>
-                    <SelectItem value="visitante">Visitante</SelectItem>
-                    <SelectItem value="residente">Residente</SelectItem>
-                    <SelectItem value="abonado">Abonado</SelectItem>
+                    {puedeTodosServiciosMes && <SelectItem value="todos">Todos</SelectItem>}
+                    {uiBtnVisitante && <SelectItem value="visitante">Visitante</SelectItem>}
+                    {uiBtnResidente && <SelectItem value="residente">Residente</SelectItem>}
+                    {uiBtnAbonado && <SelectItem value="abonado">Abonado</SelectItem>}
                   </SelectContent>
                 </Select>
               </div>

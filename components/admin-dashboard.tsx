@@ -568,6 +568,18 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug, opcion
     })
   }, [uiBtnVisitante, uiBtnResidente, uiBtnAbonado, puedeTodosEnReportes, primerTipoHabilitado])
 
+  useEffect(() => {
+    // En "Servicios del mes", evitamos mostrar tipos apagados por superadmin.
+    setFiltroTipoServicios((prev) => {
+      if (prev === '' && puedeTodosEnReportes) return prev
+      if (prev === '' && !puedeTodosEnReportes) return (primerTipoHabilitado as typeof prev) || ''
+      if (prev === 'visitante' && !uiBtnVisitante) return (primerTipoHabilitado as typeof prev) || ''
+      if (prev === 'residente' && !uiBtnResidente) return (primerTipoHabilitado as typeof prev) || ''
+      if (prev === 'abonado' && !uiBtnAbonado) return (primerTipoHabilitado as typeof prev) || ''
+      return prev
+    })
+  }, [uiBtnVisitante, uiBtnResidente, uiBtnAbonado, puedeTodosEnReportes, primerTipoHabilitado])
+
   const totalFiltradoReportes = serviciosParaReportes.reduce((sum, s) => sum + montoServicioParaMostrar(s), 0)
   const totalDiarioReportes = serviciosParaReportes
     .filter((s) => s.vehiculo?.tipo === 'visitante' || s.vehiculo?.tipo === 'residente')
@@ -1436,15 +1448,18 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug, opcion
               </div>
               <div className="space-y-1 min-w-0 w-full sm:w-auto">
                 <Label className="text-xs text-muted-foreground">Tipo</Label>
-                <Select value={filtroTipoServicios || 'todos'} onValueChange={(v) => { setFiltroTipoServicios(v === 'todos' ? '' : v as 'visitante' | 'residente' | 'abonado'); if (v !== 'abonado') setFiltroPeriodoServicios('') }}>
+                <Select
+                  value={filtroTipoServicios || (puedeTodosEnReportes ? 'todos' : (primerTipoHabilitado || 'todos'))}
+                  onValueChange={(v) => { setFiltroTipoServicios(v === 'todos' ? '' : v as 'visitante' | 'residente' | 'abonado'); if (v !== 'abonado') setFiltroPeriodoServicios('') }}
+                >
                   <SelectTrigger className="w-full min-w-0 sm:w-[130px]">
                     <SelectValue placeholder="Todos" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="todos">Todos</SelectItem>
-                    <SelectItem value="visitante">Visitante</SelectItem>
-                    <SelectItem value="residente">Residente</SelectItem>
-                    <SelectItem value="abonado">Abonado</SelectItem>
+                    {puedeTodosEnReportes && <SelectItem value="todos">Todos</SelectItem>}
+                    {uiBtnVisitante && <SelectItem value="visitante">Visitante</SelectItem>}
+                    {uiBtnResidente && <SelectItem value="residente">Residente</SelectItem>}
+                    {uiBtnAbonado && <SelectItem value="abonado">Abonado</SelectItem>}
                   </SelectContent>
                 </Select>
               </div>
