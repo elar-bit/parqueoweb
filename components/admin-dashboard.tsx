@@ -105,6 +105,21 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug, opcion
   const uiBtnResidente = opcionesUi?.btnResidente !== false
   const uiBtnAbonado = opcionesUi?.btnAbonado !== false
 
+  const tiposHabilitados = useMemo(() => {
+    return {
+      visitante: uiBtnVisitante,
+      residente: uiBtnResidente,
+      abonado: uiBtnAbonado,
+    }
+  }, [uiBtnVisitante, uiBtnResidente, uiBtnAbonado])
+
+  const tiposHabilitadosList = useMemo(() => {
+    return (['visitante', 'residente', 'abonado'] as const).filter((t) => tiposHabilitados[t])
+  }, [tiposHabilitados])
+
+  const puedeTodosEnReportes = tiposHabilitadosList.length >= 2
+  const primerTipoHabilitado = tiposHabilitadosList[0] ?? ''
+
   const [activeCount, setActiveCount] = useState(0)
   const [chartData, setChartData] = useState<{ fecha: string; total: number }[]>([])
   const [chartDataConTipo, setChartDataConTipo] = useState<{ fecha: string; visitantes: number; residentes: number }[]>([])
@@ -467,24 +482,42 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug, opcion
   const loadReportesData = useCallback(async () => {
     setLoadingReportes(true)
     try {
+      const filtrarTiposHabilitados = (servicios: ServicioConVehiculo[]) => {
+        return servicios.filter((s) => {
+          const t = s.vehiculo?.tipo
+          if (t === 'visitante') return uiBtnVisitante
+          if (t === 'residente') return uiBtnResidente
+          if (t === 'abonado') return uiBtnAbonado
+          return false
+        })
+      }
+
       if (filtroTipo === '') {
         const [ingresosConTipo, servicios] = await Promise.all([
           getIngresosFiltradosConTipo({ ...filtrosReportes, tipo: null }),
           getServiciosPagadosFiltrados({ ...filtrosReportes, tipo: null }),
         ])
-        const chartDiario = ingresosConTipo.map(({ fecha, visitantes, residentes }) => ({ fecha, total: visitantes + residentes }))
+        const ingresosConTipoFiltrados = ingresosConTipo.map(({ fecha, visitantes, residentes }) => ({
+          fecha,
+          visitantes: uiBtnVisitante ? visitantes : 0,
+          residentes: uiBtnResidente ? residentes : 0,
+        }))
+        const chartDiario = ingresosConTipoFiltrados.map(({ fecha, visitantes, residentes }) => ({
+          fecha,
+          total: visitantes + residentes,
+        }))
         setChartData(chartDiario)
-        setChartDataConTipo(ingresosConTipo)
-        setServiciosParaReportes(servicios)
+        setChartDataConTipo(ingresosConTipoFiltrados)
+        setServiciosParaReportes(filtrarTiposHabilitados(servicios))
       } else {
         const [ingresos, servicios] = await Promise.all([
           getIngresosFiltrados(filtrosReportes),
           getServiciosPagadosFiltrados(filtrosReportes),
         ])
-        let serviciosFiltrados = servicios
+        let serviciosFiltrados = filtrarTiposHabilitados(servicios)
         if (filtroTipo === 'abonado' && filtroPeriodoReportes) {
           const n = Number(filtroPeriodoReportes)
-          serviciosFiltrados = servicios.filter((s) => (s.vehiculo?.ultimo_numero_meses_abono ?? 0) === n)
+          serviciosFiltrados = serviciosFiltrados.filter((s) => (s.vehiculo?.ultimo_numero_meses_abono ?? 0) === n)
         }
         let chartAbonado = ingresos
         if (filtroTipo === 'abonado' && filtroPeriodoReportes) {
@@ -506,7 +539,7 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug, opcion
     } finally {
       setLoadingReportes(false)
     }
-  }, [filtroFechaDesde, filtroFechaHasta, filtroTipo, filtroPeriodoReportes])
+  }, [filtroFechaDesde, filtroFechaHasta, filtroTipo, filtroPeriodoReportes, uiBtnVisitante, uiBtnResidente, uiBtnAbonado, filtrosReportes])
 
   useEffect(() => {
     loadData()
@@ -522,6 +555,18 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug, opcion
   useEffect(() => {
     if (reportesExpandido) loadReportesData()
   }, [reportesExpandido, loadReportesData])
+
+  useEffect(() => {
+    // Si el superadmin deshabilita tipos, evitamos mostrar filtros inválidos en reportes.
+    setFiltroTipo((prev) => {
+      if (prev === '' && puedeTodosEnReportes) return prev
+      if (prev === '' && !puedeTodosEnReportes) return (primerTipoHabilitado as typeof prev) || ''
+      if (prev === 'visitante' && !uiBtnVisitante) return (primerTipoHabilitado as typeof prev) || ''
+      if (prev === 'residente' && !uiBtnResidente) return (primerTipoHabilitado as typeof prev) || ''
+      if (prev === 'abonado' && !uiBtnAbonado) return (primerTipoHabilitado as typeof prev) || ''
+      return prev
+    })
+  }, [uiBtnVisitante, uiBtnResidente, uiBtnAbonado, puedeTodosEnReportes, primerTipoHabilitado])
 
   const totalFiltradoReportes = serviciosParaReportes.reduce((sum, s) => sum + montoServicioParaMostrar(s), 0)
   const totalDiarioReportes = serviciosParaReportes
@@ -563,36 +608,48 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug, opcion
         ? 'Solo residentes'
         : filtroTipo === 'abonado'
           ? 'Solo abonados (sin ingreso por uso)'
-          : 'Todos los tipos (visitantes y residentes)'
+          : tiposHabilitadosList.length === 0
+            ? 'Sin tipos habilitados'
+            : tiposHabilitadosList.length === 1
+              ? `Solo ${tiposHabilitadosList[0] === 'visitante' ? 'visitantes' : tiposHabilitadosList[0] === 'residente' ? 'residentes' : 'abonados'}`
+              : `Todos los tipos habilitados (${tiposHabilitadosList
+                  .map((t) => (t === 'visitante' ? 'visitantes' : t === 'residente' ? 'residentes' : 'abonados'))
+                  .join(' y ')})`
   const textoPeriodo =
     filtroFechaDesde || filtroFechaHasta
       ? `Período: ${filtroFechaDesde || '...'} a ${filtroFechaHasta || '...'}`
       : 'Sin filtro de fechas'
 
   const handleGuardarTarifas = async () => {
-    const v = parseFloat(tarifaVisitante)
-    const r = parseFloat(tarifaResidente)
-    const a = parseFloat(tarifaAbonado)
-    if (isNaN(v) || isNaN(r) || v < 0 || r < 0) {
-      setTarifaMsg('Ingrese valores numéricos válidos para visitante y residente.')
+    const v = uiBtnVisitante ? parseFloat(tarifaVisitante) : null
+    const r = uiBtnResidente ? parseFloat(tarifaResidente) : null
+    const a = uiBtnAbonado ? parseFloat(tarifaAbonado) : null
+    if (uiBtnVisitante && (v == null || Number.isNaN(v) || v < 0)) {
+      setTarifaMsg('Ingrese un valor numérico válido para visitante.')
       return
     }
-    if (tarifaAbonado.trim() !== '' && (isNaN(a) || a < 0)) {
+    if (uiBtnResidente && (r == null || Number.isNaN(r) || r < 0)) {
+      setTarifaMsg('Ingrese un valor numérico válido para residente.')
+      return
+    }
+    if (uiBtnAbonado && tarifaAbonado.trim() !== '' && (a == null || Number.isNaN(a) || a < 0)) {
       setTarifaMsg('El precio mensual del abonado debe ser un número válido.')
       return
     }
     setSavingTarifas(true)
     setTarifaMsg('')
     try {
-      const [resV, resR] = await Promise.all([
-        updateConfiguracion('visitante', v),
-        updateConfiguracion('residente', r),
-      ])
-      if (!resV.ok || !resR.ok) {
-        setTarifaMsg(resV.error || resR.error || 'Error al guardar')
+      const promises: Promise<{ ok: boolean; error?: string | null }>[] = []
+      if (uiBtnVisitante && v != null) promises.push(updateConfiguracion('visitante', v))
+      if (uiBtnResidente && r != null) promises.push(updateConfiguracion('residente', r))
+      const results = await Promise.all(promises)
+      const primerError = results.find((x) => !x.ok)?.error
+      if (primerError) {
+        setTarifaMsg(primerError || 'Error al guardar')
         return
       }
-      if (tarifaAbonado.trim() !== '') {
+
+      if (uiBtnAbonado && tarifaAbonado.trim() !== '' && a != null) {
         const resA = await updateConfiguracion('abonado', a)
         if (!resA.ok) {
           setTarifaMsg(resA.error || 'Error al guardar precio abonado')
@@ -1014,25 +1071,27 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug, opcion
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button
-                variant={abonadosVencidos.length > 0 || abonadosPorVencer.length > 0 ? 'destructive' : 'outline'}
-                size="sm"
-                className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0 flex items-center gap-1"
-                disabled={loading}
-                onClick={() => {
-                  // Abrimos el card desplazándonos a la sección de abonados; por simplicidad, solo hacemos scroll al main.
-                  const el = document.getElementById('abonados-alertas')
-                  if (el) el.scrollIntoView({ behavior: 'smooth' })
-                }}
-              >
-                <AlertTriangle className="h-4 w-4" />
-                <span className="hidden sm:inline text-xs font-medium">
-                  {abonadosVencidos.length + abonadosPorVencer.length > 0
-                    ? `Abonados con alerta (${abonadosVencidos.length + abonadosPorVencer.length})`
-                    : 'Abonados sin alerta'}
-                </span>
-                <span className="sm:hidden text-xs">Abonados</span>
-              </Button>
+              {uiBtnAbonado && (
+                <Button
+                  variant={abonadosVencidos.length > 0 || abonadosPorVencer.length > 0 ? 'destructive' : 'outline'}
+                  size="sm"
+                  className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0 flex items-center gap-1"
+                  disabled={loading}
+                  onClick={() => {
+                    // Abrimos el card desplazándonos a la sección de abonados; por simplicidad, solo hacemos scroll al main.
+                    const el = document.getElementById('abonados-alertas')
+                    if (el) el.scrollIntoView({ behavior: 'smooth' })
+                  }}
+                >
+                  <AlertTriangle className="h-4 w-4" />
+                  <span className="hidden sm:inline text-xs font-medium">
+                    {abonadosVencidos.length + abonadosPorVencer.length > 0
+                      ? `Abonados con alerta (${abonadosVencidos.length + abonadosPorVencer.length})`
+                      : 'Abonados sin alerta'}
+                  </span>
+                  <span className="sm:hidden text-xs">Abonados</span>
+                </Button>
+              )}
               <Button variant="outline" size="sm" onClick={loadData} disabled={loading} className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0">
                 <RefreshCw className={`h-4 w-4 sm:mr-2 ${loading ? 'animate-spin' : ''}`} />
                 <span className="hidden sm:inline">Actualizar</span>
@@ -1984,64 +2043,72 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug, opcion
         </Card>
 
         {/* 5. Tarifas */}
-        <Card className="border-border">
-          <CardHeader>
-            <CardTitle className="text-foreground flex items-center gap-2">
-              <Settings className="h-5 w-5" />
-              Tarifas
-            </CardTitle>
-            <p className="text-sm text-muted-foreground">Precio por hora (visitante/residente) y precio mensual para abonados.</p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-wrap gap-6">
-              <div className="space-y-2">
-                <Label>Visitante (S/ por hora)</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  step={0.5}
-                  value={tarifaVisitante}
-                  onChange={(e) => setTarifaVisitante(e.target.value)}
-                  className="w-32"
-                />
+        {(uiBtnVisitante || uiBtnResidente || uiBtnAbonado) && (
+          <Card className="border-border">
+            <CardHeader>
+              <CardTitle className="text-foreground flex items-center gap-2">
+                <Settings className="h-5 w-5" />
+                Tarifas
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">Precio por hora (visitante/residente) y precio mensual para abonados.</p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-wrap gap-6">
+                {uiBtnVisitante && (
+                  <div className="space-y-2">
+                    <Label>Visitante (S/ por hora)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      step={0.5}
+                      value={tarifaVisitante}
+                      onChange={(e) => setTarifaVisitante(e.target.value)}
+                      className="w-32"
+                    />
+                  </div>
+                )}
+                {uiBtnResidente && (
+                  <div className="space-y-2">
+                    <Label>Residente (S/ por hora)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      step={0.5}
+                      value={tarifaResidente}
+                      onChange={(e) => setTarifaResidente(e.target.value)}
+                      className="w-32"
+                    />
+                  </div>
+                )}
+                {uiBtnAbonado && (
+                  <div className="space-y-2">
+                    <Label>Abonado (S/ por mes)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      step={0.5}
+                      value={tarifaAbonado}
+                      onChange={(e) => setTarifaAbonado(e.target.value)}
+                      placeholder="Ej. 100"
+                      className="w-32"
+                    />
+                  </div>
+                )}
+                <div className="flex items-end">
+                  <Button onClick={handleGuardarTarifas} disabled={savingTarifas}>
+                    {savingTarifas ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                    Guardar tarifas
+                  </Button>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label>Residente (S/ por hora)</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  step={0.5}
-                  value={tarifaResidente}
-                  onChange={(e) => setTarifaResidente(e.target.value)}
-                  className="w-32"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Abonado (S/ por mes)</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  step={0.5}
-                  value={tarifaAbonado}
-                  onChange={(e) => setTarifaAbonado(e.target.value)}
-                  placeholder="Ej. 100"
-                  className="w-32"
-                />
-              </div>
-              <div className="flex items-end">
-                <Button onClick={handleGuardarTarifas} disabled={savingTarifas}>
-                  {savingTarifas ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  Guardar tarifas
-                </Button>
-              </div>
-            </div>
-            {tarifaMsg && (
-              <p className={`text-sm ${tarifaMsg.includes('correctamente') ? 'text-green-600' : 'text-destructive'}`}>
-                {tarifaMsg}
-              </p>
-            )}
-          </CardContent>
-        </Card>
+              {tarifaMsg && (
+                <p className={`text-sm ${tarifaMsg.includes('correctamente') ? 'text-green-600' : 'text-destructive'}`}>
+                  {tarifaMsg}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* 6. Gráficas y reportes (colapsado por defecto, filtros solo aquí) */}
         <Collapsible open={reportesExpandido} onOpenChange={setReportesExpandido}>
@@ -2068,13 +2135,16 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug, opcion
                   </div>
                   <div className="space-y-2 min-w-0 w-full sm:w-auto">
                     <Label>Tipo de usuario</Label>
-                    <Select value={filtroTipo || 'todos'} onValueChange={(v) => { setFiltroTipo(v === 'todos' ? '' : (v as 'visitante' | 'residente' | 'abonado')); if (v !== 'abonado') setFiltroPeriodoReportes('') }}>
+                    <Select
+                      value={filtroTipo || (puedeTodosEnReportes ? 'todos' : (primerTipoHabilitado || 'todos'))}
+                      onValueChange={(v) => { setFiltroTipo(v === 'todos' ? '' : (v as 'visitante' | 'residente' | 'abonado')); if (v !== 'abonado') setFiltroPeriodoReportes('') }}
+                    >
                       <SelectTrigger className="w-full min-w-0 sm:w-[160px]"><SelectValue placeholder="Todos" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="todos">Todos</SelectItem>
-                        <SelectItem value="visitante">Visitante</SelectItem>
-                        <SelectItem value="residente">Residente</SelectItem>
-                        <SelectItem value="abonado">Abonado</SelectItem>
+                        {puedeTodosEnReportes && <SelectItem value="todos">Todos</SelectItem>}
+                        {uiBtnVisitante && <SelectItem value="visitante">Visitante</SelectItem>}
+                        {uiBtnResidente && <SelectItem value="residente">Residente</SelectItem>}
+                        {uiBtnAbonado && <SelectItem value="abonado">Abonado</SelectItem>}
                       </SelectContent>
                     </Select>
                   </div>
@@ -2107,26 +2177,36 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug, opcion
                   </Card>
                   {filtroTipo === '' ? (
                     <>
-                      <Card className="border-border">
-                        <CardHeader className="flex flex-row items-center justify-between pb-2">
-                          <CardTitle className="text-sm font-medium text-muted-foreground">Total ingresos diarios</CardTitle>
-                          <DollarSign className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                          <div className="text-3xl font-bold text-foreground">{formatCurrency(totalDiarioReportes)}</div>
-                          <p className="text-xs text-muted-foreground mt-1">Visitantes y residentes (día a día)</p>
-                        </CardContent>
-                      </Card>
-                      <Card className="border-border">
-                        <CardHeader className="flex flex-row items-center justify-between pb-2">
-                          <CardTitle className="text-sm font-medium text-muted-foreground">Total abonados</CardTitle>
-                          <DollarSign className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                          <div className="text-3xl font-bold text-foreground">{formatCurrency(totalAbonadosReportes)}</div>
-                          <p className="text-xs text-muted-foreground mt-1">Mensualidades abonados</p>
-                        </CardContent>
-                      </Card>
+                      {(uiBtnVisitante || uiBtnResidente) && (
+                        <Card className="border-border">
+                          <CardHeader className="flex flex-row items-center justify-between pb-2">
+                            <CardTitle className="text-sm font-medium text-muted-foreground">Total ingresos diarios</CardTitle>
+                            <DollarSign className="h-4 w-4 text-muted-foreground" />
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-3xl font-bold text-foreground">{formatCurrency(totalDiarioReportes)}</div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {uiBtnVisitante && uiBtnResidente
+                                ? 'Visitantes y residentes (día a día)'
+                                : uiBtnVisitante
+                                  ? 'Solo visitantes (día a día)'
+                                  : 'Solo residentes (día a día)'}
+                            </p>
+                          </CardContent>
+                        </Card>
+                      )}
+                      {uiBtnAbonado && (
+                        <Card className="border-border">
+                          <CardHeader className="flex flex-row items-center justify-between pb-2">
+                            <CardTitle className="text-sm font-medium text-muted-foreground">Total abonados</CardTitle>
+                            <DollarSign className="h-4 w-4 text-muted-foreground" />
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-3xl font-bold text-foreground">{formatCurrency(totalAbonadosReportes)}</div>
+                            <p className="text-xs text-muted-foreground mt-1">Mensualidades abonados</p>
+                          </CardContent>
+                        </Card>
+                      )}
                     </>
                   ) : (
                     <Card className="border-border">

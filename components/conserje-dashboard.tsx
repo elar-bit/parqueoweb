@@ -324,24 +324,26 @@ export function ConserjeDashboard({ trialDiasRestantes, slug, opcionesUi }: Cons
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button
-                variant={abonadosVencidos.length > 0 || abonadosPorVencer.length > 0 ? 'destructive' : 'outline'}
-                size="sm"
-                className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0 flex items-center gap-1"
-                disabled={loading}
-                onClick={() => {
-                  const el = document.getElementById('abonados-alertas-conserje')
-                  if (el) el.scrollIntoView({ behavior: 'smooth' })
-                }}
-              >
-                <AlertTriangle className="h-4 w-4" />
-                <span className="hidden sm:inline text-xs font-medium">
-                  {abonadosVencidos.length + abonadosPorVencer.length > 0
-                    ? `Abonados con alerta (${abonadosVencidos.length + abonadosPorVencer.length})`
-                    : 'Abonados sin alerta'}
-                </span>
-                <span className="sm:hidden text-xs">Abonados</span>
-              </Button>
+              {uiBtnAbonado && (
+                <Button
+                  variant={abonadosVencidos.length > 0 || abonadosPorVencer.length > 0 ? 'destructive' : 'outline'}
+                  size="sm"
+                  className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0 flex items-center gap-1"
+                  disabled={loading}
+                  onClick={() => {
+                    const el = document.getElementById('abonados-alertas-conserje')
+                    if (el) el.scrollIntoView({ behavior: 'smooth' })
+                  }}
+                >
+                  <AlertTriangle className="h-4 w-4" />
+                  <span className="hidden sm:inline text-xs font-medium">
+                    {abonadosVencidos.length + abonadosPorVencer.length > 0
+                      ? `Abonados con alerta (${abonadosVencidos.length + abonadosPorVencer.length})`
+                      : 'Abonados sin alerta'}
+                  </span>
+                  <span className="sm:hidden text-xs">Abonados</span>
+                </Button>
+              )}
               <Button variant="outline" size="sm" onClick={loadData} disabled={loading} className="flex-1 sm:flex-none min-h-[44px] sm:min-h-0">
                 <RefreshCw className={`h-4 w-4 sm:mr-2 ${loading ? 'animate-spin' : ''}`} />
                 <span className="hidden sm:inline">Actualizar</span>
