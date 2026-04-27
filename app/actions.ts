@@ -15,6 +15,7 @@ import {
 } from '@/lib/placa'
 
 const SESSION_COOKIE_NAME = 'parqueo_session'
+const SUPERADMIN_SESSION_COOKIE_NAME = 'parqueo_superadmin_session'
 const DEFAULT_ADMIN_USER = 'admin'
 const DEFAULT_ADMIN_PASS = 'admin'
 const DEFAULT_CONSERJE_USER = 'conserje'
@@ -58,6 +59,13 @@ export async function getSession(): Promise<SessionPayload | null> {
   return verifySession(token)
 }
 
+export async function getSuperadminSession(): Promise<SessionPayload | null> {
+  const cookieStore = await cookies()
+  const token = cookieStore.get(SUPERADMIN_SESSION_COOKIE_NAME)?.value
+  if (!token) return null
+  return verifySession(token)
+}
+
 /** Devuelve el cuenta_id del tenant actual (null si es superadmin o no hay sesión tenant). */
 export async function getCuentaIdFromSession(): Promise<string | null> {
   const session = await getSession()
@@ -96,7 +104,7 @@ export async function getAdminAuth(): Promise<boolean> {
 }
 
 export async function getSuperadminAuth(): Promise<boolean> {
-  const session = await getSession()
+  const session = await getSuperadminSession()
   return session?.isSuperadmin === true
 }
 
@@ -516,7 +524,7 @@ export async function loginSuperadmin(usuario: string, password: string): Promis
   if (u !== SUPERADMIN_USER || p !== SUPERADMIN_PASS) return { ok: false, error: 'Credenciales incorrectas' }
   const token = signSession({ userId: 'superadmin', role: 'admin', isSuperadmin: true })
   const cookieStore = await cookies()
-  cookieStore.set(SESSION_COOKIE_NAME, token, {
+  cookieStore.set(SUPERADMIN_SESSION_COOKIE_NAME, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
@@ -620,6 +628,11 @@ export async function loginUsuario(
 export async function logoutAdmin(): Promise<void> {
   const cookieStore = await cookies()
   cookieStore.delete(SESSION_COOKIE_NAME)
+}
+
+export async function logoutSuperadmin(): Promise<void> {
+  const cookieStore = await cookies()
+  cookieStore.delete(SUPERADMIN_SESSION_COOKIE_NAME)
 }
 
 export type UsuarioRow = {

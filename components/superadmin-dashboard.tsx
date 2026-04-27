@@ -7,7 +7,7 @@ import {
   updateCuentaDiasPruebaFreemium,
   updateCuentaOpcionesUi,
   eliminarCuenta,
-  logoutAdmin,
+  logoutSuperadmin,
 } from '@/app/actions'
 import type { Cuenta } from '@/lib/tenant'
 import { diasRestantesTrial, diasPruebaEfectivos, DIAS_PRUEBA_FREEMIUM } from '@/lib/tenant'
@@ -79,7 +79,7 @@ export function SuperadminDashboard() {
   const handleLogout = async () => {
     setSalirLoading(true)
     try {
-      await logoutAdmin()
+      await logoutSuperadmin()
       window.location.href = '/'
     } catch (e) {
       console.error('Logout:', e)
