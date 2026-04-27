@@ -12,6 +12,10 @@ export default async function TenantConserjePage({ params }: Props) {
   if (!cuenta) notFound()
   const trialDiasRestantes = diasRestantesTrial(cuenta.fecha_creacion, cuenta.dias_prueba_freemium)
   if (!isCuentaActiva(cuenta)) {
+    const phone = '51931971702'
+    const text =
+      'Hola, quisiera saber cual es el proceso de reactivacion de mi cuenta, me interesa la plataforma y quisiera saber los planes de pago'
+    const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4 sm:p-6 overflow-hidden">
         <div className="text-center max-w-md space-y-4 min-w-0">
@@ -19,7 +23,17 @@ export default async function TenantConserjePage({ params }: Props) {
           <p className="text-sm sm:text-base text-muted-foreground break-words">
             La prueba ha vencido o la cuenta está suspendida. Contacte al administrador del sistema.
           </p>
-          <a href="/" className="text-primary underline">Volver al inicio</a>
+          <div className="flex flex-col items-center gap-3">
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              Contactar por WhatsApp
+            </a>
+            <a href="/" className="text-primary underline">Volver al inicio</a>
+          </div>
         </div>
       </div>
     )

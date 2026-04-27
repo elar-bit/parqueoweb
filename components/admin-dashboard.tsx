@@ -101,6 +101,12 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug, opcion
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
+  const whatsappReactivacionUrl = useMemo(() => {
+    const phone = '51931971702'
+    const text = 'Hola, quisiera saber cual es el proceso de reactivacion de mi cuenta, me interesa la plataforma y quisiera saber los planes de pago'
+    return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`
+  }, [])
+
   const uiBtnVisitante = opcionesUi?.btnVisitante !== false
   const uiBtnResidente = opcionesUi?.btnResidente !== false
   const uiBtnAbonado = opcionesUi?.btnAbonado !== false
@@ -1168,7 +1174,16 @@ export function AdminDashboard({ currentUserId, trialDiasRestantes, slug, opcion
           <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 px-4 py-3 flex items-center gap-3">
             <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600" />
             <p className="text-sm text-amber-800 dark:text-amber-200">
-              Su prueba gratuita vence en {trialDiasRestantes} día{trialDiasRestantes !== 1 ? 's' : ''}. Contacte al administrador del sistema para activar su suscripción.
+              Su prueba gratuita vence en {trialDiasRestantes} día{trialDiasRestantes !== 1 ? 's' : ''}.{' '}
+              <a
+                href={whatsappReactivacionUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="underline underline-offset-2 font-medium"
+              >
+                Contacte al administrador del sistema para activar su suscripción
+              </a>
+              .
             </p>
           </div>
         </div>

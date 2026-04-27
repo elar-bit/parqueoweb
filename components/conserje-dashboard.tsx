@@ -92,6 +92,12 @@ export function ConserjeDashboard({ trialDiasRestantes, slug, opcionesUi }: Cons
   const puedeTodosServiciosMes = tiposHabilitadosList.length >= 2
   const primerTipoHabilitado = tiposHabilitadosList[0] ?? ''
 
+  const whatsappReactivacionUrl = useMemo(() => {
+    const phone = '51931971702'
+    const text = 'Hola, quisiera saber cual es el proceso de reactivacion de mi cuenta, me interesa la plataforma y quisiera saber los planes de pago'
+    return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`
+  }, [])
+
   useEffect(() => {
     setFiltroTipoServicios((prev) => {
       if (prev === '' && puedeTodosServiciosMes) return prev
@@ -429,7 +435,16 @@ export function ConserjeDashboard({ trialDiasRestantes, slug, opcionesUi }: Cons
           <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 px-4 py-3 flex items-center gap-3">
             <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600" />
             <p className="text-sm text-amber-800 dark:text-amber-200">
-              Su prueba gratuita vence en {trialDiasRestantes} día{trialDiasRestantes !== 1 ? 's' : ''}. Contacte al administrador del sistema para activar su suscripción.
+              Su prueba gratuita vence en {trialDiasRestantes} día{trialDiasRestantes !== 1 ? 's' : ''}.{' '}
+              <a
+                href={whatsappReactivacionUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="underline underline-offset-2 font-medium"
+              >
+                Contacte al administrador del sistema para activar su suscripción
+              </a>
+              .
             </p>
           </div>
         </div>
